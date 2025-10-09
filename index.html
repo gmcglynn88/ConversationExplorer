@@ -65,7 +65,7 @@
       <div><strong>Current URL:</strong> <span id="debugCurrentUrl"></span></div>
       <div><strong>URL Hash:</strong> <span id="debugUrlHash"></span></div>
       <div><strong>Token Present:</strong> <span id="debugTokenPresent">No</span></div>
-      <div><strong>Redirect URI:</strong> <span id="debugRedirectUri"></span></div>
+      <div><strong>Hardcoded Redirect URI:</strong> <span id="debugRedirectUri"></span></div>
       <div><strong>OAuth URL:</strong> <span id="debugOAuthUrl"></span></div>
       <div><strong>Auth Status:</strong> <span id="debugAuthStatus">Unknown</span></div>
     </div>
@@ -75,6 +75,10 @@
     <div>
       <label>Authentication Status</label>
       <span id="authInfo" class="pill warning">Checking...</span>
+    </div>
+    <div>
+      <label>Redirect URI</label>
+      <input type="text" id="redirectUriDisplay" readonly style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px; border-radius: 4px; width: 100%; max-width: 400px; font-size: 12px;">
     </div>
   </div>
 
@@ -119,6 +123,15 @@
       selectedAgent: null
     };
 
+    // ========== CONFIGURATION - UPDATE THESE VALUES ==========
+    const CONFIG = {
+      clientId: 'bbc89753-462b-493d-ab94-4778af9e7d4d',
+      // UPDATE THIS to match exactly what's registered in Genesys Cloud
+      redirectUri: 'https://your-domain.com/your-path.html', // ← CHANGE THIS
+      regionHost: 'https://api.mypurecloud.ie'
+    };
+    // ========== END CONFIGURATION ==========
+
     const $ = (id) => document.getElementById(id);
     const fmt = (d) => new Date(d).toLocaleString();
 
@@ -132,15 +145,13 @@
       $('debugCurrentUrl').textContent = window.location.href;
       $('debugUrlHash').textContent = window.location.hash || '(empty)';
       $('debugTokenPresent').textContent = state.token ? 'Yes' : 'No';
+      $('debugRedirectUri').textContent = CONFIG.redirectUri;
       
-      const redirectUri = window.location.origin + window.location.pathname;
-      $('debugRedirectUri').textContent = redirectUri;
-      
-      const clientId = 'bbc89753-462b-493d-ab94-4778af9e7d4d';
-      const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
       $('debugOAuthUrl').textContent = oauthUrl;
       
       $('debugAuthStatus').textContent = state.token ? 'Authenticated' : 'Not Authenticated';
+      $('redirectUriDisplay').value = CONFIG.redirectUri;
     }
 
     function enableUI() {
@@ -167,9 +178,23 @@
     function initAuth() {
       console.log('=== AUTHENTICATION DEBUG ===');
       console.log('Current URL:', window.location.href);
-      console.log('URL Hash:', window.location.hash);
+      console.log('Expected Redirect URI:', CONFIG.redirectUri);
       
       updateDebugInfo();
+
+      // Check if we're on the correct page for the redirect URI
+      const currentUrl = window.location.origin + window.location.pathname;
+      if (currentUrl !== CONFIG.redirectUri) {
+        console.warn('Current URL does not match configured Redirect URI');
+        console.warn('Current:', currentUrl);
+        console.warn('Expected:', CONFIG.redirectUri);
+        
+        // If we're not on the correct page, redirect to it
+        if (confirm(`This app should be accessed from:\n\n${CONFIG.redirectUri}\n\nRedirect there now?`)) {
+          window.location.href = CONFIG.redirectUri;
+          return false;
+        }
+      }
 
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
@@ -209,15 +234,13 @@
         $('authInfo').textContent = 'Redirecting to login...';
         $('authInfo').className = 'pill warning';
         
-        // Start OAuth flow
-        const clientId = 'bbc89753-462b-493d-ab94-4778af9e7d4d';
-        const redirectUri = window.location.origin + window.location.pathname;
-        const authUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
+        // Start OAuth flow with hardcoded redirect URI
+        const authUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
         
         console.log('Redirecting to OAuth URL:', authUrl);
         setTimeout(() => {
           window.location.href = authUrl;
-        }, 1000); // Small delay to see the status message
+        }, 1000);
         
         return false;
       }
