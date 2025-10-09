@@ -114,7 +114,6 @@
       $('dbgOrigin').textContent = window.location.origin;
       $('dbgAuth').textContent = url;
       return url;
-    }&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
 
     function initAuth() {
@@ -204,8 +203,9 @@
         });
         if (!res.ok) throw new Error(`${res.statusText}`);
         const data = await res.json();
-        renderResults(data.conversations || []);
-        setStatus(`Fetched ${data.conversations?.length || 0} conversation(s).`);
+        state.conversations = data.conversations || [];
+        renderResults(state.conversations);
+        setStatus(`Fetched ${state.conversations.length} conversation(s).`);
       } catch (e) { setStatus(e.message, true); }
     }
 
@@ -215,7 +215,64 @@
       results.innerHTML = items.map(c => `<details><summary>${c.conversationId} (${fmt(c.conversationStart)} - ${fmt(c.conversationEnd)})</summary><pre>${JSON.stringify(c,null,2)}</pre></details>`).join('');
     }
 
+    function exportToCSV() {
+      if (!state.conversations.length) {
+        setStatus('No conversations to export', true);
+        return;
+      }
+      
+      try {
+        // Create CSV header
+        const headers = ['Conversation ID', 'Start Time', 'End Time', 'Participants'];
+        const csvRows = [headers.join(',')];
+        
+        // Add data rows
+        state.conversations.forEach(conv => {
+          const row = [
+            conv.conversationId,
+            fmt(conv.conversationStart),
+            fmt(conv.conversationEnd),
+            conv.participants ? conv.participants.length : 0
+          ].map(field => `"${String(field || '').replace(/"/g, '""')}"`).join(',');
+          csvRows.push(row);
+        });
+        
+        // Create and download file
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conversations_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        setStatus(`Exported ${state.conversations.length} conversations to CSV`);
+      } catch (e) {
+        setStatus('Failed to export CSV: ' + e.message, true);
+      }
+    }
+
+    function logout() {
+      state.token = null;
+      state.tokenExpiry = 0;
+      state.conversations = [];
+      state.users = [];
+      state.selectedAgent = null;
+      $('authInfo').textContent = 'Not signed in';
+      $('results').innerHTML = '';
+      setStatus('Signed out');
+      
+      // Redirect to OAuth logout or clear local session
+      window.location.href = window.location.pathname;
+    }
+
+    // Event listeners
     $('fetchBtn').addEventListener('click', fetchConversations);
+    $('exportBtn').addEventListener('click', exportToCSV);
+    $('logoutBtn').addEventListener('click', logout);
 
     (function init() {
       const today = new Date().toISOString().slice(0,10);
