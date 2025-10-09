@@ -1,1 +1,517 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Genesys Conversation Explorer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Proxima+Nova&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --brand: #2a7de1;
+      --bg: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --card: #f9fafb;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Proxima Nova', Arial, sans-serif;
+      margin: 20px;
+      padding: 20px;
+      color: var(--text);
+      background: var(--bg);
+    }
+    #logo-container { text-align: center; margin-bottom: 20px; }
+    #logo { width: 300px; }
+
+    h1 { font-size: 1.5rem; margin: 0 0 8px; }
+    h2 { font-size: 1.1rem; margin: 18px 0 8px; color: var(--muted); }
+
+    .grid { display: grid; gap: 16px; }
+    .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+
+    label { margin-top: 10px; display: block; font-weight: 700; }
+    select, input[type="text"], input[type="date"], button { margin-top: 6px; padding: 10px 12px; width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+    input[readonly] { background: #f3f4f6; }
+
+    .btn { cursor: pointer; border: 1px solid var(--brand); background: var(--brand); color: #fff; font-weight: 600; border-radius: 12px; transition: transform .02s ease; }
+    .btn.secondary { background: #fff; color: var(--brand); }
+    .btn:hover { filter: brightness(0.98); }
+    .btn:active { transform: translateY(1px); }
+
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    .muted { color: var(--muted); }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border:1px solid var(--border); background: #fff; font-size: 12px; }
+    .flex { display: flex; gap: 12px; align-items: center; }
+    .right { margin-left: auto; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+
+    #statusMessage { margin-top: 12px; color: var(--success); }
+    #errorMessage { margin-top: 12px; color: var(--danger); }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px 6px; text-align: left; vertical-align: top; }
+    th { background: #fff; position: sticky; top: 0; }
+
+    details { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
+    details>summary { cursor: pointer; font-weight: 600; }
+
+    .footer { margin-top: 24px; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div id="logo-container">
+    <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
+  </div>
+
+  <div class="card">
+    <h1>External Work Creation · Conversation Explorer</h1>
+    <p class="muted">Select an agent and a date range to fetch all their conversations, with participants, ACD queues/flows, transfers, and durations.</p>
+
+    <div class="grid cols-2" style="margin-top: 12px;">
+      <div>
+        <label for="region">Region</label>
+        <select id="region">
+          <option value="ie" selected>EU Ireland (mypurecloud.ie)</option>
+          <option value="eu-west-1">EU West 1 (mypurecloud.de)</option>
+          <option value="eu-central-1">EU Central (mypurecloud.eu)</option>
+          <option value="us-east-1">US East (mypurecloud.com)</option>
+          <option value="us-west-2">US West (usw2.pure.cloud)</option>
+          <option value="ap-southeast-2">AP SouthEast (mypurecloud.com.au)</option>
+          <option value="ap-northeast-1">AP NorthEast (mypurecloud.jp)</option>
+          <option value="ca-central-1">Canada (cac1.pure.cloud)</option>
+          <option value="me-west-1">Middle East (mew1.pure.cloud)</option>
+        </select>
+      </div>
+      <div>
+        <label for="clientId">OAuth Client ID</label>
+        <input id="clientId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+      </div>
+      <div>
+        <label for="redirectUri">Redirect URI (must match in OAuth app)</label>
+        <input id="redirectUri" type="text" />
+      </div>
+      <div class="toolbar">
+        <button id="loginBtn" class="btn" style="width: 180px;">Sign in to Genesys</button>
+        <button id="logoutBtn" class="btn secondary" style="width: 120px;">Sign out</button>
+        <span id="authInfo" class="pill mono">Not signed in</span>
+      </div>
+    </div>
+
+    <h2>Agent & Date Range</h2>
+    <div class="grid cols-2">
+      <div>
+        <label for="agentSearch">Find agent</label>
+        <input id="agentSearch" type="text" placeholder="Type a name or email..." />
+        <div id="agentResults" class="muted" style="margin-top:6px"></div>
+        <input id="agentId" type="text" placeholder="Selected agentId" readonly />
+      </div>
+      <div>
+        <label for="fromDate">From</label>
+        <input id="fromDate" type="date" />
+        <label for="toDate">To</label>
+        <input id="toDate" type="date" />
+        <div class="toolbar" style="margin-top:10px;">
+          <button id="fetchBtn" class="btn">Fetch Conversations</button>
+          <button id="exportBtn" class="btn secondary">Export CSV</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="statusMessage"></div>
+    <div id="errorMessage"></div>
+  </div>
+
+  <div class="card" style="margin-top:18px;">
+    <div class="flex">
+      <h2 style="margin:0">Results</h2>
+      <span id="resultCount" class="pill right">0 conversations</span>
+    </div>
+    <div id="results"></div>
+  </div>
+
+  <div class="footer">UI style mirrors your provided app: Proxima Nova, centred logo, bold labels, rounded inputs, green status messages. Built as a single-file HTML app for hosting on GitHub Pages.</div>
+
+  <script>
+    // ---------- Minimal app state ----------
+    const state = {
+      token: null,
+      tokenExpiry: 0,
+      regionHost: 'https://api.mypurecloud.ie',
+      loginHost: 'https://login.mypurecloud.ie',
+      conversations: [],
+      selectedAgent: null
+    };
+
+    // ---------- Helpers ----------
+    const $ = (id) => document.getElementById(id);
+    const fmt = (d) => new Date(d).toLocaleString();
+    const ms = (n) => Number(n||0);
+    const seconds = (n) => Math.round(ms(n) / 1000);
+
+    function setStatus(msg, isError=false) {
+      $('statusMessage').textContent = isError ? '' : msg || '';
+      $('errorMessage').textContent = isError ? (msg || '') : '';
+    }
+
+    function setAuthInfo() {
+      const info = state.token ? `Signed in · token expires ${new Date(state.tokenExpiry).toLocaleTimeString()}` : 'Not signed in';
+      $('authInfo').textContent = info;
+    }
+
+    function regionToHosts(region) {
+      // Map region code to API/login hosts
+      const map = {
+        'ie': { api: 'https://api.mypurecloud.ie', login: 'https://login.mypurecloud.ie' },
+        'eu-west-1': { api: 'https://api.mypurecloud.de', login: 'https://login.mypurecloud.de' },
+        'eu-central-1': { api: 'https://api.mypurecloud.eu', login: 'https://login.mypurecloud.eu' },
+        'us-east-1': { api: 'https://api.mypurecloud.com', login: 'https://login.mypurecloud.com' },
+        'us-west-2': { api: 'https://api.usw2.pure.cloud', login: 'https://login.usw2.pure.cloud' },
+        'ap-southeast-2': { api: 'https://api.mypurecloud.com.au', login: 'https://login.mypurecloud.com.au' },
+        'ap-northeast-1': { api: 'https://api.mypurecloud.jp', login: 'https://login.mypurecloud.jp' },
+        'ca-central-1': { api: 'https://api.cac1.pure.cloud', login: 'https://login.cac1.pure.cloud' },
+        'me-west-1': { api: 'https://api.mew1.pure.cloud', login: 'https://login.mew1.pure.cloud' }
+      };
+      return map[region] || map['ie'];
+    }
+
+    function buildInterval(fromISODate, toISODate) {
+      // Genesys interval is inclusive/exclusive; push end to 23:59:59
+      const from = new Date(fromISODate);
+      const to = new Date(toISODate);
+      if (isNaN(from) || isNaN(to)) throw new Error('Invalid date range');
+      to.setHours(23,59,59,999);
+      return `${from.toISOString()}/${to.toISOString()}`;
+    }
+
+    async function api(path, opts={}) {
+      if (!state.token) throw new Error('Not authenticated');
+      const res = await fetch(`${state.regionHost}${path}`, {
+        ...opts,
+        headers: {
+          'Authorization': `Bearer ${state.token}`,
+          'Content-Type': 'application/json',
+          ...(opts.headers||{})
+        }
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status} ${res.statusText}: ${text}`);
+      }
+      return res.json();
+    }
+
+    function hashParams() {
+      const h = new URLSearchParams(location.hash.substring(1));
+      return Object.fromEntries(h.entries());
+    }
+
+    function saveLocal() {
+      localStorage.setItem('gce_config', JSON.stringify({
+        region: $('region').value,
+        clientId: $('clientId').value,
+        redirectUri: $('redirectUri').value
+      }));
+    }
+    function loadLocal() {
+      const raw = localStorage.getItem('gce_config');
+      if (!raw) return;
+      try { const cfg = JSON.parse(raw); $('region').value = cfg.region||'ie'; $('clientId').value = cfg.clientId||''; $('redirectUri').value = cfg.redirectUri||location.origin + location.pathname; } catch {}
+    }
+
+    // ---------- OAuth (Implicit Grant) ----------
+    function startLogin() {
+      const region = $('region').value; const hosts = regionToHosts(region);
+      state.regionHost = hosts.api; state.loginHost = hosts.login;
+      const clientId = $('clientId').value.trim();
+      const redirectUri = $('redirectUri').value.trim() || (location.origin + location.pathname);
+      if (!clientId) return setStatus('Please enter your OAuth Client ID', true);
+      const authUrl = `${state.loginHost}/oauth/authorize?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&force_login=false`;
+      saveLocal();
+      location.assign(authUrl);
+    }
+
+    function completeLoginFromHash() {
+      const hp = hashParams();
+      if (hp.access_token) {
+        state.token = hp.access_token;
+        const expiresIn = parseInt(hp.expires_in || '0', 10);
+        state.tokenExpiry = Date.now() + (expiresIn * 1000);
+        // Clean the hash
+        history.replaceState(null, '', location.pathname + location.search);
+      }
+      setAuthInfo();
+    }
+
+    function logout() {
+      state.token = null; state.tokenExpiry = 0; setAuthInfo(); setStatus('Signed out.');
+    }
+
+    // ---------- Agent search ----------
+    let searchTimer = null;
+    $('agentSearch').addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const q = $('agentSearch').value.trim();
+      if (q.length < 2) { $('agentResults').innerHTML=''; return; }
+      searchTimer = setTimeout(() => doAgentSearch(q), 250);
+    });
+
+    async function doAgentSearch(query) {
+      try {
+        setStatus('Searching agents...');
+        const body = {
+          pageSize: 10,
+          query: [{
+            type: 'TERM',
+            fields: ['name', 'email'],
+            value: query
+          }]
+        };
+        const data = await api('/api/v2/users/search', { method: 'POST', body: JSON.stringify(body) });
+        const hits = (data && data.results) || [];
+        if (!hits.length) {
+          $('agentResults').innerHTML = '<span class="muted">No matches</span>';
+          return;
+        }
+        const html = hits.map(u => `<button data-id="${u.id}" data-name="${u.name}" class="btn secondary" style="margin:4px;">${u.name} <span class="muted" style="font-weight:400;">(${u.email||'no-email'})</span></button>`).join('');
+        $('agentResults').innerHTML = html;
+        [...$('agentResults').querySelectorAll('button')].forEach(btn => btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-id'); const name = btn.getAttribute('data-name');
+          state.selectedAgent = { id, name };
+          $('agentId').value = id + '  ·  ' + name;
+          setStatus(`Selected agent: ${name}`);
+        }));
+      } catch (e) { setStatus(e.message, true); }
+    }
+
+    // ---------- Fetch conversations ----------
+    $('fetchBtn').addEventListener('click', () => fetchConversations());
+
+    async function fetchConversations() {
+      try {
+        setStatus('Fetching conversations...');
+        if (!state.selectedAgent) throw new Error('Select an agent first.');
+        const from = $('fromDate').value; const to = $('toDate').value || $('fromDate').value;
+        if (!from) throw new Error('Choose a start date.');
+        const interval = buildInterval(from, to);
+
+        const pageSize = 100; let pageNumber = 1; let all = [];
+        while (true) {
+          const body = {
+            interval,
+            order: 'asc',
+            orderBy: 'conversationStart',
+            paging: { pageSize, pageNumber },
+            segmentFilters: [{
+              type: 'and',
+              predicates: [{ type: 'dimension', dimension: 'userId', operator: 'matches', value: state.selectedAgent.id }]
+            }]
+          };
+          const data = await api('/api/v2/analytics/conversations/details/query', { method: 'POST', body: JSON.stringify(body) });
+          const batch = (data && data.conversations) || [];
+          all = all.concat(batch);
+          if (!batch.length || batch.length < pageSize) break; // no more pages
+          pageNumber++;
+          if (pageNumber > 10) break; // safety cap (1000 records)
+        }
+        state.conversations = all;
+        renderResults(all);
+        setStatus(`Fetched ${all.length} conversation(s).`);
+      } catch (e) { setStatus(e.message, true); }
+    }
+
+    // ---------- Render ----------
+    function renderResults(items) {
+      $('resultCount').textContent = `${items.length} conversation${items.length===1?'':'s'}`;
+      if (!items.length) { $('results').innerHTML = '<p class="muted">No conversations in this range.</p>'; return; }
+      const html = items.map(renderConversation).join('');
+      $('results').innerHTML = html;
+      // Attach expand toggles nothing special needed (native <details>)
+    }
+
+    function renderConversation(c) {
+      const cStart = c.conversationStart ? fmt(c.conversationStart) : '—';
+      const cEnd = c.conversationEnd ? fmt(c.conversationEnd) : '—';
+      const origin = c.originatingDirection || '—';
+      const mediaStats = c.mediaStatsMinConversationMos != null ? `${c.mediaStatsMinConversationMos}` : '—';
+      const convId = c.conversationId || c.conversationId;
+
+      const parts = (c.participants||[]).map(p => renderParticipant(p, c.conversationStart)).join('');
+
+      return `
+        <details>
+          <summary>
+            <span class="mono">${convId}</span>
+            <span class="pill" style="margin-left:8px;">${origin}</span>
+            <span class="pill" style="margin-left:8px;">Start: ${cStart}</span>
+            <span class="pill" style="margin-left:8px;">End: ${cEnd}</span>
+            <span class="pill right">Min MOS: ${mediaStats}</span>
+          </summary>
+          <div style="margin-top:10px;">
+            ${parts || '<div class="muted">No participant detail available.</div>'}
+          </div>
+        </details>
+      `;
+    }
+
+    function offsetFrom(start, t) {
+      if (!start || !t) return '0s';
+      const delta = new Date(t) - new Date(start);
+      const s = Math.max(0, Math.round(delta/1000));
+      return s + 's';
+    }
+
+    function renderParticipant(p, convStart) {
+      const name = p.participantName || p.purpose || 'participant';
+      const purpose = p.purpose || '—';
+      const user = p.userId ? `<span class="pill">userId: ${p.userId}</span>` : '';
+      const ext = p.externalContactId ? `<span class="pill">ext: ${p.externalContactId}</span>` : '';
+
+      const segs = (p.sessions||[]).flatMap(s => (s.segments||[]).map(seg => ({...seg, mediaType: s.mediaType, sessionId: s.sessionId })))
+        .map(seg => renderSegment(seg, convStart)).join('');
+
+      return `
+        <div class="card" style="margin:8px 0;">
+          <div class="flex" style="flex-wrap:wrap;">
+            <strong>${name}</strong>
+            <span class="pill">purpose: ${purpose}</span>
+            ${user}${ext}
+          </div>
+          ${segs || '<div class="muted" style="margin-top:6px;">No segments.</div>'}
+        </div>
+      `;
+    }
+
+    function renderSegment(seg, convStart) {
+      const tStart = seg.segmentStart ? fmt(seg.segmentStart) : '—';
+      const tEnd = seg.segmentEnd ? fmt(seg.segmentEnd) : '—';
+      const off = offsetFrom(convStart, seg.segmentStart);
+      const dur = seg.segmentEnd ? seconds(new Date(seg.segmentEnd) - new Date(seg.segmentStart)) + 's' : '—';
+      const queue = seg.queueId ? `<span class="pill">queue: ${seg.queueId}</span>` : '';
+      const flow = seg.flowId ? `<span class="pill">flow: ${seg.flowId}</span>` : '';
+      const flowName = seg.flowName ? `<span class="pill">flowName: ${seg.flowName}</span>` : '';
+      const type = seg.segmentType || '—';
+      const media = seg.mediaType || '—';
+      const direction = seg.direction || '—';
+      const xfer = (seg.transferType || seg.transferTargetAddress || seg.transferTargetName) ?
+        `<span class="pill">transfer: ${seg.transferType||'—'} → ${seg.transferTargetName||seg.transferTargetAddress||'—'}</span>` : '';
+      const wrap = seg.wrapUpCode ? `<span class="pill">wrapUp: ${seg.wrapUpCode}</span>` : '';
+
+      return `
+        <table style="margin:8px 0; background:#fff; border-radius:12px; overflow:hidden;">
+          <thead>
+            <tr>
+              <th>Offset</th>
+              <th>When</th>
+              <th>Type</th>
+              <th>Media</th>
+              <th>Direction</th>
+              <th>Queue/Flow</th>
+              <th>Transfers</th>
+              <th>Duration</th>
+              <th>Disconnect</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">${off}</td>
+              <td>
+                <div>Start: ${tStart}</div>
+                <div>End: ${tEnd}</div>
+              </td>
+              <td>${type}</td>
+              <td>${media}</td>
+              <td>${direction}</td>
+              <td>${queue} ${flow} ${flowName}</td>
+              <td>${xfer}</td>
+              <td>${dur}</td>
+              <td>${seg.disconnectType || '—'}</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+    }
+
+    // ---------- CSV Export ----------
+    $('exportBtn').addEventListener('click', () => exportCSV());
+
+    function csvEscape(v) {
+      if (v == null) return '';
+      const s = String(v).replaceAll('"', '""');
+      return `"${s}"`;
+    }
+
+    function exportCSV() {
+      const rows = [];
+      rows.push([
+        'conversationId','conversationStart','conversationEnd','originatingDirection','participantName','purpose','userId','externalContactId','segmentType','mediaType','direction','queueId','flowId','flowName','transferType','transferTargetName','transferTargetAddress','segmentStart','segmentEnd','durationSeconds','disconnectType','wrapUpCode'
+      ]);
+
+      for (const c of state.conversations) {
+        for (const p of (c.participants||[])) {
+          const parts = (p.sessions||[]).flatMap(s => (s.segments||[]).map(seg => ({ seg, mediaType: s.mediaType })));
+          for (const {seg, mediaType} of parts) {
+            const dur = seg.segmentEnd ? Math.round((new Date(seg.segmentEnd) - new Date(seg.segmentStart))/1000) : '';
+            rows.push([
+              c.conversationId || '',
+              c.conversationStart || '',
+              c.conversationEnd || '',
+              c.originatingDirection || '',
+              p.participantName || '',
+              p.purpose || '',
+              p.userId || '',
+              p.externalContactId || '',
+              seg.segmentType || '',
+              mediaType || '',
+              seg.direction || '',
+              seg.queueId || '',
+              seg.flowId || '',
+              seg.flowName || '',
+              seg.transferType || '',
+              seg.transferTargetName || '',
+              seg.transferTargetAddress || '',
+              seg.segmentStart || '',
+              seg.segmentEnd || '',
+              dur,
+              seg.disconnectType || '',
+              seg.wrapUpCode || ''
+            ]);
+          }
+        }
+      }
+
+      const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
+      const blob = new Blob([csv], {type: 'text/csv'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'conversations.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ---------- Init ----------
+    (function init() {
+      $('redirectUri').value = location.origin + location.pathname; // default to current
+      // Pre-fill with your provided values if empty
+      const DEF_CID = 'bbc89753-462b-493d-ab94-4778af9e7d4d';
+      const DEF_REDIRECT = 'https://gmcglynn88.github.io/ConversationExplorer/';
+      if (!$('clientId').value) $('clientId').value = DEF_CID;
+      if (!$('redirectUri').value) $('redirectUri').value = DEF_REDIRECT;
+      loadLocal();
+      $('region').addEventListener('change', () => { const hosts = regionToHosts($('region').value); state.regionHost = hosts.api; state.loginHost = hosts.login; saveLocal(); });
+      $('loginBtn').addEventListener('click', startLogin);
+      $('logoutBtn').addEventListener('click', logout);
+      $('clientId').addEventListener('change', saveLocal);
+      $('redirectUri').addEventListener('change', saveLocal);
+      completeLoginFromHash();
+    })();
+  </script>
+</body>
+</html>
