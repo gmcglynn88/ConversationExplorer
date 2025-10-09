@@ -6,9 +6,10 @@
   <title>Genesys Conversation Explorer</title>
   <style>
     body {
-      font-family: Aptos, 'Segoe UI', Arial, sans-serif;
+      font-family: 'Segoe UI', Arial, sans-serif;
       margin: 20px;
       padding: 20px;
+      max-width: 1200px;
     }
     #logo-container { text-align: center; margin-bottom: 20px; }
     #logo { width: 300px; }
@@ -19,11 +20,25 @@
     .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
     .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-top: 12px; }
     .muted { color: #6b7280; }
-    .pill { display:inline-block; padding:2px 8px; border:1px solid #e5e7eb; border-radius:999px; font-size:12px; }
-    table { width:100%; border-collapse: collapse; }
-    th, td { border-bottom:1px solid #e5e7eb; padding:8px 6px; text-align:left; vertical-align:top; }
-    details { background:#fff; border:1px solid #e5e7eb; border-radius: 12px; padding:10px 12px; margin:10px 0; }
+    .pill { 
+      display:inline-block; 
+      padding:4px 12px; 
+      background: #10b981; 
+      color: white;
+      border-radius:999px; 
+      font-size:12px; 
+      font-weight: bold;
+    }
+    details { background:#f9fafb; border:1px solid #e5e7eb; border-radius: 8px; padding:12px; margin:10px 0; }
     details>summary { cursor:pointer; font-weight:600; }
+    pre { 
+      background: #1f2937; 
+      color: #f3f4f6; 
+      padding: 12px; 
+      border-radius: 6px; 
+      overflow-x: auto;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
@@ -32,46 +47,34 @@
   </div>
 
   <h1>Conversation Explorer</h1>
-  <details class="card"><summary><strong>Debug</strong> (click to expand)</summary>
-    <div>Computed Redirect URI: <code id="dbgRedirect"></code></div>
-    <div>Authorize URL: <code id="dbgAuth"></code></div>
-    <div>Origin: <code id="dbgOrigin"></code></div>
-  </details>
 
   <div class="row">
     <div>
-      <label for="clientId">OAuth Client ID</label>
-      <input id="clientId" type="text" value="bbc89753-462b-493d-ab94-4778af9e7d4d" readonly />
-    </div>
-    <div>
-      <label for="redirectUri">Redirect URI</label>
-      <input id="redirectUri" type="text" value="" readonly />
-    </div>
-    <div>
-      <label>&nbsp;</label>
-      <button id="logoutBtn">Sign out</button>
-    </div>
-    <div>
-      <label>Auth</label>
+      <label>Authentication Status</label>
       <span id="authInfo" class="pill">Not signed in</span>
     </div>
   </div>
 
   <div class="row">
     <div>
-      <label for="agentSelect">Agent</label>
+      <label for="agentSelect">Select Agent</label>
       <select id="agentSelect"><option>Loading users…</option></select>
-      <input id="agentFilter" type="text" placeholder="Filter users by name/email" />
-      <input id="agentId" type="text" placeholder="Selected agentId" readonly />
+      <input id="agentFilter" type="text" placeholder="Filter users by name or email" style="margin-top: 8px;" />
+      <div style="margin-top: 8px; font-size: 14px; color: #6b7280;">
+        Selected: <span id="selectedAgentName">None</span>
+      </div>
     </div>
     <div>
-      <label for="fromDate">From</label>
-      <input id="fromDate" type="date" />
-      <label for="toDate">To</label>
-      <input id="toDate" type="date" />
-      <div style="margin-top:10px;">
-        <button id="fetchBtn">Fetch Conversations</button>
-        <button id="exportBtn">Export CSV</button>
+      <label for="fromDate">Date Range</label>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input id="fromDate" type="date" />
+        <span>to</span>
+        <input id="toDate" type="date" />
+      </div>
+      <div style="margin-top:12px;">
+        <button id="fetchBtn" style="background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 10px 16px; cursor: pointer;">
+          Fetch Conversations
+        </button>
       </div>
     </div>
   </div>
@@ -79,17 +82,15 @@
   <div id="statusMessage"></div>
   <div id="errorMessage"></div>
 
-  <div class="card" style="margin-top:18px;">
-    <h2>Results</h2>
+  <div class="card" style="margin-top:24px;">
+    <h2 style="margin-top: 0;">Conversation Results</h2>
     <div id="results"></div>
   </div>
 
   <script>
     const state = {
       token: null,
-      tokenExpiry: 0,
       regionHost: 'https://api.mypurecloud.ie',
-      loginHost: 'https://login.mypurecloud.ie',
       conversations: [],
       users: [],
       selectedAgent: null
@@ -98,37 +99,28 @@
     const $ = (id) => document.getElementById(id);
     const fmt = (d) => new Date(d).toLocaleString();
 
-    function setStatus(msg, isError=false) {
+    function setStatus(msg, isError = false) {
       $('statusMessage').textContent = isError ? '' : msg || '';
       $('errorMessage').textContent = isError ? (msg || '') : '';
-    }
-
-    function buildOAuthUrl() {
-      const clientId = $('clientId').value.trim();
-      // Always use the *actual* URL the app is running at (avoids copy/paste mismatch)
-      const redirectUri = window.location.origin + window.location.pathname;
-      $('redirectUri').value = redirectUri;
-      const url = `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
-      // Debug surface
-      $('dbgRedirect').textContent = redirectUri;
-      $('dbgOrigin').textContent = window.location.origin;
-      $('dbgAuth').textContent = url;
-      return url;
     }
 
     function initAuth() {
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
       const token = params.get('access_token');
+      
       if (!token) {
-        location.href = buildOAuthUrl();
+        // Start OAuth flow
+        const clientId = 'bbc89753-462b-493d-ab94-4778af9e7d4d';
+        const redirectUri = window.location.origin + window.location.pathname;
+        const authUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
+        window.location.href = authUrl;
         return false;
       }
+      
       state.token = token;
-      const expiresIn = parseInt(params.get('expires_in')||'0', 10);
-      state.tokenExpiry = Date.now() + (expiresIn*1000);
+      $('authInfo').textContent = 'Authenticated ✓';
       history.replaceState(null, '', location.pathname + location.search);
-      $('authInfo').textContent = 'Authenticated';
       return true;
     }
 
@@ -137,150 +129,163 @@
       const res = await fetch(`${state.regionHost}${path}`, {
         headers: { 'Authorization': `Bearer ${state.token}` }
       });
-      if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+      if (!res.ok) throw new Error(`API Error: ${res.status} ${res.statusText}`);
       return res.json();
     }
 
     async function fetchAllUsers() {
       try {
         setStatus('Loading users…');
-        const pageSize = 100; let pageNumber = 1; let all = [];
+        let allUsers = [];
+        let pageNumber = 1;
+        const pageSize = 100;
+
         while (true) {
           const data = await api(`/api/v2/users?pageSize=${pageSize}&pageNumber=${pageNumber}`);
-          const batch = (data && data.entities) || [];
-          all = all.concat(batch);
-          if (!data || !data.nextUri || batch.length < pageSize) break;
+          const batch = data?.entities || [];
+          allUsers = allUsers.concat(batch);
+          
+          if (!data?.nextUri || batch.length < pageSize) break;
           pageNumber++;
         }
-        state.users = all.map(u => ({ id: u.id, name: u.name, email: (u.email||'') }));
+
+        state.users = allUsers.map(u => ({ 
+          id: u.id, 
+          name: u.name, 
+          email: u.email || '' 
+        }));
+        
         populateUserSelect(state.users);
-        setStatus(`Loaded ${state.users.length} user(s).`);
-      } catch (e) { setStatus(e.message, true); $('agentSelect').innerHTML = '<option>Failed to load users</option>'; }
+        setStatus(`Loaded ${state.users.length} users`);
+      } catch (e) {
+        setStatus(e.message, true);
+        $('agentSelect').innerHTML = '<option>Failed to load users</option>';
+      }
     }
 
     function populateUserSelect(users) {
-      const sel = $('agentSelect');
-      sel.innerHTML = users.map(u => `<option value="${u.id}">${u.name} ${u.email?`<${u.email}>`:''}</option>`).join('');
-      sel.onchange = () => {
-        const id = sel.value; const u = users.find(x => x.id === id);
-        state.selectedAgent = u || null;
-        $('agentId').value = u ? `${u.id}  ·  ${u.name}` : '';
+      const select = $('agentSelect');
+      select.innerHTML = users.map(u => 
+        `<option value="${u.id}">${u.name} ${u.email ? `(${u.email})` : ''}</option>`
+      ).join('');
+      
+      select.onchange = () => {
+        const selectedUser = users.find(u => u.id === select.value);
+        state.selectedAgent = selectedUser;
+        $('selectedAgentName').textContent = selectedUser ? `${selectedUser.name}` : 'None';
       };
-      if (users.length) { sel.value = users[0].id; sel.onchange(); }
+      
+      if (users.length > 0) {
+        select.value = users[0].id;
+        select.onchange();
+      }
     }
 
-    $('agentFilter').addEventListener('input', () => {
-      const q = $('agentFilter').value.trim().toLowerCase();
-      const filtered = !q ? state.users : state.users.filter(u => (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
-      populateUserSelect(filtered);
+    $('agentFilter').addEventListener('input', function() {
+      const query = this.value.trim().toLowerCase();
+      const filteredUsers = query 
+        ? state.users.filter(u => 
+            u.name.toLowerCase().includes(query) || 
+            u.email.toLowerCase().includes(query)
+          )
+        : state.users;
+      populateUserSelect(filteredUsers);
     });
 
     async function fetchConversations() {
       try {
         setStatus('Fetching conversations...');
-        if (!state.selectedAgent) throw new Error('Select an agent first.');
-        const from = $('fromDate').value;
-        const to = $('toDate').value || $('fromDate').value;
-        const interval = `${from}T00:00:00/${to}T23:59:59`;
+        
+        if (!state.selectedAgent) {
+          throw new Error('Please select an agent first');
+        }
 
-        const body = {
-          interval,
+        const fromDate = $('fromDate').value;
+        const toDate = $('toDate').value || fromDate;
+        
+        if (!fromDate) {
+          throw new Error('Please select a start date');
+        }
+
+        const interval = `${fromDate}T00:00:00/${toDate}T23:59:59`;
+
+        const requestBody = {
+          interval: interval,
           order: 'asc',
           orderBy: 'conversationStart',
           segmentFilters: [{
             type: 'and',
-            predicates: [{ type: 'dimension', dimension: 'userId', operator: 'matches', value: state.selectedAgent.id }]
+            predicates: [{
+              type: 'dimension',
+              dimension: 'userId',
+              operator: 'matches',
+              value: state.selectedAgent.id
+            }]
           }]
         };
 
-        const res = await fetch(`${state.regionHost}/api/v2/analytics/conversations/details/query`, {
+        const response = await fetch(`${state.regionHost}/api/v2/analytics/conversations/details/query`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${state.token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(body)
+          body: JSON.stringify(requestBody)
         });
-        if (!res.ok) throw new Error(`${res.statusText}`);
-        const data = await res.json();
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
         state.conversations = data.conversations || [];
         renderResults(state.conversations);
-        setStatus(`Fetched ${state.conversations.length} conversation(s).`);
-      } catch (e) { setStatus(e.message, true); }
+        setStatus(`Found ${state.conversations.length} conversations`);
+
+      } catch (error) {
+        setStatus(error.message, true);
+      }
     }
 
-    function renderResults(items) {
-      const results = $('results');
-      if (!items.length) { results.innerHTML = '<p class="muted">No conversations found.</p>'; return; }
-      results.innerHTML = items.map(c => `<details><summary>${c.conversationId} (${fmt(c.conversationStart)} - ${fmt(c.conversationEnd)})</summary><pre>${JSON.stringify(c,null,2)}</pre></details>`).join('');
-    }
-
-    function exportToCSV() {
-      if (!state.conversations.length) {
-        setStatus('No conversations to export', true);
+    function renderResults(conversations) {
+      const resultsContainer = $('results');
+      
+      if (conversations.length === 0) {
+        resultsContainer.innerHTML = '<p class="muted">No conversations found for the selected criteria.</p>';
         return;
       }
-      
-      try {
-        // Create CSV header
-        const headers = ['Conversation ID', 'Start Time', 'End Time', 'Participants'];
-        const csvRows = [headers.join(',')];
-        
-        // Add data rows
-        state.conversations.forEach(conv => {
-          const row = [
-            conv.conversationId,
-            fmt(conv.conversationStart),
-            fmt(conv.conversationEnd),
-            conv.participants ? conv.participants.length : 0
-          ].map(field => `"${String(field || '').replace(/"/g, '""')}"`).join(',');
-          csvRows.push(row);
-        });
-        
-        // Create and download file
-        const csvString = csvRows.join('\n');
-        const blob = new Blob([csvString], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `conversations_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        setStatus(`Exported ${state.conversations.length} conversations to CSV`);
-      } catch (e) {
-        setStatus('Failed to export CSV: ' + e.message, true);
-      }
+
+      resultsContainer.innerHTML = conversations.map(conv => `
+        <details>
+          <summary>
+            <strong>${conv.conversationId}</strong> - 
+            ${fmt(conv.conversationStart)}
+            <span style="color: #6b7280; font-size: 0.9em; margin-left: 8px;">
+              (${conv.participants ? conv.participants.length : 0} participants)
+            </span>
+          </summary>
+          <pre>${JSON.stringify(conv, null, 2)}</pre>
+        </details>
+      `).join('');
     }
 
-    function logout() {
-      state.token = null;
-      state.tokenExpiry = 0;
-      state.conversations = [];
-      state.users = [];
-      state.selectedAgent = null;
-      $('authInfo').textContent = 'Not signed in';
-      $('results').innerHTML = '';
-      setStatus('Signed out');
-      
-      // Redirect to OAuth logout or clear local session
-      window.location.href = window.location.pathname;
-    }
-
-    // Event listeners
+    // Initialize the application
     $('fetchBtn').addEventListener('click', fetchConversations);
-    $('exportBtn').addEventListener('click', exportToCSV);
-    $('logoutBtn').addEventListener('click', logout);
 
     (function init() {
-      const today = new Date().toISOString().slice(0,10);
-      $('fromDate').value = today; $('toDate').value = today;
-      const authed = initAuth();
-      if (authed) fetchAllUsers();
-      // Ensure debug shows values even when token is present
-      buildOAuthUrl();
+      // Set default dates (today and 7 days ago)
+      const today = new Date();
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(today.getDate() - 7);
+      
+      $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
+      $('toDate').value = today.toISOString().slice(0, 10);
+
+      // Start authentication and load data if authenticated
+      const isAuthenticated = initAuth();
+      if (isAuthenticated) {
+        fetchAllUsers();
+      }
     })();
   </script>
 </body>
