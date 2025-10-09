@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,64 +6,28 @@
   <title>Genesys Conversation Explorer</title>
   <link href="https://fonts.googleapis.com/css2?family=Proxima+Nova&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --brand: #2a7de1;
-      --bg: #ffffff;
-      --text: #111827;
-      --muted: #6b7280;
-      --border: #e5e7eb;
-      --card: #f9fafb;
-      --success: #16a34a;
-      --warning: #d97706;
-      --danger: #dc2626;
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
+    /* Match the provided app's simple look & feel */
     body {
       font-family: 'Proxima Nova', Arial, sans-serif;
       margin: 20px;
       padding: 20px;
-      color: var(--text);
-      background: var(--bg);
     }
     #logo-container { text-align: center; margin-bottom: 20px; }
     #logo { width: 300px; }
+    label { margin-top: 10px; display: block; font-weight: bold; }
+    select, input, button { margin-top: 5px; padding: 8px; width: 100%; max-width: 300px; }
+    #statusMessage { margin-top: 20px; color: green; }
+    #errorMessage { margin-top: 10px; color: #c1272d; }
 
-    h1 { font-size: 1.5rem; margin: 0 0 8px; }
-    h2 { font-size: 1.1rem; margin: 18px 0 8px; color: var(--muted); }
-
-    .grid { display: grid; gap: 16px; }
-    .grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-
-    label { margin-top: 10px; display: block; font-weight: 700; }
-    select, input[type="text"], input[type="date"], button { margin-top: 6px; padding: 10px 12px; width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
-    input[readonly] { background: #f3f4f6; }
-
-    .btn { cursor: pointer; border: 1px solid var(--brand); background: var(--brand); color: #fff; font-weight: 600; border-radius: 12px; transition: transform .02s ease; }
-    .btn.secondary { background: #fff; color: var(--brand); }
-    .btn:hover { filter: brightness(0.98); }
-    .btn:active { transform: translateY(1px); }
-
-    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
-
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
-    .muted { color: var(--muted); }
-    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border:1px solid var(--border); background: #fff; font-size: 12px; }
-    .flex { display: flex; gap: 12px; align-items: center; }
-    .right { margin-left: auto; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-
-    #statusMessage { margin-top: 12px; color: var(--success); }
-    #errorMessage { margin-top: 12px; color: var(--danger); }
-
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { border-bottom: 1px solid var(--border); padding: 8px 6px; text-align: left; vertical-align: top; }
-    th { background: #fff; position: sticky; top: 0; }
-
-    details { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 10px 0; }
-    details>summary { cursor: pointer; font-weight: 600; }
-
-    .footer { margin-top: 24px; font-size: 12px; color: var(--muted); }
+    /* A few lightweight utilities (no colour shifts) */
+    .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-top: 12px; }
+    .muted { color: #6b7280; }
+    .pill { display:inline-block; padding:2px 8px; border:1px solid #e5e7eb; border-radius:999px; font-size:12px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #e5e7eb; padding:8px 6px; text-align:left; vertical-align:top; }
+    details { background:#fff; border:1px solid #e5e7eb; border-radius: 12px; padding:10px 12px; margin:10px 0; }
+    details>summary { cursor:pointer; font-weight:600; }
   </style>
 </head>
 <body>
@@ -76,7 +39,7 @@
     <h1>External Work Creation · Conversation Explorer</h1>
     <p class="muted">Select an agent and a date range to fetch all their conversations, with participants, ACD queues/flows, transfers, and durations.</p>
 
-    <div class="grid cols-2" style="margin-top: 12px;">
+    <div class="row">
       <div>
         <label for="region">Region</label>
         <select id="region">
@@ -99,19 +62,22 @@
         <label for="redirectUri">Redirect URI (must match in OAuth app)</label>
         <input id="redirectUri" type="text" />
       </div>
-      <div class="toolbar">
-        <button id="loginBtn" class="btn" style="width: 180px;">Sign in to Genesys</button>
-        <button id="logoutBtn" class="btn secondary" style="width: 120px;">Sign out</button>
-        <span id="authInfo" class="pill mono">Not signed in</span>
+      <div>
+        <label>&nbsp;</label>
+        <button id="logoutBtn">Sign out</button>
+      </div>
+      <div>
+        <label>Auth</label>
+        <span id="authInfo" class="pill">Not signed in</span>
       </div>
     </div>
 
     <h2>Agent & Date Range</h2>
-    <div class="grid cols-2">
+    <div class="row">
       <div>
-        <label for="agentSearch">Find agent</label>
-        <input id="agentSearch" type="text" placeholder="Type a name or email..." />
-        <div id="agentResults" class="muted" style="margin-top:6px"></div>
+        <label for="agentSelect">Agent</label>
+        <select id="agentSelect"><option>Loading users…</option></select>
+        <input id="agentFilter" type="text" placeholder="Filter users by name/email" />
         <input id="agentId" type="text" placeholder="Selected agentId" readonly />
       </div>
       <div>
@@ -119,9 +85,9 @@
         <input id="fromDate" type="date" />
         <label for="toDate">To</label>
         <input id="toDate" type="date" />
-        <div class="toolbar" style="margin-top:10px;">
-          <button id="fetchBtn" class="btn">Fetch Conversations</button>
-          <button id="exportBtn" class="btn secondary">Export CSV</button>
+        <div style="margin-top:10px;">
+          <button id="fetchBtn">Fetch Conversations</button>
+          <button id="exportBtn">Export CSV</button>
         </div>
       </div>
     </div>
@@ -138,7 +104,7 @@
     <div id="results"></div>
   </div>
 
-  <div class="footer">UI style mirrors your provided app: Proxima Nova, centred logo, bold labels, rounded inputs, green status messages. Built as a single-file HTML app for hosting on GitHub Pages.</div>
+  <div class="footer">Gerard is the best</div>
 
   <script>
     // ---------- Minimal app state ----------
@@ -148,6 +114,7 @@
       regionHost: 'https://api.mypurecloud.ie',
       loginHost: 'https://login.mypurecloud.ie',
       conversations: [],
+      users: [],
       selectedAgent: null
     };
 
@@ -233,13 +200,21 @@
       state.regionHost = hosts.api; state.loginHost = hosts.login;
       const clientId = $('clientId').value.trim();
       const redirectUri = $('redirectUri').value.trim() || (location.origin + location.pathname);
-      if (!clientId) return setStatus('Please enter your OAuth Client ID', true);
+      if (!clientId) { setStatus('Please enter your OAuth Client ID', true); return; }
       const authUrl = `${state.loginHost}/oauth/authorize?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&force_login=false`;
-      saveLocal();
       location.assign(authUrl);
     }
 
     function completeLoginFromHash() {
+      const hp = hashParams();
+      if (hp.access_token) {
+        state.token = hp.access_token;
+        const expiresIn = parseInt(hp.expires_in || '0', 10);
+        state.tokenExpiry = Date.now() + (expiresIn * 1000);
+        history.replaceState(null, '', location.pathname + location.search);
+      }
+      setAuthInfo();
+    }() {
       const hp = hashParams();
       if (hp.access_token) {
         state.token = hp.access_token;
@@ -255,42 +230,43 @@
       state.token = null; state.tokenExpiry = 0; setAuthInfo(); setStatus('Signed out.');
     }
 
-    // ---------- Agent search ----------
-    let searchTimer = null;
-    $('agentSearch').addEventListener('input', () => {
-      clearTimeout(searchTimer);
-      const q = $('agentSearch').value.trim();
-      if (q.length < 2) { $('agentResults').innerHTML=''; return; }
-      searchTimer = setTimeout(() => doAgentSearch(q), 250);
+    // ---------- Users (GET /api/v2/users) ----------
+    async function fetchAllUsers() {
+      try {
+        setStatus('Loading users…');
+        const pageSize = 100; let pageNumber = 1; let all = [];
+        while (true) {
+          const data = await api(`/api/v2/users?pageSize=${pageSize}&pageNumber=${pageNumber}`);
+          const batch = (data && data.entities) || [];
+          all = all.concat(batch);
+          if (!data || !data.nextUri || batch.length < pageSize) break;
+          pageNumber++;
+          if (pageNumber > 50) break; // safety cap 5k users
+        }
+        state.users = all.map(u => ({ id: u.id, name: u.name, email: (u.email||'') }));
+        populateUserSelect(state.users);
+        setStatus(`Loaded ${state.users.length} user(s).`);
+      } catch (e) { setStatus(e.message, true); $('agentSelect').innerHTML = '<option>Failed to load users</option>'; }
+    }
+
+    function populateUserSelect(users) {
+      const sel = $('agentSelect');
+      sel.innerHTML = users.map(u => `<option value="${u.id}">${escapeHtml(u.name)} ${u.email?`<${escapeHtml(u.email)}>`:''}</option>`).join('');
+      sel.onchange = () => {
+        const id = sel.value; const u = users.find(x => x.id === id);
+        state.selectedAgent = u || null;
+        $('agentId').value = u ? `${u.id}  ·  ${u.name}` : '';
+      };
+      if (users.length) { sel.value = users[0].id; sel.onchange(); }
+    }
+
+    $('agentFilter').addEventListener('input', () => {
+      const q = $('agentFilter').value.trim().toLowerCase();
+      const filtered = !q ? state.users : state.users.filter(u => (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+      populateUserSelect(filtered);
     });
 
-    async function doAgentSearch(query) {
-      try {
-        setStatus('Searching agents...');
-        const body = {
-          pageSize: 10,
-          query: [{
-            type: 'TERM',
-            fields: ['name', 'email'],
-            value: query
-          }]
-        };
-        const data = await api('/api/v2/users/search', { method: 'POST', body: JSON.stringify(body) });
-        const hits = (data && data.results) || [];
-        if (!hits.length) {
-          $('agentResults').innerHTML = '<span class="muted">No matches</span>';
-          return;
-        }
-        const html = hits.map(u => `<button data-id="${u.id}" data-name="${u.name}" class="btn secondary" style="margin:4px;">${u.name} <span class="muted" style="font-weight:400;">(${u.email||'no-email'})</span></button>`).join('');
-        $('agentResults').innerHTML = html;
-        [...$('agentResults').querySelectorAll('button')].forEach(btn => btn.addEventListener('click', () => {
-          const id = btn.getAttribute('data-id'); const name = btn.getAttribute('data-name');
-          state.selectedAgent = { id, name };
-          $('agentId').value = id + '  ·  ' + name;
-          setStatus(`Selected agent: ${name}`);
-        }));
-      } catch (e) { setStatus(e.message, true); }
-    }
+    function escapeHtml(s){return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));}
 
     // ---------- Fetch conversations ----------
     $('fetchBtn').addEventListener('click', () => fetchConversations());
@@ -498,19 +474,25 @@
 
     // ---------- Init ----------
     (function init() {
-      $('redirectUri').value = location.origin + location.pathname; // default to current
-      // Pre-fill with your provided values if empty
+      $('redirectUri').value = location.origin + location.pathname;
+      // Pre-fill from your provided values
       const DEF_CID = 'bbc89753-462b-493d-ab94-4778af9e7d4d';
       const DEF_REDIRECT = 'https://gmcglynn88.github.io/ConversationExplorer/';
       if (!$('clientId').value) $('clientId').value = DEF_CID;
       if (!$('redirectUri').value) $('redirectUri').value = DEF_REDIRECT;
-      loadLocal();
-      $('region').addEventListener('change', () => { const hosts = regionToHosts($('region').value); state.regionHost = hosts.api; state.loginHost = hosts.login; saveLocal(); });
-      $('loginBtn').addEventListener('click', startLogin);
+      completeLoginFromHash();
+      // Auto-authenticate if no token yet
+      if (!state.token) startLogin();
+      // Once authed, load users
+      const authCheck = setInterval(() => {
+        if (state.token) { clearInterval(authCheck); fetchAllUsers(); }
+      }, 200);
+      $('region').addEventListener('change', () => { const hosts = regionToHosts($('region').value); state.regionHost = hosts.api; state.loginHost = hosts.login; });
       $('logoutBtn').addEventListener('click', logout);
       $('clientId').addEventListener('change', saveLocal);
       $('redirectUri').addEventListener('change', saveLocal);
-      completeLoginFromHash();
+      const today = new Date().toISOString().slice(0,10);
+      $('fromDate').value = today; $('toDate').value = today;
     })();
   </script>
 </body>
