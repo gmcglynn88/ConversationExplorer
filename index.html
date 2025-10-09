@@ -24,6 +24,10 @@
     .btn { background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 10px 16px; cursor: pointer; }
     .btn.grey { background: #9ca3af; cursor: not-allowed; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    #debugConsole { background: #1f2937; color: #10b981; padding: 12px; border-radius: 6px; margin-top: 16px; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+    .debug-entry { margin: 4px 0; }
+    .debug-time { color: #6b7280; }
+    .debug-error { color: #ef4444; }
   </style>
 </head>
 <body>
@@ -92,6 +96,12 @@
     <div id="results"></div>
   </div>
 
+  <div class="card">
+    <h3 style="margin-top:0">Debug Console</h3>
+    <div id="debugConsole"></div>
+    <button id="clearDebugBtn" class="btn" style="background:#6b7280; margin-top:8px;">Clear Console</button>
+  </div>
+
   <script>
     // ===== Configuration (tailored to your GitHub Pages URL) =====
     const CONFIG = {
@@ -100,6 +110,29 @@
       loginHost: 'https://login.mypurecloud.ie',
       apiHost:   'https://api.mypurecloud.ie'
     };
+
+    // ===== Debug Console =====
+    function debugLog(message, isError = false) {
+      const timestamp = new Date().toLocaleTimeString();
+      const consoleElem = $('#debugConsole');
+      const entry = document.createElement('div');
+      entry.className = `debug-entry ${isError ? 'debug-error' : ''}`;
+      entry.innerHTML = `<span class="debug-time">[${timestamp}]</span> ${message}`;
+      consoleElem.appendChild(entry);
+      consoleElem.scrollTop = consoleElem.scrollHeight;
+      
+      // Also log to browser console
+      if (isError) {
+        console.error(`[DEBUG] ${message}`);
+      } else {
+        console.log(`[DEBUG] ${message}`);
+      }
+    }
+
+    function clearDebugConsole() {
+      $('#debugConsole').innerHTML = '';
+      console.clear();
+    }
 
     // ===== App State =====
     const state = {
@@ -114,37 +147,56 @@
     const fmt = (d) => new Date(d).toLocaleString();
 
     function setStatus(msg, isError = false) {
+      debugLog(`UI Status: ${msg}`, isError);
       console[isError ? 'error' : 'log'](msg);
       $('statusMessage').textContent = isError ? '' : (msg || '');
       $('errorMessage').textContent = isError ? (msg || '') : '';
     }
+
     function enableUI() {
+      debugLog('Enabling UI controls');
       ['agentSelect','agentFilter','fromDate','toDate','fetchBtn'].forEach(id => $(id).disabled = false);
       $('fetchBtn').classList.remove('grey');
+      $('fetchBtn').textContent = 'Fetch Conversations';
     }
+
     function disableUI() {
+      debugLog('Disabling UI controls');
       ['agentSelect','agentFilter','fromDate','toDate','fetchBtn'].forEach(id => $(id).disabled = true);
       $('fetchBtn').classList.add('grey');
+      $('fetchBtn').textContent = 'Fetch Conversations (Authentication Required)';
     }
 
     function buildAuthUrl() {
-      return `${CONFIG.loginHost}/oauth/authorize` +
+      const authUrl = `${CONFIG.loginHost}/oauth/authorize` +
              `?client_id=${encodeURIComponent(CONFIG.clientId)}` +
              `&response_type=token` +
              `&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}` +
              `&state=${encodeURIComponent(location.pathname)}`;
+      debugLog(`Built Auth URL: ${authUrl}`);
+      return authUrl;
     }
 
     // ===== OAuth handling =====
     function parseTokenFromHash() {
-      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-      const token = hash.get('access_token');
-      const error = hash.get('error');
-      const errorDescription = hash.get('error_description');
-      return { token, error, errorDescription };
+      const hash = window.location.hash;
+      debugLog(`Parsing token from hash: ${hash.substring(0, 100)}...`);
+      
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const token = hashParams.get('access_token');
+      const error = hashParams.get('error');
+      const errorDescription = hashParams.get('error_description');
+      const stateParam = hashParams.get('state');
+      
+      debugLog(`Token present: ${!!token}, Error: ${error}, State: ${stateParam}`);
+      
+      return { token, error, errorDescription, stateParam };
     }
 
     function initAuth(autoRedirect = false) {
+      debugLog(`Initializing auth, autoRedirect: ${autoRedirect}`);
+      debugLog(`Current URL: ${window.location.href}`);
+      
       // Diagnostics
       $('redirectUriConfigured').value = CONFIG.redirectUri;
       $('currentPage').value = window.location.origin + window.location.pathname;
@@ -152,27 +204,36 @@
 
       // Preflight warning if not hosted at the configured redirect (common GH Pages mismatch)
       const here = window.location.origin + window.location.pathname;
+      debugLog(`Current location: ${here}`);
+      debugLog(`Configured redirect: ${CONFIG.redirectUri}`);
+      
       if (!here.startsWith(CONFIG.redirectUri)) {
+        const warning = `Redirect URI mismatch - Current: ${here}, Configured: ${CONFIG.redirectUri}`;
+        debugLog(warning, true);
         $('preflightWarn').innerHTML =
           `ℹ️ GitHub Pages serves <span class="mono">${CONFIG.redirectUri}</span> (folder) → <span class="mono">index.html</span>.<br>` +
           `Current page is <span class="mono">${here}</span>. Ensure this file is at <span class="mono">/ConversationExplorer/index.html</span> and the OAuth client includes <span class="mono">${CONFIG.redirectUri}</span>.`;
       } else {
+        debugLog('Redirect URI matches configured value');
         $('preflightWarn').textContent = '';
       }
 
       if (location.protocol === 'file:') {
-        setStatus('Opened via file:// — use https://gmcglynn88.github.io/ConversationExplorer/', true);
+        const errorMsg = 'Opened via file:// — use https://gmcglynn88.github.io/ConversationExplorer/';
+        setStatus(errorMsg, true);
+        debugLog(errorMsg, true);
         $('authInfo').textContent = 'Invalid hosting (file://)';
         $('authInfo').className = 'pill error';
         disableUI();
         return false;
       }
 
-      const { token, error, errorDescription } = parseTokenFromHash();
+      const { token, error, errorDescription, stateParam } = parseTokenFromHash();
 
       if (error) {
         const errTxt = `OAuth Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`;
         setStatus(errTxt, true);
+        debugLog(`OAuth error: ${errTxt}`, true);
         $('authInfo').textContent = 'Authentication Failed';
         $('authInfo').className = 'pill error';
         sessionStorage.removeItem('authAttempted');
@@ -181,24 +242,37 @@
       }
 
       if (token) {
+        debugLog('Token found in URL, authentication successful');
         state.token = token;
         $('authInfo').textContent = 'Authenticated ✓';
         $('authInfo').className = 'pill';
         history.replaceState(null, '', location.pathname); // clean hash
+        debugLog('Cleaned hash from URL');
         enableUI();
+        // Load users after successful auth
+        fetchAllUsers();
         return true;
       }
 
-      if (!autoRedirect) return false;
+      debugLog('No token found in URL');
+      
+      if (!autoRedirect) {
+        debugLog('Auto-redirect disabled, waiting for manual sign-in');
+        return false;
+      }
+      
       const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
       if (alreadyTried) {
-        setStatus('OAuth redirect attempted but no token returned. Check Redirect URI and OAuth client settings.', true);
+        const errorMsg = 'OAuth redirect attempted but no token returned. Check Redirect URI and OAuth client settings.';
+        setStatus(errorMsg, true);
+        debugLog(errorMsg, true);
         $('authInfo').textContent = 'Auth Error';
         $('authInfo').className = 'pill error';
         disableUI();
         return false;
       }
 
+      debugLog('Initiating OAuth redirect...');
       sessionStorage.setItem('authAttempted', '1');
       window.location.assign(buildAuthUrl());
       return false;
@@ -206,50 +280,88 @@
 
     // ===== API helper =====
     async function api(path) {
-      if (!state.token) throw new Error('Not authenticated');
-      const res = await fetch(`${CONFIG.apiHost}${path}`, {
-        headers: { 'Authorization': `Bearer ${state.token}` }
-      });
-      if (res.status === 401 || res.status === 403) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(
-          `Auth/Permission error (${res.status}). Check region, scopes and OAuth client.\n` +
-          `Body: ${txt.slice(0, 500)}`
-        );
+      if (!state.token) {
+        const error = 'No token available for API call';
+        debugLog(error, true);
+        throw new Error(error);
       }
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(`API Error: ${res.status} ${res.statusText}.\nBody: ${txt.slice(0, 500)}`);
+      
+      debugLog(`Making API call to: ${path}`);
+      const url = `${CONFIG.apiHost}${path}`;
+      debugLog(`Full URL: ${url}`);
+      
+      try {
+        const res = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+        
+        debugLog(`API Response: ${res.status} ${res.statusText}`);
+        
+        if (res.status === 401 || res.status === 403) {
+          const txt = await res.text().catch(() => '');
+          const error = `Auth/Permission error (${res.status}). Check region, scopes and OAuth client.\nBody: ${txt.slice(0, 500)}`;
+          debugLog(error, true);
+          throw new Error(error);
+        }
+        
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          const error = `API Error: ${res.status} ${res.statusText}.\nBody: ${txt.slice(0, 500)}`;
+          debugLog(error, true);
+          throw new Error(error);
+        }
+        
+        const data = await res.json();
+        debugLog(`API call successful, returned ${Object.keys(data).length} top-level keys`);
+        return data;
+      } catch (error) {
+        debugLog(`API call failed: ${error.message}`, true);
+        throw error;
       }
-      return res.json();
     }
 
     // ===== Users =====
     async function fetchAllUsers() {
       try {
         setStatus('Loading users…');
+        debugLog('Starting user fetch...');
         let allUsers = [];
         let pageNumber = 1;
         const pageSize = 100;
 
         while (true) {
+          debugLog(`Fetching users page ${pageNumber}...`);
           const data = await api(`/api/v2/users?pageSize=${pageSize}&pageNumber=${pageNumber}`);
           const batch = data?.entities || [];
+          debugLog(`Received ${batch.length} users in batch`);
           allUsers = allUsers.concat(batch);
-          if (!data?.nextUri || batch.length < pageSize) break;
+          
+          if (!data?.nextUri || batch.length < pageSize) {
+            debugLog('No more users to fetch');
+            break;
+          }
           pageNumber++;
         }
 
-        state.users = allUsers.map(u => ({ id: u.id, name: u.name, email: u.email || '' }));
+        state.users = allUsers.map(u => ({ 
+          id: u.id, 
+          name: u.name, 
+          email: u.email || '' 
+        }));
+        
+        debugLog(`Processed ${state.users.length} total users`);
         populateUserSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`);
       } catch (e) {
-        setStatus(e.message, true);
+        const errorMsg = `Failed to load users: ${e.message}`;
+        setStatus(errorMsg, true);
+        debugLog(errorMsg, true);
         $('agentSelect').innerHTML = '<option>Failed to load users</option>';
       }
     }
 
     function populateUserSelect(users) {
+      debugLog(`Populating user select with ${users.length} users`);
       const select = $('agentSelect');
       select.innerHTML = users.map(u =>
         `<option value="${u.id}">${u.name} ${u.email ? `(${u.email})` : ''}</option>`
@@ -258,23 +370,28 @@
       select.onchange = () => {
         const selectedUser = users.find(u => u.id === select.value);
         state.selectedAgent = selectedUser || null;
+        const selectedText = selectedUser ? `${selectedUser.name} (${selectedUser.id})` : 'None';
         $('selectedAgentName').textContent = selectedUser ? `${selectedUser.name}` : 'None';
+        debugLog(`Selected agent: ${selectedText}`);
       };
 
       if (users.length > 0) {
         select.value = users[0].id;
         select.onchange();
+        debugLog(`Default selected user: ${users[0].name}`);
       }
     }
 
     $('agentFilter').addEventListener('input', function () {
       const query = this.value.trim().toLowerCase();
+      debugLog(`Filtering users with query: "${query}"`);
       const filteredUsers = query
         ? state.users.filter(u =>
           (u.name || '').toLowerCase().includes(query) ||
           (u.email || '').toLowerCase().includes(query)
         )
         : state.users;
+      debugLog(`Filtered to ${filteredUsers.length} users`);
       populateUserSelect(filteredUsers);
     });
 
@@ -282,11 +399,23 @@
     async function fetchConversations() {
       try {
         setStatus('Fetching conversations...');
-        if (!state.selectedAgent) throw new Error('Please select an agent first');
+        debugLog('Starting conversation fetch...');
+        
+        if (!state.selectedAgent) {
+          const error = 'No agent selected';
+          debugLog(error, true);
+          throw new Error(error);
+        }
 
         const fromDate = $('fromDate').value;
         const toDate = $('toDate').value || fromDate;
-        if (!fromDate) throw new Error('Please select a start date');
+        debugLog(`Date range: ${fromDate} to ${toDate}`);
+        
+        if (!fromDate) {
+          const error = 'No start date selected';
+          debugLog(error, true);
+          throw new Error(error);
+        }
 
         const interval = `${fromDate}T00:00:00/${toDate}T23:59:59`;
         const requestBody = {
@@ -304,6 +433,9 @@
           }]
         };
 
+        debugLog(`Request body: ${JSON.stringify(requestBody)}`);
+        debugLog(`Making conversation query for agent: ${state.selectedAgent.name} (${state.selectedAgent.id})`);
+
         const response = await fetch(`${CONFIG.apiHost}/api/v2/analytics/conversations/details/query`, {
           method: 'POST',
           headers: {
@@ -313,21 +445,31 @@
           body: JSON.stringify(requestBody)
         });
 
+        debugLog(`Conversation API response status: ${response.status}`);
+
         const bodyText = await response.text().catch(() => '');
+        debugLog(`Response body length: ${bodyText.length} characters`);
+        
         if (!response.ok) {
-          throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}\nBody: ${bodyText.slice(0, 800)}`);
+          const error = `Failed to fetch conversations: ${response.status} ${response.statusText}\nBody: ${bodyText.slice(0, 800)}`;
+          debugLog(error, true);
+          throw new Error(error);
         }
 
         const data = bodyText ? JSON.parse(bodyText) : {};
+        debugLog(`Parsed response, found ${data.conversations ? data.conversations.length : 0} conversations`);
+        
         state.conversations = data.conversations || [];
         renderResults(state.conversations);
         setStatus(`Found ${state.conversations.length} conversations`);
       } catch (error) {
+        debugLog(`Conversation fetch error: ${error.message}`, true);
         setStatus(error.message, true);
       }
     }
 
     function renderResults(conversations) {
+      debugLog(`Rendering ${conversations.length} conversations`);
       const resultsContainer = $('results');
       if (conversations.length === 0) {
         resultsContainer.innerHTML = '<p class="muted">No conversations found for the selected criteria.</p>';
@@ -349,18 +491,29 @@
     // ===== Init =====
     $('fetchBtn').addEventListener('click', fetchConversations);
     $('signInBtn').addEventListener('click', () => {
+      debugLog('Manual sign-in initiated');
       sessionStorage.setItem('authAttempted', '1');
       window.location.assign(buildAuthUrl());
     });
-    $('retryBtn').addEventListener('click', () => initAuth(false)); // re-parse hash if present
+    $('retryBtn').addEventListener('click', () => {
+      debugLog('Retry token parse clicked');
+      initAuth(false);
+    });
+    $('clearDebugBtn').addEventListener('click', clearDebugConsole);
 
     (function boot() {
+      debugLog('Application booting...');
+      debugLog(`Configuration: ${JSON.stringify(CONFIG)}`);
+      
       const today = new Date();
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(today.getDate() - 7);
       $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
       $('toDate').value = today.toISOString().slice(0, 10);
-      initAuth(false); // don’t auto-redirect; use the button so you can see the URL
+      debugLog(`Set default date range: ${$('fromDate').value} to ${$('toDate').value}`);
+      
+      initAuth(false); // don't auto-redirect; use the button so you can see the URL
+      debugLog('Boot completed');
     })();
   </script>
 </body>
