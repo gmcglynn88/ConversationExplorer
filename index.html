@@ -41,14 +41,6 @@
       overflow-x: auto;
       font-size: 12px;
     }
-    .debug-info { 
-      background: #f3f4f6; 
-      border-left: 4px solid #3b82f6; 
-      padding: 12px; 
-      margin: 10px 0; 
-      font-family: monospace;
-      font-size: 14px;
-    }
   </style>
 </head>
 <body>
@@ -57,19 +49,6 @@
   </div>
 
   <h1>Conversation Explorer</h1>
-
-  <!-- Debug Information -->
-  <details class="card">
-    <summary><strong>Debug Information</strong> (click to expand)</summary>
-    <div class="debug-info">
-      <div><strong>Current URL:</strong> <span id="debugCurrentUrl"></span></div>
-      <div><strong>URL Hash:</strong> <span id="debugUrlHash"></span></div>
-      <div><strong>Token Present:</strong> <span id="debugTokenPresent">No</span></div>
-      <div><strong>Hardcoded Redirect URI:</strong> <span id="debugRedirectUri"></span></div>
-      <div><strong>OAuth URL:</strong> <span id="debugOAuthUrl"></span></div>
-      <div><strong>Auth Status:</strong> <span id="debugAuthStatus">Unknown</span></div>
-    </div>
-  </details>
 
   <div class="row">
     <div>
@@ -140,19 +119,6 @@
       $('errorMessage').textContent = isError ? (msg || '') : '';
     }
 
-    function updateDebugInfo() {
-      $('debugCurrentUrl').textContent = window.location.href;
-      $('debugUrlHash').textContent = window.location.hash || '(empty)';
-      $('debugTokenPresent').textContent = state.token ? 'Yes' : 'No';
-      $('debugRedirectUri').textContent = CONFIG.redirectUri;
-      
-      const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
-      $('debugOAuthUrl').textContent = oauthUrl;
-      
-      $('debugAuthStatus').textContent = state.token ? 'Authenticated' : 'Not Authenticated';
-      $('redirectUriDisplay').value = CONFIG.redirectUri;
-    }
-
     function enableUI() {
       $('agentSelect').disabled = false;
       $('agentFilter').disabled = false;
@@ -175,25 +141,28 @@
     }
 
     function initAuth() {
-      console.log('=== AUTHENTICATION DEBUG ===');
-      console.log('Current URL:', window.location.href);
-      console.log('Expected Redirect URI:', CONFIG.redirectUri);
-      
-      updateDebugInfo();
+      console.log('🔐 === AUTHENTICATION DEBUG ===');
+      console.log('📍 Current URL:', window.location.href);
+      console.log('🎯 Expected Redirect URI:', CONFIG.redirectUri);
+      console.log('🔑 Client ID:', CONFIG.clientId);
+
+      // Display redirect URI for verification
+      $('redirectUriDisplay').value = CONFIG.redirectUri;
 
       // Check if we're on the correct page for the redirect URI
       const currentUrl = window.location.origin + window.location.pathname;
       if (currentUrl !== CONFIG.redirectUri) {
-        console.warn('Current URL does not match configured Redirect URI');
-        console.warn('Current:', currentUrl);
-        console.warn('Expected:', CONFIG.redirectUri);
+        console.warn('❌ URL MISMATCH: Current URL does not match configured Redirect URI');
+        console.warn('   Current:', currentUrl);
+        console.warn('   Expected:', CONFIG.redirectUri);
         
         // If we're not on the correct page, redirect to it
-        if (confirm(`This app should be accessed from:\n\n${CONFIG.redirectUri}\n\nRedirect there now?`)) {
-          window.location.href = CONFIG.redirectUri;
-          return false;
-        }
+        console.log('🔄 Redirecting to correct URL...');
+        window.location.href = CONFIG.redirectUri;
+        return false;
       }
+
+      console.log('✅ URL matches configured Redirect URI');
 
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
@@ -201,14 +170,15 @@
       const error = params.get('error');
       const errorDescription = params.get('error_description');
       
-      console.log('Token from URL:', token ? 'PRESENT' : 'MISSING');
-      console.log('OAuth Error:', error);
-      console.log('Error Description:', errorDescription);
+      console.log('🔍 URL Hash Parameters:');
+      console.log('   - Token present:', token ? 'YES' : 'NO');
+      console.log('   - OAuth Error:', error || 'None');
+      console.log('   - Error Description:', errorDescription || 'None');
 
       // Check for OAuth errors first
       if (error) {
         const errorMsg = `OAuth Error: ${error}${errorDescription ? ` - ${errorDescription}` : ''}`;
-        console.error('OAuth authentication failed:', errorMsg);
+        console.error('❌ OAuth authentication failed:', errorMsg);
         setStatus(errorMsg, true);
         $('authInfo').textContent = 'Authentication Failed';
         $('authInfo').className = 'pill error';
@@ -217,27 +187,32 @@
       }
 
       if (token) {
-        console.log('Token found, authentication successful');
+        console.log('✅ Token found, authentication successful');
+        console.log('🔑 Token (first 50 chars):', token.substring(0, 50) + '...');
         state.token = token;
         $('authInfo').textContent = 'Authenticated ✓';
         $('authInfo').className = 'pill';
         
         // Clean URL - remove hash fragment
+        console.log('🧹 Cleaning URL - removing hash fragment');
         history.replaceState(null, '', location.pathname + location.search);
         
         enableUI();
-        updateDebugInfo();
         return true;
       } else {
-        console.log('No token found, starting OAuth flow...');
+        console.log('❌ No token found, starting OAuth flow...');
         $('authInfo').textContent = 'Redirecting to login...';
         $('authInfo').className = 'pill warning';
         
         // Start OAuth flow with hardcoded redirect URI
         const authUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
         
-        console.log('Redirecting to OAuth URL:', authUrl);
+        console.log('🔄 Building OAuth URL:', authUrl);
+        console.log('💡 Make sure this exact Redirect URI is registered in your Genesys Cloud OAuth client:');
+        console.log('   ', CONFIG.redirectUri);
+        
         setTimeout(() => {
+          console.log('🚀 Redirecting to OAuth provider...');
           window.location.href = authUrl;
         }, 1000);
         
@@ -247,13 +222,13 @@
 
     async function api(path) {
       if (!state.token) throw new Error('Not authenticated');
-      console.log(`API Call: ${path}`);
+      console.log(`📡 API Call: ${path}`);
       
       const res = await fetch(`${state.regionHost}${path}`, {
         headers: { 'Authorization': `Bearer ${state.token}` }
       });
       
-      console.log(`API Response: ${res.status} ${res.statusText}`);
+      console.log(`📡 API Response: ${res.status} ${res.statusText}`);
       
       if (!res.ok) throw new Error(`API Error: ${res.status} ${res.statusText}`);
       return res.json();
@@ -262,17 +237,17 @@
     async function fetchAllUsers() {
       try {
         setStatus('Loading users…');
-        console.log('Starting to fetch users...');
+        console.log('👥 Starting to fetch users...');
         
         let allUsers = [];
         let pageNumber = 1;
         const pageSize = 100;
 
         while (true) {
-          console.log(`Fetching users page ${pageNumber}...`);
+          console.log(`📄 Fetching users page ${pageNumber}...`);
           const data = await api(`/api/v2/users?pageSize=${pageSize}&pageNumber=${pageNumber}`);
           const batch = data?.entities || [];
-          console.log(`Received ${batch.length} users in this batch`);
+          console.log(`📥 Received ${batch.length} users in this batch`);
           
           allUsers = allUsers.concat(batch);
           
@@ -286,12 +261,12 @@
           email: u.email || '' 
         }));
         
-        console.log(`Total users loaded: ${state.users.length}`);
+        console.log(`✅ Total users loaded: ${state.users.length}`);
         populateUserSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`);
         
       } catch (e) {
-        console.error('Error fetching users:', e);
+        console.error('❌ Error fetching users:', e);
         setStatus(e.message, true);
         $('agentSelect').innerHTML = '<option>Failed to load users</option>';
       }
@@ -307,7 +282,7 @@
         const selectedUser = users.find(u => u.id === select.value);
         state.selectedAgent = selectedUser;
         $('selectedAgentName').textContent = selectedUser ? `${selectedUser.name}` : 'None';
-        console.log(`Selected agent: ${selectedUser?.name} (${selectedUser?.id})`);
+        console.log(`👤 Selected agent: ${selectedUser?.name} (${selectedUser?.id})`);
       };
       
       if (users.length > 0) {
@@ -330,7 +305,7 @@
     async function fetchConversations() {
       try {
         setStatus('Fetching conversations...');
-        console.log('Starting conversation fetch...');
+        console.log('💬 Starting conversation fetch...');
         
         if (!state.selectedAgent) {
           throw new Error('Please select an agent first');
@@ -343,7 +318,7 @@
           throw new Error('Please select a start date');
         }
 
-        console.log(`Fetching conversations for agent ${state.selectedAgent.name} from ${fromDate} to ${toDate}`);
+        console.log(`📅 Fetching conversations for agent ${state.selectedAgent.name} from ${fromDate} to ${toDate}`);
 
         const interval = `${fromDate}T00:00:00/${toDate}T23:59:59`;
 
@@ -362,7 +337,7 @@
           }]
         };
 
-        console.log('Sending analytics query:', JSON.stringify(requestBody, null, 2));
+        console.log('📤 Sending analytics query:', JSON.stringify(requestBody, null, 2));
 
         const response = await fetch(`${state.regionHost}/api/v2/analytics/conversations/details/query`, {
           method: 'POST',
@@ -373,22 +348,22 @@
           body: JSON.stringify(requestBody)
         });
 
-        console.log(`Analytics API response: ${response.status} ${response.statusText}`);
+        console.log(`📥 Analytics API response: ${response.status} ${response.statusText}`);
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Analytics API error response:', errorText);
+          console.error('❌ Analytics API error response:', errorText);
           throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
         state.conversations = data.conversations || [];
-        console.log(`Received ${state.conversations.length} conversations`);
+        console.log(`✅ Received ${state.conversations.length} conversations`);
         renderResults(state.conversations);
         setStatus(`Found ${state.conversations.length} conversations`);
 
       } catch (error) {
-        console.error('Error fetching conversations:', error);
+        console.error('❌ Error fetching conversations:', error);
         setStatus(error.message, true);
       }
     }
@@ -419,7 +394,7 @@
     $('fetchBtn').addEventListener('click', fetchConversations);
 
     (function init() {
-      console.log('=== APPLICATION INITIALIZATION ===');
+      console.log('🚀 === APPLICATION INITIALIZATION ===');
       
       // Set default dates (today and 7 days ago)
       const today = new Date();
@@ -432,14 +407,11 @@
       // Start authentication
       const isAuthenticated = initAuth();
       if (isAuthenticated) {
-        console.log('Authentication successful, loading users...');
+        console.log('✅ Authentication successful, loading users...');
         fetchAllUsers();
       } else {
-        console.log('Authentication required, redirecting to OAuth...');
+        console.log('🔄 Authentication required, redirecting to OAuth...');
       }
-      
-      // Update debug info periodically
-      setInterval(updateDebugInfo, 1000);
     })();
   </script>
 </body>
