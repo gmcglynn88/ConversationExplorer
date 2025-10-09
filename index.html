@@ -56,7 +56,7 @@
       <span id="authInfo" class="pill warning">Checking...</span>
     </div>
     <div>
-      <label>Redirect URI</label>
+      <label>Current Redirect URI</label>
       <input type="text" id="redirectUriDisplay" readonly style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px; border-radius: 4px; width: 100%; max-width: 400px; font-size: 12px;">
     </div>
   </div>
@@ -105,7 +105,6 @@
     // ========== CONFIGURATION ==========
     const CONFIG = {
       clientId: 'bbc89753-462b-493d-ab94-4778af9e7d4d',
-      redirectUri: 'https://gmcglynn88.github.io/ConversationExplorer/',
       regionHost: 'https://api.mypurecloud.ie'
     };
     // ========== END CONFIGURATION ==========
@@ -140,14 +139,21 @@
       $('fetchBtn').style.cursor = 'not-allowed';
     }
 
+    function getCurrentRedirectUri() {
+      // Use the current page's URL as the redirect URI
+      const redirectUri = window.location.origin + window.location.pathname;
+      console.log('🔄 Current Redirect URI:', redirectUri);
+      return redirectUri;
+    }
+
     function initAuth() {
       console.log('🔐 === AUTHENTICATION DEBUG ===');
       console.log('📍 Current URL:', window.location.href);
-      console.log('🎯 Registered Redirect URI:', CONFIG.redirectUri);
       console.log('🔑 Client ID:', CONFIG.clientId);
 
-      // Display redirect URI for verification
-      $('redirectUriDisplay').value = CONFIG.redirectUri;
+      // Get the current URL to use as redirect URI
+      const currentRedirectUri = getCurrentRedirectUri();
+      $('redirectUriDisplay').value = currentRedirectUri;
 
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
@@ -189,15 +195,17 @@
         $('authInfo').textContent = 'Redirecting to login...';
         $('authInfo').className = 'pill warning';
         
-        // Start OAuth flow with the registered redirect URI
-        const authUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
+        // Use current page URL as redirect URI
+        const redirectUri = getCurrentRedirectUri();
+        const authUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
         
         console.log('🔄 Building OAuth URL...');
-        console.log('💡 IMPORTANT: Make sure this exact Redirect URI is registered in Genesys Cloud:');
-        console.log('   ', CONFIG.redirectUri);
+        console.log('💡 IMPORTANT: Add this EXACT Redirect URI to your Genesys Cloud OAuth client:');
+        console.log('   ', redirectUri);
+        console.log('🚀 Full OAuth URL:', authUrl);
         console.log('🚀 Redirecting to OAuth provider...');
         
-        // Redirect immediately without any popups or checks
+        // Redirect immediately
         window.location.href = authUrl;
         
         return false;
