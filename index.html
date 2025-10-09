@@ -43,7 +43,9 @@
     .badge-agent { background: #dcfce7; color: #166534; }
     .badge-system { background: #fef3c7; color: #92400e; }
     .badge-queue { background: #f3e8ff; color: #7c3aed; }
+    .badge-ivr { background: #fce7f3; color: #be185d; }
     .transfer-count { background: #fecaca; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .transfer-info { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 4px; padding: 8px; margin: 8px 0; }
     .progress-bar { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; margin: 10px 0; overflow: hidden; }
     .progress-fill { height: 100%; background: #10b981; transition: width 0.3s ease; }
     .chunk-info { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px; margin: 12px 0; }
@@ -340,7 +342,7 @@
         state.selectedAgent = selectedUser || null;
         
         if (selectedUser) {
-          $('selectedAgentName').textContent = `${selectedUser.name} ${selectedUser.email ? `(${u.email})` : ''}`;
+          $('selectedAgentName').textContent = `${selectedUser.name} ${selectedUser.email ? `(${selectedUser.email})` : ''}`;
           $('selectedAgentInfo').style.display = 'block';
         } else {
           $('selectedAgentInfo').style.display = 'none';
@@ -392,12 +394,11 @@
       const end = new Date(endDate);
       const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
       
-      // Adjust chunk size based on total range
-      if (totalDays <= 7) return 7;      // 1 week or less - single chunk
-      if (totalDays <= 30) return 7;     // 1 month - 7 day chunks
-      if (totalDays <= 90) return 5;     // 3 months - 5 day chunks
-      if (totalDays <= 180) return 3;    // 6 months - 3 day chunks
-      return 2;                          // More than 6 months - 2 day chunks
+      if (totalDays <= 7) return 7;
+      if (totalDays <= 30) return 7;
+      if (totalDays <= 90) return 5;
+      if (totalDays <= 180) return 3;
+      return 2;
     }
 
     // ===== Conversations =====
@@ -430,7 +431,6 @@
             Auto-splitting into <strong>${dateChunks.length} chunks</strong> of ${chunkSize} days each for better performance.
           `;
         } else {
-          // Single chunk for the entire range
           dateChunks = [{ start: fromDate, end: toDate }];
           $('chunkInfo').innerHTML = `Processing date range: <strong>${fromDate} to ${toDate}</strong>`;
         }
@@ -438,7 +438,6 @@
         showProgress();
         state.conversations = [];
 
-        // Fetch conversations for each date chunk
         for (let i = 0; i < dateChunks.length; i++) {
           const chunk = dateChunks[i];
           const progress = ((i) / dateChunks.length) * 100;
@@ -452,11 +451,9 @@
             console.log(`Chunk ${i + 1}: Found ${chunkConversations.length} conversations`);
           } catch (error) {
             console.error(`Error in chunk ${i + 1}:`, error);
-            // Continue with next chunk even if one fails
             setStatus(`Warning: Failed to fetch chunk ${i + 1}, continuing with remaining chunks...`, true);
           }
           
-          // Small delay to avoid rate limiting
           if (i < dateChunks.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
@@ -549,7 +546,7 @@
       const mediaType = conversation.mediaType || 'Unknown';
       const direction = conversation.direction || 'Unknown';
       const ani = getANI(conversation);
-      const transferCount = calculateTransferCount(conversation);
+      const transferInfo = analyzeTransfers(conversation);
       
       return `
         <div class="conversation-header">
@@ -568,7 +565,7 @@
             </div>
             <div class="info-item">
               <span class="info-label">Total Transfers:</span>
-              <span class="info-value"><span class="transfer-count">${transferCount}</span></span>
+              <span class="info-value"><span class="transfer-count">${transferInfo.totalTransfers}</span></span>
             </div>
             <div class="info-item">
               <span class="info-label">Conversation Start:</span>
@@ -587,7 +584,7 @@
         
         <h3>Customer Journey Timeline</h3>
         <div class="journey-timeline">
-          ${renderJourneyTimeline(conversation)}
+          ${renderJourneyTimeline(conversation, transferInfo)}
         </div>
         
         <details>
@@ -608,23 +605,46 @@
       return 'Unknown';
     }
 
-    function calculateTransferCount(conversation) {
-      let transfers = 0;
+    function analyzeTransfers(conversation) {
+      const transfers = [];
+      let totalTransfers = 0;
+      
       if (conversation.participants) {
-        const acdParticipants = conversation.participants.filter(p => 
-          p.purpose === 'acd' || p.userId
+        const sortedParticipants = [...conversation.participants].sort((a, b) => 
+          new Date(a.startTime) - new Date(b.startTime)
         );
-        
-        for (let i = 1; i < acdParticipants.length; i++) {
-          if (acdParticipants[i].userId !== acdParticipants[i-1].userId) {
-            transfers++;
+
+        for (let i = 1; i < sortedParticipants.length; i++) {
+          const current = sortedParticipants[i];
+          const previous = sortedParticipants[i - 1];
+          
+          // Detect transfers between different agents or to queues
+          if ((current.purpose === 'acd' && previous.purpose === 'acd' && current.userId !== previous.userId) ||
+              (current.purpose === 'acd' && previous.purpose === 'user') ||
+              (current.purpose === 'user' && previous.purpose === 'acd')) {
+            
+            const fromParticipant = getParticipantName(previous);
+            const toParticipant = getParticipantName(current);
+            
+            transfers.push({
+              step: i,
+              from: fromParticipant,
+              to: toParticipant,
+              time: current.startTime,
+              type: current.purpose === 'acd' ? 'To Queue' : 'To Agent'
+            });
+            totalTransfers++;
           }
         }
       }
-      return transfers;
+      
+      return {
+        transfers,
+        totalTransfers
+      };
     }
 
-    function renderJourneyTimeline(conversation) {
+    function renderJourneyTimeline(conversation, transferInfo) {
       if (!conversation.participants || conversation.participants.length === 0) {
         return '<p>No participant data available</p>';
       }
@@ -639,13 +659,31 @@
         const duration = formatDuration(participant.duration);
         const alertTime = participant.alertStartTime ? formatDuration(new Date(participant.startTime) - new Date(participant.alertStartTime)) : 'N/A';
         
+        // Check if this step involved a transfer
+        const transfer = transferInfo.transfers.find(t => t.step === index);
+        
         return `
           <div class="journey-step">
             <div class="step-header">
               Step ${index + 1}: ${getParticipantBadge(purpose, participantName)}
+              ${transfer ? `<span style="color: #dc2626; margin-left: 8px;">🔄 TRANSFERRED</span>` : ''}
             </div>
             <div class="step-details">
+              ${transfer ? `
+                <div class="transfer-info">
+                  <strong>Transfer Details:</strong><br>
+                  From: ${transfer.from}<br>
+                  To: ${transfer.to}<br>
+                  Type: ${transfer.type}<br>
+                  Time: ${fmt(transfer.time)}
+                </div>
+              ` : ''}
+              
               <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Participant Type:</span>
+                  <span class="info-value">${getParticipantType(participant)}</span>
+                </div>
                 <div class="info-item">
                   <span class="info-label">Start Time:</span>
                   <span class="info-value">${fmt(participant.startTime)}</span>
@@ -670,13 +708,32 @@
                   <span class="info-label">State:</span>
                   <span class="info-value">${participant.state || 'N/A'}</span>
                 </div>
+                ${participant.userId ? `
+                <div class="info-item">
+                  <span class="info-label">User ID:</span>
+                  <span class="info-value">${participant.userId}</span>
+                </div>
+                ` : ''}
+                ${participant.queueId ? `
+                <div class="info-item">
+                  <span class="info-label">Queue ID:</span>
+                  <span class="info-value">${participant.queueId}</span>
+                </div>
+                ` : ''}
               </div>
+              
               ${participant.addresses ? `
                 <div style="margin-top: 8px;">
                   <strong>Addresses:</strong> 
                   ${participant.addresses.map(addr => 
                     `<span class="participant-badge badge-system">${addr.raw || addr.display || 'N/A'}</span>`
                   ).join('')}
+                </div>
+              ` : ''}
+              
+              ${participant.sessions ? `
+                <div style="margin-top: 8px;">
+                  <strong>Sessions:</strong> ${participant.sessions.length}
                 </div>
               ` : ''}
             </div>
@@ -695,17 +752,29 @@
         return 'ACD Queue';
       } else if (participant.purpose === 'ivr') {
         return 'IVR System';
+      } else if (participant.purpose === 'external') {
+        return 'External System';
       } else {
         return participant.purpose || 'Unknown';
       }
     }
 
+    function getParticipantType(participant) {
+      if (participant.purpose === 'customer') return 'Customer';
+      if (participant.userId) return 'Agent';
+      if (participant.purpose === 'acd') return 'Queue';
+      if (participant.purpose === 'ivr') return 'IVR System';
+      if (participant.purpose === 'external') return 'External';
+      return participant.purpose || 'Unknown';
+    }
+
     function getParticipantBadge(purpose, name) {
       const badgeClass = {
         'customer': 'badge-customer',
-        'acd': 'badge-agent',
+        'acd': 'badge-queue',
         'user': 'badge-agent',
-        'ivr': 'badge-system',
+        'ivr': 'badge-ivr',
+        'external': 'badge-system',
         'queue': 'badge-queue'
       }[purpose] || 'badge-system';
       
