@@ -9,8 +9,8 @@
     #logo-container { text-align: center; margin-bottom: 20px; }
     #logo { width: 300px; }
     label { margin-top: 10px; display: block; font-weight: bold; }
-    select, input, button { margin-top: 5px; padding: 8px; width: 100%; max-width: 300px; }
-    #statusMessage { margin-top: 20px; color: green; }
+    select, input, button { margin-top: 5px; padding: 8px; width: 100%; max-width: 320px; }
+    #statusMessage { margin-top: 20px; color: green; white-space: pre-wrap; }
     #errorMessage { margin-top: 10px; color: #c1272d; white-space: pre-wrap; }
     .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
     .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-top: 12px; }
@@ -21,6 +21,9 @@
     details { background:#f9fafb; border:1px solid #e5e7eb; border-radius: 8px; padding:12px; margin:10px 0; }
     details>summary { cursor:pointer; font-weight:600; }
     pre { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
+    .btn { background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 10px 16px; cursor: pointer; }
+    .btn.grey { background: #9ca3af; cursor: not-allowed; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   </style>
 </head>
 <body>
@@ -30,19 +33,36 @@
 
   <h1>Conversation Explorer</h1>
 
-  <div class="row">
-    <div>
-      <label>Authentication Status</label>
-      <span id="authInfo" class="pill warning">Checking...</span>
+  <div class="card">
+    <h3 style="margin-top:0">OAuth Setup</h3>
+    <div class="row">
+      <div>
+        <label>Authentication Status</label>
+        <span id="authInfo" class="pill warning">Not signed in</span>
+      </div>
+      <div>
+        <label>Configured Redirect URI (whitelist this in Genesys)</label>
+        <input type="text" id="redirectUriConfigured" class="mono" readonly />
+      </div>
+      <div>
+        <label>Current Page URL</label>
+        <input type="text" id="currentPage" class="mono" readonly />
+      </div>
     </div>
-    <div>
-      <label>Current Redirect URI</label>
-      <input type="text" id="redirectUriDisplay" readonly
-        style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px; border-radius: 4px; width: 100%; max-width: 400px; font-size: 12px;">
+    <div class="row" style="margin-top:10px;">
+      <div style="flex:1; min-width:280px;">
+        <button id="signInBtn" class="btn">Sign in with Genesys</button>
+        <button id="retryBtn" class="btn" style="background:#10b981;">Retry token parse</button>
+      </div>
+      <div style="flex:1; min-width:280px;">
+        <label>Authorize URL (for debugging)</label>
+        <input type="text" id="authUrlPreview" class="mono" readonly />
+      </div>
     </div>
+    <div id="preflightWarn" class="muted" style="margin-top:8px;"></div>
   </div>
 
-  <div class="row">
+  <div class="row" style="margin-top:16px;">
     <div>
       <label for="agentSelect">Select Agent</label>
       <select id="agentSelect" disabled><option>Authentication required...</option></select>
@@ -59,9 +79,7 @@
         <input id="toDate" type="date" disabled />
       </div>
       <div style="margin-top:12px;">
-        <button id="fetchBtn" disabled style="background: #9ca3af; color: white; border: none; border-radius: 6px; padding: 10px 16px; cursor: not-allowed;">
-          Fetch Conversations (Authentication Required)
-        </button>
+        <button id="fetchBtn" class="btn grey" disabled>Fetch Conversations (Authentication Required)</button>
       </div>
     </div>
   </div>
@@ -75,19 +93,20 @@
   </div>
 
   <script>
+    // ===== Configuration (tailored to your GitHub Pages URL) =====
+    const CONFIG = {
+      clientId: 'bbc89753-462b-493d-ab94-4778af9e7d4d', // your Conversation Explorer client
+      redirectUri: 'https://gmcglynn88.github.io/ConversationExplorer/', // NOTE trailing slash
+      loginHost: 'https://login.mypurecloud.ie',
+      apiHost:   'https://api.mypurecloud.ie'
+    };
+
     // ===== App State =====
     const state = {
       token: null,
-      regionHost: 'https://api.mypurecloud.ie',
       conversations: [],
       users: [],
       selectedAgent: null
-    };
-
-    // ===== Configuration =====
-    const CONFIG = {
-      clientId: 'bbc89753-462b-493d-ab94-4778af9e7d4d',
-      regionHost: 'https://api.mypurecloud.ie' // ensure this matches your org region
     };
 
     // ===== Helpers =====
@@ -95,91 +114,82 @@
     const fmt = (d) => new Date(d).toLocaleString();
 
     function setStatus(msg, isError = false) {
-      console[isError ? 'error' : 'log'](`Status: ${msg}`);
+      console[isError ? 'error' : 'log'](msg);
       $('statusMessage').textContent = isError ? '' : (msg || '');
       $('errorMessage').textContent = isError ? (msg || '') : '';
     }
-
     function enableUI() {
-      $('agentSelect').disabled = false;
-      $('agentFilter').disabled = false;
-      $('fromDate').disabled = false;
-      $('toDate').disabled = false;
-      $('fetchBtn').disabled = false;
-      $('fetchBtn').style.backgroundColor = '#3b82f6';
-      $('fetchBtn').style.cursor = 'pointer';
-      $('fetchBtn').textContent = 'Fetch Conversations';
+      ['agentSelect','agentFilter','fromDate','toDate','fetchBtn'].forEach(id => $(id).disabled = false);
+      $('fetchBtn').classList.remove('grey');
     }
-
     function disableUI() {
-      $('agentSelect').disabled = true;
-      $('agentFilter').disabled = true;
-      $('fromDate').disabled = true;
-      $('toDate').disabled = true;
-      $('fetchBtn').disabled = true;
-      $('fetchBtn').style.backgroundColor = '#9ca3af';
-      $('fetchBtn').style.cursor = 'not-allowed';
+      ['agentSelect','agentFilter','fromDate','toDate','fetchBtn'].forEach(id => $(id).disabled = true);
+      $('fetchBtn').classList.add('grey');
     }
 
-    function getCurrentRedirectUri() {
-      const redirectUri = window.location.origin + window.location.pathname;
-      console.log('🔄 Current Redirect URI:', redirectUri);
-      return redirectUri;
+    function buildAuthUrl() {
+      return `${CONFIG.loginHost}/oauth/authorize` +
+             `?client_id=${encodeURIComponent(CONFIG.clientId)}` +
+             `&response_type=token` +
+             `&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}` +
+             `&state=${encodeURIComponent(location.pathname)}`;
     }
 
-    // ===== OAuth Init (with loop guard & better error surfacing) =====
-    function initAuth() {
-      console.log('🔐 === AUTHENTICATION DEBUG ===');
-      console.log('📍 Current URL:', window.location.href);
-      console.log('🔑 Client ID:', CONFIG.clientId);
+    // ===== OAuth handling =====
+    function parseTokenFromHash() {
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const token = hash.get('access_token');
+      const error = hash.get('error');
+      const errorDescription = hash.get('error_description');
+      return { token, error, errorDescription };
+    }
 
-      // Hosting check
+    function initAuth(autoRedirect = false) {
+      // Diagnostics
+      $('redirectUriConfigured').value = CONFIG.redirectUri;
+      $('currentPage').value = window.location.origin + window.location.pathname;
+      $('authUrlPreview').value = buildAuthUrl();
+
+      // Preflight warning if not hosted at the configured redirect (common GH Pages mismatch)
+      const here = window.location.origin + window.location.pathname;
+      if (!here.startsWith(CONFIG.redirectUri)) {
+        $('preflightWarn').innerHTML =
+          `ℹ️ GitHub Pages serves <span class="mono">${CONFIG.redirectUri}</span> (folder) → <span class="mono">index.html</span>.<br>` +
+          `Current page is <span class="mono">${here}</span>. Ensure this file is at <span class="mono">/ConversationExplorer/index.html</span> and the OAuth client includes <span class="mono">${CONFIG.redirectUri}</span>.`;
+      } else {
+        $('preflightWarn').textContent = '';
+      }
+
       if (location.protocol === 'file:') {
-        setStatus('This page is opened via file:// — OAuth cannot redirect here. Please serve over http(s).', true);
+        setStatus('Opened via file:// — use https://gmcglynn88.github.io/ConversationExplorer/', true);
         $('authInfo').textContent = 'Invalid hosting (file://)';
         $('authInfo').className = 'pill error';
         disableUI();
         return false;
       }
 
-      // Show computed redirect URI
-      const currentRedirectUri = getCurrentRedirectUri();
-      $('redirectUriDisplay').value = currentRedirectUri;
-
-      // Parse both hash and query (some IdPs use query for errors)
-      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-      const query = new URLSearchParams(window.location.search);
-
-      const token = hash.get('access_token');
-      const error = hash.get('error') || query.get('error');
-      const errorDescription = hash.get('error_description') || query.get('error_description');
-
-      console.log('🔍 OAuth Params:', { tokenPresent: !!token, error, errorDescription });
+      const { token, error, errorDescription } = parseTokenFromHash();
 
       if (error) {
         const errTxt = `OAuth Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`;
-        console.error('❌ OAuth authentication failed:', errTxt);
         setStatus(errTxt, true);
         $('authInfo').textContent = 'Authentication Failed';
         $('authInfo').className = 'pill error';
-        sessionStorage.removeItem('authAttempted'); // stop infinite loops
+        sessionStorage.removeItem('authAttempted');
         disableUI();
         return false;
       }
 
       if (token) {
-        console.log('✅ Token found, authentication successful');
         state.token = token;
         $('authInfo').textContent = 'Authenticated ✓';
         $('authInfo').className = 'pill';
-
-        // Clean URL (remove hash & query)
-        history.replaceState(null, '', location.pathname);
+        history.replaceState(null, '', location.pathname); // clean hash
         enableUI();
         return true;
       }
 
-      // No token, kick off OAuth only once per load
+      if (!autoRedirect) return false;
       const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
       if (alreadyTried) {
         setStatus('OAuth redirect attempted but no token returned. Check Redirect URI and OAuth client settings.', true);
@@ -189,36 +199,17 @@
         return false;
       }
 
-      $('authInfo').textContent = 'Redirecting to login...';
-      $('authInfo').className = 'pill warning';
-
-      const redirectUri = getCurrentRedirectUri();
-      const authUrl =
-        `https://login.mypurecloud.ie/oauth/authorize` +
-        `?client_id=${encodeURIComponent(CONFIG.clientId)}` +
-        `&response_type=token` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&state=${encodeURIComponent(location.pathname)}`;
-
-      console.log('💡 IMPORTANT: Add this EXACT Redirect URI to your Genesys Cloud OAuth client:', redirectUri);
-      console.log('🚀 Redirecting to:', authUrl);
-
       sessionStorage.setItem('authAttempted', '1');
-      window.location.assign(authUrl);
+      window.location.assign(buildAuthUrl());
       return false;
     }
 
-    // ===== API helper with stronger error messages =====
+    // ===== API helper =====
     async function api(path) {
       if (!state.token) throw new Error('Not authenticated');
-      console.log(`📡 API Call: ${path}`);
-
-      const res = await fetch(`${state.regionHost}${path}`, {
+      const res = await fetch(`${CONFIG.apiHost}${path}`, {
         headers: { 'Authorization': `Bearer ${state.token}` }
       });
-
-      console.log(`📡 API Response: ${res.status} ${res.statusText}`);
-
       if (res.status === 401 || res.status === 403) {
         const txt = await res.text().catch(() => '');
         throw new Error(
@@ -226,7 +217,6 @@
           `Body: ${txt.slice(0, 500)}`
         );
       }
-
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         throw new Error(`API Error: ${res.status} ${res.statusText}.\nBody: ${txt.slice(0, 500)}`);
@@ -238,30 +228,22 @@
     async function fetchAllUsers() {
       try {
         setStatus('Loading users…');
-        console.log('👥 Starting to fetch users...');
-
         let allUsers = [];
         let pageNumber = 1;
         const pageSize = 100;
 
         while (true) {
-          console.log(`📄 Fetching users page ${pageNumber}...`);
           const data = await api(`/api/v2/users?pageSize=${pageSize}&pageNumber=${pageNumber}`);
           const batch = data?.entities || [];
-          console.log(`📥 Received ${batch.length} users in this batch`);
-
           allUsers = allUsers.concat(batch);
-
           if (!data?.nextUri || batch.length < pageSize) break;
           pageNumber++;
         }
 
         state.users = allUsers.map(u => ({ id: u.id, name: u.name, email: u.email || '' }));
-        console.log(`✅ Total users loaded: ${state.users.length}`);
         populateUserSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`);
       } catch (e) {
-        console.error('❌ Error fetching users:', e);
         setStatus(e.message, true);
         $('agentSelect').innerHTML = '<option>Failed to load users</option>';
       }
@@ -277,7 +259,6 @@
         const selectedUser = users.find(u => u.id === select.value);
         state.selectedAgent = selectedUser || null;
         $('selectedAgentName').textContent = selectedUser ? `${selectedUser.name}` : 'None';
-        console.log(`👤 Selected agent: ${selectedUser?.name || 'None'} (${selectedUser?.id || ''})`);
       };
 
       if (users.length > 0) {
@@ -301,17 +282,13 @@
     async function fetchConversations() {
       try {
         setStatus('Fetching conversations...');
-        console.log('💬 Starting conversation fetch...');
-
         if (!state.selectedAgent) throw new Error('Please select an agent first');
 
         const fromDate = $('fromDate').value;
         const toDate = $('toDate').value || fromDate;
         if (!fromDate) throw new Error('Please select a start date');
 
-        console.log(`📅 Fetching conversations for agent ${state.selectedAgent.name} from ${fromDate} to ${toDate}`);
         const interval = `${fromDate}T00:00:00/${toDate}T23:59:59`;
-
         const requestBody = {
           interval,
           order: 'asc',
@@ -327,9 +304,7 @@
           }]
         };
 
-        console.log('📤 Sending analytics query:', JSON.stringify(requestBody, null, 2));
-
-        const response = await fetch(`${state.regionHost}/api/v2/analytics/conversations/details/query`, {
+        const response = await fetch(`${CONFIG.apiHost}/api/v2/analytics/conversations/details/query`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${state.token}`,
@@ -338,33 +313,26 @@
           body: JSON.stringify(requestBody)
         });
 
-        console.log(`📥 Analytics API response: ${response.status} ${response.statusText}`);
-
         const bodyText = await response.text().catch(() => '');
         if (!response.ok) {
-          console.error('❌ Analytics API error response:', bodyText);
           throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}\nBody: ${bodyText.slice(0, 800)}`);
         }
 
         const data = bodyText ? JSON.parse(bodyText) : {};
         state.conversations = data.conversations || [];
-        console.log(`✅ Received ${state.conversations.length} conversations`);
         renderResults(state.conversations);
         setStatus(`Found ${state.conversations.length} conversations`);
       } catch (error) {
-        console.error('❌ Error fetching conversations:', error);
         setStatus(error.message, true);
       }
     }
 
     function renderResults(conversations) {
       const resultsContainer = $('results');
-
       if (conversations.length === 0) {
         resultsContainer.innerHTML = '<p class="muted">No conversations found for the selected criteria.</p>';
         return;
       }
-
       resultsContainer.innerHTML = conversations.map(conv => `
         <details>
           <summary>
@@ -378,28 +346,21 @@
       `).join('');
     }
 
-    // ===== Initialise =====
+    // ===== Init =====
     $('fetchBtn').addEventListener('click', fetchConversations);
+    $('signInBtn').addEventListener('click', () => {
+      sessionStorage.setItem('authAttempted', '1');
+      window.location.assign(buildAuthUrl());
+    });
+    $('retryBtn').addEventListener('click', () => initAuth(false)); // re-parse hash if present
 
-    (function init() {
-      console.log('🚀 === APPLICATION INITIALISATION ===');
-
-      // Default date range: today and 7 days ago
+    (function boot() {
       const today = new Date();
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(today.getDate() - 7);
-
       $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
       $('toDate').value = today.toISOString().slice(0, 10);
-
-      // Set host from config (keep consistent)
-      state.regionHost = CONFIG.regionHost;
-
-      const isAuthenticated = initAuth();
-      if (isAuthenticated) {
-        console.log('✅ Authentication successful, loading users...');
-        fetchAllUsers();
-      }
+      initAuth(false); // don’t auto-redirect; use the button so you can see the URL
     })();
   </script>
 </body>
