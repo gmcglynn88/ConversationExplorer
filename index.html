@@ -32,6 +32,11 @@
   </div>
 
   <h1>Conversation Explorer</h1>
+  <details class="card"><summary><strong>Debug</strong> (click to expand)</summary>
+    <div>Computed Redirect URI: <code id="dbgRedirect"></code></div>
+    <div>Authorize URL: <code id="dbgAuth"></code></div>
+    <div>Origin: <code id="dbgOrigin"></code></div>
+  </details>
 
   <div class="row">
     <div>
@@ -40,7 +45,7 @@
     </div>
     <div>
       <label for="redirectUri">Redirect URI</label>
-      <input id="redirectUri" type="text" value="https://gmcglynn88.github.io/ConversationExplorer/" readonly />
+      <input id="redirectUri" type="text" value="" readonly />
     </div>
     <div>
       <label>&nbsp;</label>
@@ -100,8 +105,16 @@
 
     function buildOAuthUrl() {
       const clientId = $('clientId').value.trim();
-      const redirectUri = $('redirectUri').value.trim();
-      return `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      // Always use the *actual* URL the app is running at (avoids copy/paste mismatch)
+      const redirectUri = window.location.origin + window.location.pathname;
+      $('redirectUri').value = redirectUri;
+      const url = `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      // Debug surface
+      $('dbgRedirect').textContent = redirectUri;
+      $('dbgOrigin').textContent = window.location.origin;
+      $('dbgAuth').textContent = url;
+      return url;
+    }&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
 
     function initAuth() {
@@ -209,6 +222,8 @@
       $('fromDate').value = today; $('toDate').value = today;
       const authed = initAuth();
       if (authed) fetchAllUsers();
+      // Ensure debug shows values even when token is present
+      buildOAuthUrl();
     })();
   </script>
 </body>
