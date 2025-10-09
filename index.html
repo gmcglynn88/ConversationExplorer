@@ -1,46 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Genesys Conversation Explorer</title>
   <style>
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      margin: 20px;
-      padding: 20px;
-      max-width: 1200px;
-    }
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; padding: 20px; max-width: 1200px; }
     #logo-container { text-align: center; margin-bottom: 20px; }
     #logo { width: 300px; }
     label { margin-top: 10px; display: block; font-weight: bold; }
     select, input, button { margin-top: 5px; padding: 8px; width: 100%; max-width: 300px; }
     #statusMessage { margin-top: 20px; color: green; }
-    #errorMessage { margin-top: 10px; color: #c1272d; }
+    #errorMessage { margin-top: 10px; color: #c1272d; white-space: pre-wrap; }
     .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
     .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-top: 12px; }
     .muted { color: #6b7280; }
-    .pill { 
-      display:inline-block; 
-      padding:4px 12px; 
-      background: #10b981; 
-      color: white;
-      border-radius:999px; 
-      font-size:12px; 
-      font-weight: bold;
-    }
+    .pill { display:inline-block; padding:4px 12px; background: #10b981; color: white; border-radius:999px; font-size:12px; font-weight: bold; }
     .pill.error { background: #ef4444; }
     .pill.warning { background: #f59e0b; }
     details { background:#f9fafb; border:1px solid #e5e7eb; border-radius: 8px; padding:12px; margin:10px 0; }
     details>summary { cursor:pointer; font-weight:600; }
-    pre { 
-      background: #1f2937; 
-      color: #f3f4f6; 
-      padding: 12px; 
-      border-radius: 6px; 
-      overflow-x: auto;
-      font-size: 12px;
-    }
+    pre { background: #1f2937; color: #f3f4f6; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -57,7 +37,8 @@
     </div>
     <div>
       <label>Current Redirect URI</label>
-      <input type="text" id="redirectUriDisplay" readonly style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px; border-radius: 4px; width: 100%; max-width: 400px; font-size: 12px;">
+      <input type="text" id="redirectUriDisplay" readonly
+        style="background: #f3f4f6; border: 1px solid #d1d5db; padding: 8px; border-radius: 4px; width: 100%; max-width: 400px; font-size: 12px;">
     </div>
   </div>
 
@@ -94,6 +75,7 @@
   </div>
 
   <script>
+    // ===== App State =====
     const state = {
       token: null,
       regionHost: 'https://api.mypurecloud.ie',
@@ -102,19 +84,19 @@
       selectedAgent: null
     };
 
-    // ========== CONFIGURATION ==========
+    // ===== Configuration =====
     const CONFIG = {
       clientId: 'bbc89753-462b-493d-ab94-4778af9e7d4d',
-      regionHost: 'https://api.mypurecloud.ie'
+      regionHost: 'https://api.mypurecloud.ie' // ensure this matches your org region
     };
-    // ========== END CONFIGURATION ==========
 
+    // ===== Helpers =====
     const $ = (id) => document.getElementById(id);
     const fmt = (d) => new Date(d).toLocaleString();
 
     function setStatus(msg, isError = false) {
-      console.log(`Status: ${msg}`, isError ? 'ERROR' : 'INFO');
-      $('statusMessage').textContent = isError ? '' : msg || '';
+      console[isError ? 'error' : 'log'](`Status: ${msg}`);
+      $('statusMessage').textContent = isError ? '' : (msg || '');
       $('errorMessage').textContent = isError ? (msg || '') : '';
     }
 
@@ -140,97 +122,124 @@
     }
 
     function getCurrentRedirectUri() {
-      // Use the current page's URL as the redirect URI
       const redirectUri = window.location.origin + window.location.pathname;
       console.log('🔄 Current Redirect URI:', redirectUri);
       return redirectUri;
     }
 
+    // ===== OAuth Init (with loop guard & better error surfacing) =====
     function initAuth() {
       console.log('🔐 === AUTHENTICATION DEBUG ===');
       console.log('📍 Current URL:', window.location.href);
       console.log('🔑 Client ID:', CONFIG.clientId);
 
-      // Get the current URL to use as redirect URI
+      // Hosting check
+      if (location.protocol === 'file:') {
+        setStatus('This page is opened via file:// — OAuth cannot redirect here. Please serve over http(s).', true);
+        $('authInfo').textContent = 'Invalid hosting (file://)';
+        $('authInfo').className = 'pill error';
+        disableUI();
+        return false;
+      }
+
+      // Show computed redirect URI
       const currentRedirectUri = getCurrentRedirectUri();
       $('redirectUriDisplay').value = currentRedirectUri;
 
-      const hash = window.location.hash.substring(1);
-      const params = new URLSearchParams(hash);
-      const token = params.get('access_token');
-      const error = params.get('error');
-      const errorDescription = params.get('error_description');
-      
-      console.log('🔍 URL Hash Parameters:');
-      console.log('   - Token present:', token ? 'YES' : 'NO');
-      console.log('   - OAuth Error:', error || 'None');
-      console.log('   - Error Description:', errorDescription || 'None');
+      // Parse both hash and query (some IdPs use query for errors)
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const query = new URLSearchParams(window.location.search);
 
-      // Check for OAuth errors first
+      const token = hash.get('access_token');
+      const error = hash.get('error') || query.get('error');
+      const errorDescription = hash.get('error_description') || query.get('error_description');
+
+      console.log('🔍 OAuth Params:', { tokenPresent: !!token, error, errorDescription });
+
       if (error) {
-        const errorMsg = `OAuth Error: ${error}${errorDescription ? ` - ${errorDescription}` : ''}`;
-        console.error('❌ OAuth authentication failed:', errorMsg);
-        setStatus(errorMsg, true);
+        const errTxt = `OAuth Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`;
+        console.error('❌ OAuth authentication failed:', errTxt);
+        setStatus(errTxt, true);
         $('authInfo').textContent = 'Authentication Failed';
         $('authInfo').className = 'pill error';
+        sessionStorage.removeItem('authAttempted'); // stop infinite loops
         disableUI();
         return false;
       }
 
       if (token) {
         console.log('✅ Token found, authentication successful');
-        console.log('🔑 Token (first 50 chars):', token.substring(0, 50) + '...');
         state.token = token;
         $('authInfo').textContent = 'Authenticated ✓';
         $('authInfo').className = 'pill';
-        
-        // Clean URL - remove hash fragment
-        console.log('🧹 Cleaning URL - removing hash fragment');
-        history.replaceState(null, '', location.pathname + location.search);
-        
+
+        // Clean URL (remove hash & query)
+        history.replaceState(null, '', location.pathname);
         enableUI();
         return true;
-      } else {
-        console.log('❌ No token found, starting OAuth flow...');
-        $('authInfo').textContent = 'Redirecting to login...';
-        $('authInfo').className = 'pill warning';
-        
-        // Use current page URL as redirect URI
-        const redirectUri = getCurrentRedirectUri();
-        const authUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
-        
-        console.log('🔄 Building OAuth URL...');
-        console.log('💡 IMPORTANT: Add this EXACT Redirect URI to your Genesys Cloud OAuth client:');
-        console.log('   ', redirectUri);
-        console.log('🚀 Full OAuth URL:', authUrl);
-        console.log('🚀 Redirecting to OAuth provider...');
-        
-        // Redirect immediately
-        window.location.href = authUrl;
-        
+      }
+
+      // No token, kick off OAuth only once per load
+      const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
+      if (alreadyTried) {
+        setStatus('OAuth redirect attempted but no token returned. Check Redirect URI and OAuth client settings.', true);
+        $('authInfo').textContent = 'Auth Error';
+        $('authInfo').className = 'pill error';
+        disableUI();
         return false;
       }
+
+      $('authInfo').textContent = 'Redirecting to login...';
+      $('authInfo').className = 'pill warning';
+
+      const redirectUri = getCurrentRedirectUri();
+      const authUrl =
+        `https://login.mypurecloud.ie/oauth/authorize` +
+        `?client_id=${encodeURIComponent(CONFIG.clientId)}` +
+        `&response_type=token` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&state=${encodeURIComponent(location.pathname)}`;
+
+      console.log('💡 IMPORTANT: Add this EXACT Redirect URI to your Genesys Cloud OAuth client:', redirectUri);
+      console.log('🚀 Redirecting to:', authUrl);
+
+      sessionStorage.setItem('authAttempted', '1');
+      window.location.assign(authUrl);
+      return false;
     }
 
+    // ===== API helper with stronger error messages =====
     async function api(path) {
       if (!state.token) throw new Error('Not authenticated');
       console.log(`📡 API Call: ${path}`);
-      
+
       const res = await fetch(`${state.regionHost}${path}`, {
         headers: { 'Authorization': `Bearer ${state.token}` }
       });
-      
+
       console.log(`📡 API Response: ${res.status} ${res.statusText}`);
-      
-      if (!res.ok) throw new Error(`API Error: ${res.status} ${res.statusText}`);
+
+      if (res.status === 401 || res.status === 403) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(
+          `Auth/Permission error (${res.status}). Check region, scopes and OAuth client.\n` +
+          `Body: ${txt.slice(0, 500)}`
+        );
+      }
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(`API Error: ${res.status} ${res.statusText}.\nBody: ${txt.slice(0, 500)}`);
+      }
       return res.json();
     }
 
+    // ===== Users =====
     async function fetchAllUsers() {
       try {
         setStatus('Loading users…');
         console.log('👥 Starting to fetch users...');
-        
+
         let allUsers = [];
         let pageNumber = 1;
         const pageSize = 100;
@@ -240,23 +249,17 @@
           const data = await api(`/api/v2/users?pageSize=${pageSize}&pageNumber=${pageNumber}`);
           const batch = data?.entities || [];
           console.log(`📥 Received ${batch.length} users in this batch`);
-          
+
           allUsers = allUsers.concat(batch);
-          
+
           if (!data?.nextUri || batch.length < pageSize) break;
           pageNumber++;
         }
 
-        state.users = allUsers.map(u => ({ 
-          id: u.id, 
-          name: u.name, 
-          email: u.email || '' 
-        }));
-        
+        state.users = allUsers.map(u => ({ id: u.id, name: u.name, email: u.email || '' }));
         console.log(`✅ Total users loaded: ${state.users.length}`);
         populateUserSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`);
-        
       } catch (e) {
         console.error('❌ Error fetching users:', e);
         setStatus(e.message, true);
@@ -266,56 +269,51 @@
 
     function populateUserSelect(users) {
       const select = $('agentSelect');
-      select.innerHTML = users.map(u => 
+      select.innerHTML = users.map(u =>
         `<option value="${u.id}">${u.name} ${u.email ? `(${u.email})` : ''}</option>`
       ).join('');
-      
+
       select.onchange = () => {
         const selectedUser = users.find(u => u.id === select.value);
-        state.selectedAgent = selectedUser;
+        state.selectedAgent = selectedUser || null;
         $('selectedAgentName').textContent = selectedUser ? `${selectedUser.name}` : 'None';
-        console.log(`👤 Selected agent: ${selectedUser?.name} (${selectedUser?.id})`);
+        console.log(`👤 Selected agent: ${selectedUser?.name || 'None'} (${selectedUser?.id || ''})`);
       };
-      
+
       if (users.length > 0) {
         select.value = users[0].id;
         select.onchange();
       }
     }
 
-    $('agentFilter').addEventListener('input', function() {
+    $('agentFilter').addEventListener('input', function () {
       const query = this.value.trim().toLowerCase();
-      const filteredUsers = query 
-        ? state.users.filter(u => 
-            u.name.toLowerCase().includes(query) || 
-            u.email.toLowerCase().includes(query)
-          )
+      const filteredUsers = query
+        ? state.users.filter(u =>
+          (u.name || '').toLowerCase().includes(query) ||
+          (u.email || '').toLowerCase().includes(query)
+        )
         : state.users;
       populateUserSelect(filteredUsers);
     });
 
+    // ===== Conversations =====
     async function fetchConversations() {
       try {
         setStatus('Fetching conversations...');
         console.log('💬 Starting conversation fetch...');
-        
-        if (!state.selectedAgent) {
-          throw new Error('Please select an agent first');
-        }
+
+        if (!state.selectedAgent) throw new Error('Please select an agent first');
 
         const fromDate = $('fromDate').value;
         const toDate = $('toDate').value || fromDate;
-        
-        if (!fromDate) {
-          throw new Error('Please select a start date');
-        }
+        if (!fromDate) throw new Error('Please select a start date');
 
         console.log(`📅 Fetching conversations for agent ${state.selectedAgent.name} from ${fromDate} to ${toDate}`);
-
         const interval = `${fromDate}T00:00:00/${toDate}T23:59:59`;
 
         const requestBody = {
-          interval: interval,
+          interval,
           order: 'asc',
           orderBy: 'conversationStart',
           segmentFilters: [{
@@ -342,18 +340,17 @@
 
         console.log(`📥 Analytics API response: ${response.status} ${response.statusText}`);
 
+        const bodyText = await response.text().catch(() => '');
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ Analytics API error response:', errorText);
-          throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}`);
+          console.error('❌ Analytics API error response:', bodyText);
+          throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}\nBody: ${bodyText.slice(0, 800)}`);
         }
 
-        const data = await response.json();
+        const data = bodyText ? JSON.parse(bodyText) : {};
         state.conversations = data.conversations || [];
         console.log(`✅ Received ${state.conversations.length} conversations`);
         renderResults(state.conversations);
         setStatus(`Found ${state.conversations.length} conversations`);
-
       } catch (error) {
         console.error('❌ Error fetching conversations:', error);
         setStatus(error.message, true);
@@ -362,7 +359,7 @@
 
     function renderResults(conversations) {
       const resultsContainer = $('results');
-      
+
       if (conversations.length === 0) {
         resultsContainer.innerHTML = '<p class="muted">No conversations found for the selected criteria.</p>';
         return;
@@ -371,8 +368,7 @@
       resultsContainer.innerHTML = conversations.map(conv => `
         <details>
           <summary>
-            <strong>${conv.conversationId}</strong> - 
-            ${fmt(conv.conversationStart)}
+            <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
             <span style="color: #6b7280; font-size: 0.9em; margin-left: 8px;">
               (${conv.participants ? conv.participants.length : 0} participants)
             </span>
@@ -382,21 +378,23 @@
       `).join('');
     }
 
-    // Initialize the application
+    // ===== Initialise =====
     $('fetchBtn').addEventListener('click', fetchConversations);
 
     (function init() {
-      console.log('🚀 === APPLICATION INITIALIZATION ===');
-      
-      // Set default dates (today and 7 days ago)
+      console.log('🚀 === APPLICATION INITIALISATION ===');
+
+      // Default date range: today and 7 days ago
       const today = new Date();
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(today.getDate() - 7);
-      
+
       $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
       $('toDate').value = today.toISOString().slice(0, 10);
 
-      // Start authentication
+      // Set host from config (keep consistent)
+      state.regionHost = CONFIG.regionHost;
+
       const isAuthenticated = initAuth();
       if (isAuthenticated) {
         console.log('✅ Authentication successful, loading users...');
