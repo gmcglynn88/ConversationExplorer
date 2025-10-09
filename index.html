@@ -20,14 +20,30 @@
     .card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-top: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .muted { color: #6b7280; }
     .loading { opacity: 0.6; pointer-events: none; }
-    details { background:#f9fafb; border:1px solid #e5e7eb; border-radius: 8px; padding:12px; margin:10px 0; }
-    details>summary { cursor:pointer; font-weight:600; padding: 8px 0; }
+    details { background:#f9fafb; border:1px solid #e5e7eb; border-radius: 8px; padding:16px; margin:12px 0; }
+    details>summary { cursor:pointer; font-weight:600; padding: 8px 0; font-size: 16px; }
     pre { background: #1f2937; color: #f3f4f6; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
     .user-info { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px; margin: 12px 0; }
     .stats { display: flex; gap: 16px; margin: 16px 0; }
     .stat-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; flex: 1; text-align: center; }
     .stat-number { font-size: 24px; font-weight: bold; color: #3b82f6; }
     .stat-label { color: #6b7280; font-size: 14px; }
+    .conversation-header { background: #e0f2fe; border-radius: 8px; padding: 16px; margin: 12px 0; }
+    .journey-timeline { margin: 20px 0; padding-left: 20px; border-left: 3px solid #3b82f6; }
+    .journey-step { margin-bottom: 20px; position: relative; }
+    .journey-step:before { content: ''; position: absolute; left: -26px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; }
+    .step-header { font-weight: bold; color: #1e40af; margin-bottom: 8px; }
+    .step-details { background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; }
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px 0; }
+    .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+    .info-label { font-weight: 600; color: #374151; }
+    .info-value { color: #1f2937; }
+    .participant-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 2px; }
+    .badge-customer { background: #dbeafe; color: #1e40af; }
+    .badge-agent { background: #dcfce7; color: #166534; }
+    .badge-system { background: #fef3c7; color: #92400e; }
+    .badge-queue { background: #f3e8ff; color: #7c3aed; }
+    .transfer-count { background: #fecaca; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -120,6 +136,20 @@
     // ===== Helpers =====
     const $ = (id) => document.getElementById(id);
     const fmt = (d) => new Date(d).toLocaleString();
+    const formatDuration = (ms) => {
+      if (!ms) return '0s';
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      
+      if (hours > 0) {
+        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+      } else if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+      } else {
+        return `${seconds}s`;
+      }
+    };
 
     function setStatus(msg, isError = false) {
       console.log(isError ? 'ERROR:' : 'STATUS:', msg);
@@ -172,7 +202,6 @@
         setStatus(errTxt, true);
         console.error('OAuth error:', errTxt);
         
-        // Redirect to auth after a brief delay
         setTimeout(() => {
           sessionStorage.setItem('authAttempted', '1');
           window.location.assign(buildAuthUrl());
@@ -185,13 +214,11 @@
         state.token = token;
         history.replaceState(null, '', location.pathname);
         
-        // Show main content and load users
         showMainContent();
         fetchAllUsers();
         return;
       }
 
-      // No token and no error - initiate OAuth flow
       console.log('No token found, initiating OAuth flow...');
       const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
       
@@ -245,7 +272,6 @@
           pageNumber++;
         }
 
-        // Sort users by name and store
         state.users = allUsers
           .map(u => ({ id: u.id, name: u.name, email: u.email || '' }))
           .sort((a, b) => a.name.localeCompare(b.name));
@@ -282,7 +308,6 @@
       };
     }
 
-    // Filter users by name or email
     $('agentFilter').addEventListener('input', function () {
       const query = this.value.trim().toLowerCase();
       const filteredUsers = query
@@ -361,7 +386,6 @@
     function renderResults(conversations) {
       const resultsContainer = $('results');
       
-      // Update stats
       $('totalConversations').textContent = conversations.length;
       $('dateRange').textContent = `${$('fromDate').value} to ${$('toDate').value}`;
       $('selectedAgent').textContent = state.selectedAgent.name;
@@ -383,12 +407,183 @@
                 (${conv.participants ? conv.participants.length : 0} participants)
               </span>
             </summary>
-            <pre>${JSON.stringify(conv, null, 2)}</pre>
+            ${renderConversationDetails(conv)}
           </details>
         `).join('');
       }
       
       $('resultsSection').style.display = 'block';
+    }
+
+    function renderConversationDetails(conversation) {
+      const mediaType = conversation.mediaType || 'Unknown';
+      const direction = conversation.direction || 'Unknown';
+      const ani = getANI(conversation);
+      const transferCount = calculateTransferCount(conversation);
+      
+      return `
+        <div class="conversation-header">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Media Type:</span>
+              <span class="info-value">${mediaType}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Direction:</span>
+              <span class="info-value">${direction}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">ANI (Caller ID):</span>
+              <span class="info-value">${ani}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Total Transfers:</span>
+              <span class="info-value"><span class="transfer-count">${transferCount}</span></span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Conversation Start:</span>
+              <span class="info-value">${fmt(conversation.conversationStart)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Conversation End:</span>
+              <span class="info-value">${fmt(conversation.conversationEnd)}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Total Duration:</span>
+              <span class="info-value">${formatDuration(conversation.conversationDuration)}</span>
+            </div>
+          </div>
+        </div>
+        
+        <h3>Customer Journey Timeline</h3>
+        <div class="journey-timeline">
+          ${renderJourneyTimeline(conversation)}
+        </div>
+        
+        <details>
+          <summary>Raw Conversation Data</summary>
+          <pre>${JSON.stringify(conversation, null, 2)}</pre>
+        </details>
+      `;
+    }
+
+    function getANI(conversation) {
+      // Find customer participant and get their address
+      if (conversation.participants) {
+        for (const participant of conversation.participants) {
+          if (participant.purpose === 'customer') {
+            return participant.addresses?.[0]?.raw || 'Unknown';
+          }
+        }
+      }
+      return 'Unknown';
+    }
+
+    function calculateTransferCount(conversation) {
+      let transfers = 0;
+      if (conversation.participants) {
+        const acdParticipants = conversation.participants.filter(p => 
+          p.purpose === 'acd' || p.userId
+        );
+        
+        // Count transfers by looking for consult transfers or multiple ACD participants
+        for (let i = 1; i < acdParticipants.length; i++) {
+          if (acdParticipants[i].userId !== acdParticipants[i-1].userId) {
+            transfers++;
+          }
+        }
+      }
+      return transfers;
+    }
+
+    function renderJourneyTimeline(conversation) {
+      if (!conversation.participants || conversation.participants.length === 0) {
+        return '<p>No participant data available</p>';
+      }
+
+      // Sort participants by start time
+      const sortedParticipants = [...conversation.participants].sort((a, b) => 
+        new Date(a.startTime) - new Date(b.startTime)
+      );
+
+      return sortedParticipants.map((participant, index) => {
+        const purpose = participant.purpose || 'unknown';
+        const participantName = getParticipantName(participant);
+        const duration = formatDuration(participant.duration);
+        const alertTime = participant.alertStartTime ? formatDuration(new Date(participant.startTime) - new Date(participant.alertStartTime)) : 'N/A';
+        
+        return `
+          <div class="journey-step">
+            <div class="step-header">
+              Step ${index + 1}: ${getParticipantBadge(purpose, participantName)}
+            </div>
+            <div class="step-details">
+              <div class="info-grid">
+                <div class="info-item">
+                  <span class="info-label">Start Time:</span>
+                  <span class="info-value">${fmt(participant.startTime)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">End Time:</span>
+                  <span class="info-value">${fmt(participant.endTime)}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Duration:</span>
+                  <span class="info-value">${duration}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Alert Time:</span>
+                  <span class="info-value">${alertTime}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Purpose:</span>
+                  <span class="info-value">${purpose}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">State:</span>
+                  <span class="info-value">${participant.state || 'N/A'}</span>
+                </div>
+              </div>
+              ${participant.addresses ? `
+                <div style="margin-top: 8px;">
+                  <strong>Addresses:</strong> 
+                  ${participant.addresses.map(addr => 
+                    `<span class="participant-badge badge-system">${addr.raw || addr.display || 'N/A'}</span>`
+                  ).join('')}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getParticipantName(participant) {
+      if (participant.purpose === 'customer') {
+        return 'Customer';
+      } else if (participant.userId) {
+        // Try to find user name from our state
+        const user = state.users.find(u => u.id === participant.userId);
+        return user ? user.name : `Agent (${participant.userId})`;
+      } else if (participant.purpose === 'acd') {
+        return 'ACD Queue';
+      } else if (participant.purpose === 'ivr') {
+        return 'IVR System';
+      } else {
+        return participant.purpose || 'Unknown';
+      }
+    }
+
+    function getParticipantBadge(purpose, name) {
+      const badgeClass = {
+        'customer': 'badge-customer',
+        'acd': 'badge-agent',
+        'user': 'badge-agent',
+        'ivr': 'badge-system',
+        'queue': 'badge-queue'
+      }[purpose] || 'badge-system';
+      
+      return `<span class="participant-badge ${badgeClass}">${name}</span>`;
     }
 
     // ===== Event Listeners =====
@@ -398,14 +593,12 @@
     (function init() {
       console.log('Initializing Conversation Explorer...');
       
-      // Set default dates (last 7 days)
       const today = new Date();
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(today.getDate() - 7);
       $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
       $('toDate').value = today.toISOString().slice(0, 10);
       
-      // Start authentication flow
       initAuth();
     })();
   </script>
