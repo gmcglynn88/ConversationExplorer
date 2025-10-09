@@ -105,7 +105,7 @@
     // ========== CONFIGURATION ==========
     const CONFIG = {
       clientId: 'bbc89753-462b-493d-ab94-4778af9e7d4d',
-      redirectUri: 'https://gmcglynn88.github.io/ConversationExplorer',
+      redirectUri: 'https://gmcglynn88.github.io/ConversationExplorer/',
       regionHost: 'https://api.mypurecloud.ie'
     };
     // ========== END CONFIGURATION ==========
@@ -143,26 +143,11 @@
     function initAuth() {
       console.log('🔐 === AUTHENTICATION DEBUG ===');
       console.log('📍 Current URL:', window.location.href);
-      console.log('🎯 Expected Redirect URI:', CONFIG.redirectUri);
+      console.log('🎯 Registered Redirect URI:', CONFIG.redirectUri);
       console.log('🔑 Client ID:', CONFIG.clientId);
 
       // Display redirect URI for verification
       $('redirectUriDisplay').value = CONFIG.redirectUri;
-
-      // Check if we're on the correct page for the redirect URI
-      const currentUrl = window.location.origin + window.location.pathname;
-      if (currentUrl !== CONFIG.redirectUri) {
-        console.warn('❌ URL MISMATCH: Current URL does not match configured Redirect URI');
-        console.warn('   Current:', currentUrl);
-        console.warn('   Expected:', CONFIG.redirectUri);
-        
-        // If we're not on the correct page, redirect to it
-        console.log('🔄 Redirecting to correct URL...');
-        window.location.href = CONFIG.redirectUri;
-        return false;
-      }
-
-      console.log('✅ URL matches configured Redirect URI');
 
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
@@ -204,17 +189,16 @@
         $('authInfo').textContent = 'Redirecting to login...';
         $('authInfo').className = 'pill warning';
         
-        // Start OAuth flow with hardcoded redirect URI
+        // Start OAuth flow with the registered redirect URI
         const authUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${CONFIG.clientId}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
         
-        console.log('🔄 Building OAuth URL:', authUrl);
-        console.log('💡 Make sure this exact Redirect URI is registered in your Genesys Cloud OAuth client:');
+        console.log('🔄 Building OAuth URL...');
+        console.log('💡 IMPORTANT: Make sure this exact Redirect URI is registered in Genesys Cloud:');
         console.log('   ', CONFIG.redirectUri);
+        console.log('🚀 Redirecting to OAuth provider...');
         
-        setTimeout(() => {
-          console.log('🚀 Redirecting to OAuth provider...');
-          window.location.href = authUrl;
-        }, 1000);
+        // Redirect immediately without any popups or checks
+        window.location.href = authUrl;
         
         return false;
       }
@@ -409,8 +393,6 @@
       if (isAuthenticated) {
         console.log('✅ Authentication successful, loading users...');
         fetchAllUsers();
-      } else {
-        console.log('🔄 Authentication required, redirecting to OAuth...');
       }
     })();
   </script>
