@@ -1,14 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Genesys Conversation Explorer</title>
-  <link href="https://fonts.googleapis.com/css2?family=Proxima+Nova&display=swap" rel="stylesheet">
   <style>
-    /* Match the provided app's simple look & feel */
     body {
-      font-family: 'Proxima Nova', Arial, sans-serif;
+      font-family: Aptos, 'Segoe UI', Arial, sans-serif;
       margin: 20px;
       padding: 20px;
     }
@@ -18,8 +16,6 @@
     select, input, button { margin-top: 5px; padding: 8px; width: 100%; max-width: 300px; }
     #statusMessage { margin-top: 20px; color: green; }
     #errorMessage { margin-top: 10px; color: #c1272d; }
-
-    /* A few lightweight utilities (no colour shifts) */
     .row { display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; }
     .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-top: 12px; }
     .muted { color: #6b7280; }
@@ -35,79 +31,55 @@
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
 
-  <div class="card">
-    <h1>External Work Creation · Conversation Explorer</h1>
-    <p class="muted">Select an agent and a date range to fetch all their conversations, with participants, ACD queues/flows, transfers, and durations.</p>
+  <h1>Conversation Explorer</h1>
 
-    <div class="row">
-      <div>
-        <label for="region">Region</label>
-        <select id="region">
-          <option value="ie" selected>EU Ireland (mypurecloud.ie)</option>
-          <option value="eu-west-1">EU West 1 (mypurecloud.de)</option>
-          <option value="eu-central-1">EU Central (mypurecloud.eu)</option>
-          <option value="us-east-1">US East (mypurecloud.com)</option>
-          <option value="us-west-2">US West (usw2.pure.cloud)</option>
-          <option value="ap-southeast-2">AP SouthEast (mypurecloud.com.au)</option>
-          <option value="ap-northeast-1">AP NorthEast (mypurecloud.jp)</option>
-          <option value="ca-central-1">Canada (cac1.pure.cloud)</option>
-          <option value="me-west-1">Middle East (mew1.pure.cloud)</option>
-        </select>
-      </div>
-      <div>
-        <label for="clientId">OAuth Client ID</label>
-        <input id="clientId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-      </div>
-      <div>
-        <label for="redirectUri">Redirect URI (must match in OAuth app)</label>
-        <input id="redirectUri" type="text" />
-      </div>
-      <div>
-        <label>&nbsp;</label>
-        <button id="logoutBtn">Sign out</button>
-      </div>
-      <div>
-        <label>Auth</label>
-        <span id="authInfo" class="pill">Not signed in</span>
-      </div>
+  <div class="row">
+    <div>
+      <label for="clientId">OAuth Client ID</label>
+      <input id="clientId" type="text" value="bbc89753-462b-493d-ab94-4778af9e7d4d" readonly />
     </div>
-
-    <h2>Agent & Date Range</h2>
-    <div class="row">
-      <div>
-        <label for="agentSelect">Agent</label>
-        <select id="agentSelect"><option>Loading users…</option></select>
-        <input id="agentFilter" type="text" placeholder="Filter users by name/email" />
-        <input id="agentId" type="text" placeholder="Selected agentId" readonly />
-      </div>
-      <div>
-        <label for="fromDate">From</label>
-        <input id="fromDate" type="date" />
-        <label for="toDate">To</label>
-        <input id="toDate" type="date" />
-        <div style="margin-top:10px;">
-          <button id="fetchBtn">Fetch Conversations</button>
-          <button id="exportBtn">Export CSV</button>
-        </div>
-      </div>
+    <div>
+      <label for="redirectUri">Redirect URI</label>
+      <input id="redirectUri" type="text" value="https://gmcglynn88.github.io/ConversationExplorer/" readonly />
     </div>
-
-    <div id="statusMessage"></div>
-    <div id="errorMessage"></div>
+    <div>
+      <label>&nbsp;</label>
+      <button id="logoutBtn">Sign out</button>
+    </div>
+    <div>
+      <label>Auth</label>
+      <span id="authInfo" class="pill">Not signed in</span>
+    </div>
   </div>
 
-  <div class="card" style="margin-top:18px;">
-    <div class="flex">
-      <h2 style="margin:0">Results</h2>
-      <span id="resultCount" class="pill right">0 conversations</span>
+  <div class="row">
+    <div>
+      <label for="agentSelect">Agent</label>
+      <select id="agentSelect"><option>Loading users…</option></select>
+      <input id="agentFilter" type="text" placeholder="Filter users by name/email" />
+      <input id="agentId" type="text" placeholder="Selected agentId" readonly />
     </div>
+    <div>
+      <label for="fromDate">From</label>
+      <input id="fromDate" type="date" />
+      <label for="toDate">To</label>
+      <input id="toDate" type="date" />
+      <div style="margin-top:10px;">
+        <button id="fetchBtn">Fetch Conversations</button>
+        <button id="exportBtn">Export CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="statusMessage"></div>
+  <div id="errorMessage"></div>
+
+  <div class="card" style="margin-top:18px;">
+    <h2>Results</h2>
     <div id="results"></div>
   </div>
 
-  <div class="footer">Gerard is the best</div>
-
   <script>
-    // ---------- Minimal app state ----------
     const state = {
       token: null,
       tokenExpiry: 0,
@@ -118,119 +90,45 @@
       selectedAgent: null
     };
 
-    // ---------- Helpers ----------
     const $ = (id) => document.getElementById(id);
     const fmt = (d) => new Date(d).toLocaleString();
-    const ms = (n) => Number(n||0);
-    const seconds = (n) => Math.round(ms(n) / 1000);
 
     function setStatus(msg, isError=false) {
       $('statusMessage').textContent = isError ? '' : msg || '';
       $('errorMessage').textContent = isError ? (msg || '') : '';
     }
 
-    function setAuthInfo() {
-      const info = state.token ? `Signed in · token expires ${new Date(state.tokenExpiry).toLocaleTimeString()}` : 'Not signed in';
-      $('authInfo').textContent = info;
+    function buildOAuthUrl() {
+      const clientId = $('clientId').value.trim();
+      const redirectUri = $('redirectUri').value.trim();
+      return `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
     }
 
-    function regionToHosts(region) {
-      // Map region code to API/login hosts
-      const map = {
-        'ie': { api: 'https://api.mypurecloud.ie', login: 'https://login.mypurecloud.ie' },
-        'eu-west-1': { api: 'https://api.mypurecloud.de', login: 'https://login.mypurecloud.de' },
-        'eu-central-1': { api: 'https://api.mypurecloud.eu', login: 'https://login.mypurecloud.eu' },
-        'us-east-1': { api: 'https://api.mypurecloud.com', login: 'https://login.mypurecloud.com' },
-        'us-west-2': { api: 'https://api.usw2.pure.cloud', login: 'https://login.usw2.pure.cloud' },
-        'ap-southeast-2': { api: 'https://api.mypurecloud.com.au', login: 'https://login.mypurecloud.com.au' },
-        'ap-northeast-1': { api: 'https://api.mypurecloud.jp', login: 'https://login.mypurecloud.jp' },
-        'ca-central-1': { api: 'https://api.cac1.pure.cloud', login: 'https://login.cac1.pure.cloud' },
-        'me-west-1': { api: 'https://api.mew1.pure.cloud', login: 'https://login.mew1.pure.cloud' }
-      };
-      return map[region] || map['ie'];
+    function initAuth() {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const token = params.get('access_token');
+      if (!token) {
+        location.href = buildOAuthUrl();
+        return false;
+      }
+      state.token = token;
+      const expiresIn = parseInt(params.get('expires_in')||'0', 10);
+      state.tokenExpiry = Date.now() + (expiresIn*1000);
+      history.replaceState(null, '', location.pathname + location.search);
+      $('authInfo').textContent = 'Authenticated';
+      return true;
     }
 
-    function buildInterval(fromISODate, toISODate) {
-      // Genesys interval is inclusive/exclusive; push end to 23:59:59
-      const from = new Date(fromISODate);
-      const to = new Date(toISODate);
-      if (isNaN(from) || isNaN(to)) throw new Error('Invalid date range');
-      to.setHours(23,59,59,999);
-      return `${from.toISOString()}/${to.toISOString()}`;
-    }
-
-    async function api(path, opts={}) {
+    async function api(path) {
       if (!state.token) throw new Error('Not authenticated');
       const res = await fetch(`${state.regionHost}${path}`, {
-        ...opts,
-        headers: {
-          'Authorization': `Bearer ${state.token}`,
-          'Content-Type': 'application/json',
-          ...(opts.headers||{})
-        }
+        headers: { 'Authorization': `Bearer ${state.token}` }
       });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`${res.status} ${res.statusText}: ${text}`);
-      }
+      if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
       return res.json();
     }
 
-    function hashParams() {
-      const h = new URLSearchParams(location.hash.substring(1));
-      return Object.fromEntries(h.entries());
-    }
-
-    function saveLocal() {
-      localStorage.setItem('gce_config', JSON.stringify({
-        region: $('region').value,
-        clientId: $('clientId').value,
-        redirectUri: $('redirectUri').value
-      }));
-    }
-    function loadLocal() {
-      const raw = localStorage.getItem('gce_config');
-      if (!raw) return;
-      try { const cfg = JSON.parse(raw); $('region').value = cfg.region||'ie'; $('clientId').value = cfg.clientId||''; $('redirectUri').value = cfg.redirectUri||location.origin + location.pathname; } catch {}
-    }
-
-    // ---------- OAuth (Implicit Grant) ----------
-    function startLogin() {
-      const region = $('region').value; const hosts = regionToHosts(region);
-      state.regionHost = hosts.api; state.loginHost = hosts.login;
-      const clientId = $('clientId').value.trim();
-      const redirectUri = $('redirectUri').value.trim() || (location.origin + location.pathname);
-      if (!clientId) { setStatus('Please enter your OAuth Client ID', true); return; }
-      const authUrl = `${state.loginHost}/oauth/authorize?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&force_login=false`;
-      location.assign(authUrl);
-    }
-
-    function completeLoginFromHash() {
-      const hp = hashParams();
-      if (hp.access_token) {
-        state.token = hp.access_token;
-        const expiresIn = parseInt(hp.expires_in || '0', 10);
-        state.tokenExpiry = Date.now() + (expiresIn * 1000);
-        history.replaceState(null, '', location.pathname + location.search);
-      }
-      setAuthInfo();
-    }() {
-      const hp = hashParams();
-      if (hp.access_token) {
-        state.token = hp.access_token;
-        const expiresIn = parseInt(hp.expires_in || '0', 10);
-        state.tokenExpiry = Date.now() + (expiresIn * 1000);
-        // Clean the hash
-        history.replaceState(null, '', location.pathname + location.search);
-      }
-      setAuthInfo();
-    }
-
-    function logout() {
-      state.token = null; state.tokenExpiry = 0; setAuthInfo(); setStatus('Signed out.');
-    }
-
-    // ---------- Users (GET /api/v2/users) ----------
     async function fetchAllUsers() {
       try {
         setStatus('Loading users…');
@@ -241,7 +139,6 @@
           all = all.concat(batch);
           if (!data || !data.nextUri || batch.length < pageSize) break;
           pageNumber++;
-          if (pageNumber > 50) break; // safety cap 5k users
         }
         state.users = all.map(u => ({ id: u.id, name: u.name, email: (u.email||'') }));
         populateUserSelect(state.users);
@@ -251,7 +148,7 @@
 
     function populateUserSelect(users) {
       const sel = $('agentSelect');
-      sel.innerHTML = users.map(u => `<option value="${u.id}">${escapeHtml(u.name)} ${u.email?`<${escapeHtml(u.email)}>`:''}</option>`).join('');
+      sel.innerHTML = users.map(u => `<option value="${u.id}">${u.name} ${u.email?`<${u.email}>`:''}</option>`).join('');
       sel.onchange = () => {
         const id = sel.value; const u = users.find(x => x.id === id);
         state.selectedAgent = u || null;
@@ -266,233 +163,52 @@
       populateUserSelect(filtered);
     });
 
-    function escapeHtml(s){return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));}
-
-    // ---------- Fetch conversations ----------
-    $('fetchBtn').addEventListener('click', () => fetchConversations());
-
     async function fetchConversations() {
       try {
         setStatus('Fetching conversations...');
         if (!state.selectedAgent) throw new Error('Select an agent first.');
-        const from = $('fromDate').value; const to = $('toDate').value || $('fromDate').value;
-        if (!from) throw new Error('Choose a start date.');
-        const interval = buildInterval(from, to);
+        const from = $('fromDate').value;
+        const to = $('toDate').value || $('fromDate').value;
+        const interval = `${from}T00:00:00/${to}T23:59:59`;
 
-        const pageSize = 100; let pageNumber = 1; let all = [];
-        while (true) {
-          const body = {
-            interval,
-            order: 'asc',
-            orderBy: 'conversationStart',
-            paging: { pageSize, pageNumber },
-            segmentFilters: [{
-              type: 'and',
-              predicates: [{ type: 'dimension', dimension: 'userId', operator: 'matches', value: state.selectedAgent.id }]
-            }]
-          };
-          const data = await api('/api/v2/analytics/conversations/details/query', { method: 'POST', body: JSON.stringify(body) });
-          const batch = (data && data.conversations) || [];
-          all = all.concat(batch);
-          if (!batch.length || batch.length < pageSize) break; // no more pages
-          pageNumber++;
-          if (pageNumber > 10) break; // safety cap (1000 records)
-        }
-        state.conversations = all;
-        renderResults(all);
-        setStatus(`Fetched ${all.length} conversation(s).`);
+        const body = {
+          interval,
+          order: 'asc',
+          orderBy: 'conversationStart',
+          segmentFilters: [{
+            type: 'and',
+            predicates: [{ type: 'dimension', dimension: 'userId', operator: 'matches', value: state.selectedAgent.id }]
+          }]
+        };
+
+        const res = await fetch(`${state.regionHost}/api/v2/analytics/conversations/details/query`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${state.token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(`${res.statusText}`);
+        const data = await res.json();
+        renderResults(data.conversations || []);
+        setStatus(`Fetched ${data.conversations?.length || 0} conversation(s).`);
       } catch (e) { setStatus(e.message, true); }
     }
 
-    // ---------- Render ----------
     function renderResults(items) {
-      $('resultCount').textContent = `${items.length} conversation${items.length===1?'':'s'}`;
-      if (!items.length) { $('results').innerHTML = '<p class="muted">No conversations in this range.</p>'; return; }
-      const html = items.map(renderConversation).join('');
-      $('results').innerHTML = html;
-      // Attach expand toggles nothing special needed (native <details>)
+      const results = $('results');
+      if (!items.length) { results.innerHTML = '<p class="muted">No conversations found.</p>'; return; }
+      results.innerHTML = items.map(c => `<details><summary>${c.conversationId} (${fmt(c.conversationStart)} - ${fmt(c.conversationEnd)})</summary><pre>${JSON.stringify(c,null,2)}</pre></details>`).join('');
     }
 
-    function renderConversation(c) {
-      const cStart = c.conversationStart ? fmt(c.conversationStart) : '—';
-      const cEnd = c.conversationEnd ? fmt(c.conversationEnd) : '—';
-      const origin = c.originatingDirection || '—';
-      const mediaStats = c.mediaStatsMinConversationMos != null ? `${c.mediaStatsMinConversationMos}` : '—';
-      const convId = c.conversationId || c.conversationId;
+    $('fetchBtn').addEventListener('click', fetchConversations);
 
-      const parts = (c.participants||[]).map(p => renderParticipant(p, c.conversationStart)).join('');
-
-      return `
-        <details>
-          <summary>
-            <span class="mono">${convId}</span>
-            <span class="pill" style="margin-left:8px;">${origin}</span>
-            <span class="pill" style="margin-left:8px;">Start: ${cStart}</span>
-            <span class="pill" style="margin-left:8px;">End: ${cEnd}</span>
-            <span class="pill right">Min MOS: ${mediaStats}</span>
-          </summary>
-          <div style="margin-top:10px;">
-            ${parts || '<div class="muted">No participant detail available.</div>'}
-          </div>
-        </details>
-      `;
-    }
-
-    function offsetFrom(start, t) {
-      if (!start || !t) return '0s';
-      const delta = new Date(t) - new Date(start);
-      const s = Math.max(0, Math.round(delta/1000));
-      return s + 's';
-    }
-
-    function renderParticipant(p, convStart) {
-      const name = p.participantName || p.purpose || 'participant';
-      const purpose = p.purpose || '—';
-      const user = p.userId ? `<span class="pill">userId: ${p.userId}</span>` : '';
-      const ext = p.externalContactId ? `<span class="pill">ext: ${p.externalContactId}</span>` : '';
-
-      const segs = (p.sessions||[]).flatMap(s => (s.segments||[]).map(seg => ({...seg, mediaType: s.mediaType, sessionId: s.sessionId })))
-        .map(seg => renderSegment(seg, convStart)).join('');
-
-      return `
-        <div class="card" style="margin:8px 0;">
-          <div class="flex" style="flex-wrap:wrap;">
-            <strong>${name}</strong>
-            <span class="pill">purpose: ${purpose}</span>
-            ${user}${ext}
-          </div>
-          ${segs || '<div class="muted" style="margin-top:6px;">No segments.</div>'}
-        </div>
-      `;
-    }
-
-    function renderSegment(seg, convStart) {
-      const tStart = seg.segmentStart ? fmt(seg.segmentStart) : '—';
-      const tEnd = seg.segmentEnd ? fmt(seg.segmentEnd) : '—';
-      const off = offsetFrom(convStart, seg.segmentStart);
-      const dur = seg.segmentEnd ? seconds(new Date(seg.segmentEnd) - new Date(seg.segmentStart)) + 's' : '—';
-      const queue = seg.queueId ? `<span class="pill">queue: ${seg.queueId}</span>` : '';
-      const flow = seg.flowId ? `<span class="pill">flow: ${seg.flowId}</span>` : '';
-      const flowName = seg.flowName ? `<span class="pill">flowName: ${seg.flowName}</span>` : '';
-      const type = seg.segmentType || '—';
-      const media = seg.mediaType || '—';
-      const direction = seg.direction || '—';
-      const xfer = (seg.transferType || seg.transferTargetAddress || seg.transferTargetName) ?
-        `<span class="pill">transfer: ${seg.transferType||'—'} → ${seg.transferTargetName||seg.transferTargetAddress||'—'}</span>` : '';
-      const wrap = seg.wrapUpCode ? `<span class="pill">wrapUp: ${seg.wrapUpCode}</span>` : '';
-
-      return `
-        <table style="margin:8px 0; background:#fff; border-radius:12px; overflow:hidden;">
-          <thead>
-            <tr>
-              <th>Offset</th>
-              <th>When</th>
-              <th>Type</th>
-              <th>Media</th>
-              <th>Direction</th>
-              <th>Queue/Flow</th>
-              <th>Transfers</th>
-              <th>Duration</th>
-              <th>Disconnect</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="mono">${off}</td>
-              <td>
-                <div>Start: ${tStart}</div>
-                <div>End: ${tEnd}</div>
-              </td>
-              <td>${type}</td>
-              <td>${media}</td>
-              <td>${direction}</td>
-              <td>${queue} ${flow} ${flowName}</td>
-              <td>${xfer}</td>
-              <td>${dur}</td>
-              <td>${seg.disconnectType || '—'}</td>
-            </tr>
-          </tbody>
-        </table>
-      `;
-    }
-
-    // ---------- CSV Export ----------
-    $('exportBtn').addEventListener('click', () => exportCSV());
-
-    function csvEscape(v) {
-      if (v == null) return '';
-      const s = String(v).replaceAll('"', '""');
-      return `"${s}"`;
-    }
-
-    function exportCSV() {
-      const rows = [];
-      rows.push([
-        'conversationId','conversationStart','conversationEnd','originatingDirection','participantName','purpose','userId','externalContactId','segmentType','mediaType','direction','queueId','flowId','flowName','transferType','transferTargetName','transferTargetAddress','segmentStart','segmentEnd','durationSeconds','disconnectType','wrapUpCode'
-      ]);
-
-      for (const c of state.conversations) {
-        for (const p of (c.participants||[])) {
-          const parts = (p.sessions||[]).flatMap(s => (s.segments||[]).map(seg => ({ seg, mediaType: s.mediaType })));
-          for (const {seg, mediaType} of parts) {
-            const dur = seg.segmentEnd ? Math.round((new Date(seg.segmentEnd) - new Date(seg.segmentStart))/1000) : '';
-            rows.push([
-              c.conversationId || '',
-              c.conversationStart || '',
-              c.conversationEnd || '',
-              c.originatingDirection || '',
-              p.participantName || '',
-              p.purpose || '',
-              p.userId || '',
-              p.externalContactId || '',
-              seg.segmentType || '',
-              mediaType || '',
-              seg.direction || '',
-              seg.queueId || '',
-              seg.flowId || '',
-              seg.flowName || '',
-              seg.transferType || '',
-              seg.transferTargetName || '',
-              seg.transferTargetAddress || '',
-              seg.segmentStart || '',
-              seg.segmentEnd || '',
-              dur,
-              seg.disconnectType || '',
-              seg.wrapUpCode || ''
-            ]);
-          }
-        }
-      }
-
-      const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
-      const blob = new Blob([csv], {type: 'text/csv'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'conversations.csv'; a.click();
-      URL.revokeObjectURL(url);
-    }
-
-    // ---------- Init ----------
     (function init() {
-      $('redirectUri').value = location.origin + location.pathname;
-      // Pre-fill from your provided values
-      const DEF_CID = 'bbc89753-462b-493d-ab94-4778af9e7d4d';
-      const DEF_REDIRECT = 'https://gmcglynn88.github.io/ConversationExplorer/';
-      if (!$('clientId').value) $('clientId').value = DEF_CID;
-      if (!$('redirectUri').value) $('redirectUri').value = DEF_REDIRECT;
-      completeLoginFromHash();
-      // Auto-authenticate if no token yet
-      if (!state.token) startLogin();
-      // Once authed, load users
-      const authCheck = setInterval(() => {
-        if (state.token) { clearInterval(authCheck); fetchAllUsers(); }
-      }, 200);
-      $('region').addEventListener('change', () => { const hosts = regionToHosts($('region').value); state.regionHost = hosts.api; state.loginHost = hosts.login; });
-      $('logoutBtn').addEventListener('click', logout);
-      $('clientId').addEventListener('change', saveLocal);
-      $('redirectUri').addEventListener('change', saveLocal);
       const today = new Date().toISOString().slice(0,10);
       $('fromDate').value = today; $('toDate').value = today;
+      const authed = initAuth();
+      if (authed) fetchAllUsers();
     })();
   </script>
 </body>
