@@ -13,7 +13,7 @@
       --card-bg: #FFFFFF;
       --text-color: #2C3E50;
       --text-light: #6C757D;
-      --available-color: #c8e6c9;
+      --available-color: #63AB8F; /* use same green for outlines */
       --nearly-color: #ffe0b2;
       --full-color: #ffcdd2;
     }
@@ -77,13 +77,23 @@
       font-size: 12px; 
       margin: 8px 0; 
     }
+
+    /* Outline-only styles (no green fill) */
     .user-info { 
-      background: var(--available-color); 
-      border: 1px solid var(--primary-color); 
+      background: transparent; 
+      border: 2px solid var(--available-color); 
       border-radius: 8px; 
       padding: 12px; 
       margin: 12px 0; 
     }
+    .conversation-header { 
+      background: transparent; 
+      border: 2px solid var(--available-color); 
+      border-radius: 8px; 
+      padding: 16px; 
+      margin: 12px 0; 
+    }
+
     .stats { display: flex; gap: 16px; margin: 16px 0; }
     .stat-card { 
       background: var(--card-bg); 
@@ -95,12 +105,7 @@
     }
     .stat-number { font-size: 24px; font-weight: bold; color: var(--primary-color); }
     .stat-label { color: var(--text-light); font-size: 14px; }
-    .conversation-header { 
-      background: var(--available-color); 
-      border-radius: 8px; 
-      padding: 16px; 
-      margin: 12px 0; 
-    }
+
     .journey-timeline { 
       margin: 20px 0; 
       padding-left: 20px; 
@@ -150,6 +155,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+
     .participant-badge { 
       display: inline-block; 
       padding: 4px 8px; 
@@ -157,12 +163,23 @@
       font-size: 12px; 
       font-weight: 600; 
       margin: 2px; 
+      border: 1px solid transparent;
     }
-    .badge-customer { background: var(--available-color); color: var(--secondary-color); }
+    /* If you also want the customer badge to be outline-only, swap the backgrounds: */
+    .badge-customer { 
+      /* outline-only version: */
+      background: transparent; 
+      border-color: var(--available-color);
+      color: var(--secondary-color);
+      /* filled version (old):
+      background: #c8e6c9; color: var(--secondary-color);
+      */
+    }
     .badge-agent { background: #dbeafe; color: #1e40af; }
     .badge-system { background: var(--nearly-color); color: #92400e; }
     .badge-queue { background: var(--full-color); color: #7c3aed; }
     .badge-ivr { background: #fce7f3; color: #be185d; }
+
     .transfer-count { 
       background: #fecaca; 
       color: #dc2626; 
@@ -198,9 +215,10 @@
       margin: 12px 0; 
     }
     .duration-badge { 
-      background: var(--available-color); 
+      background: #eefbf4; 
       color: var(--secondary-color); 
       padding: 2px 6px; 
+      border: 1px solid var(--available-color);
       border-radius: 4px; 
       font-size: 11px; 
       font-weight: 600; 
@@ -320,11 +338,7 @@
     const $ = (id) => document.getElementById(id);
     const fmt = (d) => {
       if (!d || d === 'Invalid Date') return 'N/A';
-      try {
-        return new Date(d).toLocaleString();
-      } catch (e) {
-        return 'N/A';
-      }
+      try { return new Date(d).toLocaleString(); } catch { return 'N/A'; }
     };
     
     const formatSeconds = (ms) => {
@@ -332,14 +346,9 @@
       const seconds = Math.floor(ms / 1000);
       const minutes = Math.floor(seconds / 60);
       const hours = Math.floor(minutes / 60);
-      
-      if (hours > 0) {
-        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-      } else if (minutes > 0) {
-        return `${minutes}m ${seconds % 60}s`;
-      } else {
-        return `${seconds}s`;
-      }
+      if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+      if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+      return `${seconds}s`;
     };
 
     const formatShortSeconds = (ms) => {
@@ -350,13 +359,7 @@
 
     const calculateDuration = (startTime, endTime) => {
       if (!startTime || !endTime) return 0;
-      try {
-        const start = new Date(startTime);
-        const end = new Date(endTime);
-        return end - start;
-      } catch (e) {
-        return 0;
-      }
+      try { return new Date(endTime) - new Date(startTime); } catch { return 0; }
     };
 
     function setStatus(msg, isError = false) {
@@ -364,67 +367,40 @@
       $('statusMessage').textContent = isError ? '' : (msg || '');
       $('errorMessage').textContent = isError ? (msg || '') : '';
     }
-
-    function showMainContent() {
-      $('authStatus').style.display = 'none';
-      $('mainContent').style.display = 'block';
-    }
-
-    function showAuthStatus() {
-      $('authStatus').style.display = 'block';
-      $('mainContent').style.display = 'none';
-    }
-
-    function setLoading(loading) {
-      if (loading) {
-        $('mainContent').classList.add('loading');
-      } else {
-        $('mainContent').classList.remove('loading');
-      }
-    }
-
+    function showMainContent() { $('authStatus').style.display = 'none'; $('mainContent').style.display = 'block'; }
+    function showAuthStatus() { $('authStatus').style.display = 'block'; $('mainContent').style.display = 'none'; }
+    function setLoading(loading) { $('mainContent').classList.toggle('loading', !!loading); }
     function updateProgress(percent, currentChunk, totalChunks) {
       $('progressFill').style.width = `${percent}%`;
       $('progressText').textContent = `${Math.round(percent)}%`;
       $('chunkText').textContent = `Chunk ${currentChunk}/${totalChunks}`;
     }
-
-    function showProgress() {
-      $('progressSection').style.display = 'block';
-      $('resultsSection').style.display = 'none';
-    }
-
-    function hideProgress() {
-      $('progressSection').style.display = 'none';
-    }
+    function showProgress() { $('progressSection').style.display = 'block'; $('resultsSection').style.display = 'none'; }
+    function hideProgress() { $('progressSection').style.display = 'none'; }
 
     // ===== OAuth handling =====
     function parseTokenFromHash() {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-      const token = hashParams.get('access_token');
-      const error = hashParams.get('error');
-      const errorDescription = hashParams.get('error_description');
-      return { token, error, errorDescription };
+      return { 
+        token: hashParams.get('access_token'),
+        error: hashParams.get('error'),
+        errorDescription: hashParams.get('error_description')
+      };
     }
-
     function buildAuthUrl() {
       return `${CONFIG.loginHost}/oauth/authorize` +
              `?client_id=${encodeURIComponent(CONFIG.clientId)}` +
              `&response_type=token` +
              `&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
     }
-
     function initAuth() {
       console.log('Initializing authentication...');
       showAuthStatus();
-
       const { token, error, errorDescription } = parseTokenFromHash();
 
       if (error) {
         const errTxt = `Authentication Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`;
         setStatus(errTxt, true);
-        console.error('OAuth error:', errTxt);
-        
         setTimeout(() => {
           sessionStorage.setItem('authAttempted', '1');
           window.location.assign(buildAuthUrl());
@@ -433,23 +409,18 @@
       }
 
       if (token) {
-        console.log('Token found, authentication successful');
         state.token = token;
         history.replaceState(null, '', location.pathname);
-        
         showMainContent();
         fetchAllUsers();
         return;
       }
 
-      console.log('No token found, initiating OAuth flow...');
       const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
-      
       if (alreadyTried) {
         setStatus('Authentication issue detected. Please check your OAuth client configuration.', true);
         return;
       }
-
       sessionStorage.setItem('authAttempted', '1');
       window.location.assign(buildAuthUrl());
     }
@@ -457,21 +428,13 @@
     // ===== API helper =====
     async function api(path) {
       if (!state.token) throw new Error('Not authenticated');
-      
-      console.log(`API call: ${path}`);
       const res = await fetch(`${CONFIG.apiHost}${path}`, {
         headers: { 'Authorization': `Bearer ${state.token}` }
       });
-      
       if (res.status === 401 || res.status === 403) {
         throw new Error(`Authentication error (${res.status}). Please refresh the page.`);
       }
-      
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(`API Error: ${res.status} ${res.statusText}`);
-      }
-      
+      if (!res.ok) throw new Error(`API Error: ${res.status} ${res.statusText}`);
       return res.json();
     }
 
@@ -480,17 +443,14 @@
       try {
         setStatus('Loading users...');
         setLoading(true);
-        
         let allUsers = [];
         let pageNumber = 1;
         const pageSize = 100;
 
         while (true) {
-          console.log(`Fetching users page ${pageNumber}...`);
           const data = await api(`/api/v2/users?pageSize=${pageSize}&pageNumber=${pageNumber}`);
           const batch = data?.entities || [];
           allUsers = allUsers.concat(batch);
-          
           if (!data?.nextUri || batch.length < pageSize) break;
           pageNumber++;
         }
@@ -499,11 +459,9 @@
           .map(u => ({ id: u.id, name: u.name, email: u.email || '' }))
           .sort((a, b) => a.name.localeCompare(b.name));
 
-        console.log(`Loaded ${state.users.length} users`);
         populateUserSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`);
         setLoading(false);
-        
       } catch (e) {
         setStatus(`Failed to load users: ${e.message}`, true);
         setLoading(false);
@@ -521,7 +479,6 @@
       select.onchange = () => {
         const selectedUser = users.find(u => u.id === select.value);
         state.selectedAgent = selectedUser || null;
-        
         if (selectedUser) {
           $('selectedAgentName').textContent = `${selectedUser.name} ${selectedUser.email ? `(${selectedUser.email})` : ''}`;
           $('selectedAgentInfo').style.display = 'block';
@@ -547,26 +504,17 @@
       const chunks = [];
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
       let currentStart = new Date(start);
-      
       while (currentStart <= end) {
         let currentEnd = new Date(currentStart);
         currentEnd.setDate(currentEnd.getDate() + daysPerChunk - 1);
-        
-        if (currentEnd > end) {
-          currentEnd = new Date(end);
-        }
-        
+        if (currentEnd > end) currentEnd = new Date(end);
         chunks.push({
           start: currentStart.toISOString().split('T')[0],
           end: currentEnd.toISOString().split('T')[0]
         });
-        
         currentStart.setDate(currentStart.getDate() + daysPerChunk);
       }
-      
-      console.log(`Split ${startDate} to ${endDate} into ${chunks.length} chunks of ${daysPerChunk} days each`);
       return chunks;
     }
 
@@ -574,7 +522,6 @@
       const start = new Date(startDate);
       const end = new Date(endDate);
       const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-      
       if (totalDays <= 7) return 7;
       if (totalDays <= 30) return 7;
       if (totalDays <= 90) return 5;
@@ -582,20 +529,111 @@
       return 2;
     }
 
+    // ===== Sessions/Segments-aware helpers =====
+    function getParticipantTimes(participant) {
+      const starts = [];
+      const ends = [];
+      for (const s of (participant.sessions || [])) {
+        if (s.startTime) starts.push(new Date(s.startTime));
+        if (s.endTime)   ends.push(new Date(s.endTime));
+        for (const seg of (s.segments || [])) {
+          if (seg.startTime) starts.push(new Date(seg.startTime));
+          if (seg.endTime)   ends.push(new Date(seg.endTime));
+        }
+      }
+      const start = starts.length ? new Date(Math.min(...starts)) : null;
+      const end   = ends.length   ? new Date(Math.max(...ends))   : null;
+      return { start, end, durationMs: (start && end) ? (end - start) : 0 };
+    }
+
+    function getConversationMediaTypes(conversation) {
+      const types = new Set();
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) {
+          if (s.mediaType) types.add(s.mediaType);
+        }
+      }
+      return [...types].join(', ') || 'Unknown';
+    }
+
+    function getANI(conversation) {
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) {
+          const isVoice = (s.mediaType || '').toLowerCase() === 'voice';
+          const dir = (s.direction || conversation.originatingDirection || '').toLowerCase();
+          const isInbound = dir === 'inbound';
+          if (isVoice && isInbound) {
+            return s.ani || s.addressFrom || s.otherAddress || s.remote || 'Unknown';
+          }
+        }
+      }
+      return 'Unknown';
+    }
+
+    function getParticipantAlertMs(participant) {
+      let total = 0;
+      for (const s of (participant.sessions || [])) {
+        for (const seg of (s.segments || [])) {
+          for (const m of (seg.metrics || [])) {
+            if (m.name === 'tAlert' && typeof m.value === 'number') {
+              total += m.value;
+            }
+          }
+        }
+      }
+      return total;
+    }
+
+    function analyzeTransfers(conversation) {
+      const transfers = [];
+      const legs = [];
+
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) {
+          const segStarts = (s.segments || [])
+            .map(x => x?.startTime ? new Date(x.startTime).getTime() : NaN)
+            .filter(n => !Number.isNaN(n))
+            .sort((a,b)=>a-b);
+          const when = segStarts.length ? segStarts[0] : (s.startTime ? new Date(s.startTime).getTime() : 0);
+          legs.push({
+            when,
+            purpose: p.purpose,
+            userId: p.userId || null,
+            queueId: s.queueId || p.queueId || null
+          });
+        }
+      }
+
+      legs.sort((a,b)=>a.when - b.when);
+
+      for (let i = 1; i < legs.length; i++) {
+        const prev = legs[i-1];
+        const curr = legs[i];
+        const queueChanged = prev.queueId && curr.queueId && prev.queueId !== curr.queueId;
+        const agentChanged = prev.userId && curr.userId && prev.userId !== curr.userId;
+
+        if (queueChanged || agentChanged || (prev.purpose === 'acd' && curr.userId)) {
+          transfers.push({
+            step: i, 
+            from: prev.userId ? getParticipantName({ userId: prev.userId, purpose: 'user' }) : (prev.queueId ? 'Queue' : prev.purpose || 'Unknown'),
+            to:   curr.userId ? getParticipantName({ userId: curr.userId, purpose: 'user' }) : (curr.queueId ? 'Queue' : curr.purpose || 'Unknown'),
+            time: new Date(curr.when).toISOString(),
+            type: curr.userId ? 'To Agent' : 'To Queue'
+          });
+        }
+      }
+
+      return { transfers, totalTransfers: transfers.length };
+    }
+
     // ===== Conversations =====
     async function fetchConversations() {
       try {
-        if (!state.selectedAgent) {
-          setStatus('Please select an agent first', true);
-          return;
-        }
+        if (!state.selectedAgent) return setStatus('Please select an agent first', true);
 
         const fromDate = $('fromDate').value;
         const toDate = $('toDate').value || fromDate;
-        if (!fromDate) {
-          setStatus('Please select a start date', true);
-          return;
-        }
+        if (!fromDate) return setStatus('Please select a start date', true);
 
         setStatus('Fetching conversations...');
         setLoading(true);
@@ -623,31 +661,23 @@
           const chunk = dateChunks[i];
           const progress = ((i) / dateChunks.length) * 100;
           updateProgress(progress, i + 1, dateChunks.length);
-          
           setStatus(`Fetching chunk ${i + 1}/${dateChunks.length}: ${chunk.start} to ${chunk.end}`);
-          
+
           try {
             const chunkConversations = await fetchConversationsForDateRange(chunk.start, chunk.end);
             state.conversations = state.conversations.concat(chunkConversations);
-            console.log(`Chunk ${i + 1}: Found ${chunkConversations.length} conversations`);
           } catch (error) {
             console.error(`Error in chunk ${i + 1}:`, error);
             setStatus(`Warning: Failed to fetch chunk ${i + 1}, continuing with remaining chunks...`, true);
           }
-          
-          if (i < dateChunks.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
+          if (i < dateChunks.length - 1) await new Promise(r => setTimeout(r, 500));
         }
 
         updateProgress(100, dateChunks.length, dateChunks.length);
-        
-        console.log(`Total found ${state.conversations.length} conversations`);
         renderResults(state.conversations);
         setStatus(`Found ${state.conversations.length} conversations for the selected period`);
         setLoading(false);
         hideProgress();
-        
       } catch (error) {
         setStatus(`Error fetching conversations: ${error.message}`, true);
         setLoading(false);
@@ -670,9 +700,10 @@
             value: state.selectedAgent.id
           }]
         }]
+        // If you want stricter interval behaviour, you can add:
+        // "startOfDayIntervalMatching": true
       };
 
-      console.log(`Fetching conversations for range: ${interval}`);
       const response = await fetch(`${CONFIG.apiHost}/api/v2/analytics/conversations/details/query`, {
         method: 'POST',
         headers: {
@@ -683,7 +714,6 @@
       });
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
         throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}`);
       }
 
@@ -693,17 +723,19 @@
 
     function renderResults(conversations) {
       const resultsContainer = $('results');
-      
+      const fromDate = $('fromDate').value || '-';
+      const toDate = $('toDate').value || fromDate;
+
       $('totalConversations').textContent = conversations.length;
-      $('dateRange').textContent = `${$('fromDate').value} to ${$('toDate').value}`;
-      $('selectedAgent').textContent = state.selectedAgent.name;
+      $('dateRange').textContent = `${fromDate} to ${toDate}`;
+      $('selectedAgent').textContent = state.selectedAgent?.name || '-';
       
       if (conversations.length === 0) {
         resultsContainer.innerHTML = `
           <div style="text-align: center; padding: 40px; color: var(--text-light);">
             <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
             <h3>No Conversations Found</h3>
-            <p>No conversations found for ${state.selectedAgent.name} during the selected date range.</p>
+            <p>No conversations found for ${state.selectedAgent?.name || 'the selected agent'} during the selected date range.</p>
           </div>
         `;
       } else {
@@ -719,13 +751,11 @@
           </details>
         `).join('');
       }
-      
       $('resultsSection').style.display = 'block';
     }
 
     function renderConversationDetails(conversation) {
-      // Get conversation-level data
-      const mediaType = conversation.mediaType || 'Unknown';
+      const mediaType = getConversationMediaTypes(conversation);
       const direction = conversation.originatingDirection || 'Unknown';
       const ani = getANI(conversation);
       const transferInfo = analyzeTransfers(conversation);
@@ -735,7 +765,7 @@
         <div class="conversation-header">
           <div class="info-grid">
             <div class="info-item">
-              <span class="info-label">Media Type:</span>
+              <span class="info-label">Media Type(s):</span>
               <span class="info-value">${mediaType}</span>
             </div>
             <div class="info-item">
@@ -777,72 +807,25 @@
       `;
     }
 
-    function getANI(conversation) {
-      if (conversation.participants) {
-        for (const participant of conversation.participants) {
-          if (participant.purpose === 'customer') {
-            return participant.addresses?.[0]?.raw || participant.addresses?.[0]?.display || 'Unknown';
-          }
-        }
-      }
-      return 'Unknown';
-    }
-
-    function analyzeTransfers(conversation) {
-      const transfers = [];
-      let totalTransfers = 0;
-      
-      if (conversation.participants) {
-        const sortedParticipants = [...conversation.participants].sort((a, b) => 
-          new Date(a.startTime) - new Date(b.startTime)
-        );
-
-        for (let i = 1; i < sortedParticipants.length; i++) {
-          const current = sortedParticipants[i];
-          const previous = sortedParticipants[i - 1];
-          
-          if ((current.purpose === 'acd' && previous.purpose === 'acd' && current.userId !== previous.userId) ||
-              (current.purpose === 'acd' && previous.purpose === 'user') ||
-              (current.purpose === 'user' && previous.purpose === 'acd')) {
-            
-            const fromParticipant = getParticipantName(previous);
-            const toParticipant = getParticipantName(current);
-            
-            transfers.push({
-              step: i,
-              from: fromParticipant,
-              to: toParticipant,
-              time: current.startTime,
-              type: current.purpose === 'acd' ? 'To Queue' : 'To Agent'
-            });
-            totalTransfers++;
-          }
-        }
-      }
-      
-      return {
-        transfers,
-        totalTransfers
-      };
-    }
-
     function renderJourneyTimeline(conversation, transferInfo) {
       if (!conversation.participants || conversation.participants.length === 0) {
         return '<p>No participant data available</p>';
       }
 
-      const sortedParticipants = [...conversation.participants].sort((a, b) => 
-        new Date(a.startTime) - new Date(b.startTime)
-      );
+      const sortedParticipants = [...conversation.participants].sort((a, b) => {
+        const ta = getParticipantTimes(a).start?.getTime() ?? Infinity;
+        const tb = getParticipantTimes(b).start?.getTime() ?? Infinity;
+        return ta - tb;
+      });
 
       return sortedParticipants.map((participant, index) => {
         const purpose = participant.purpose || 'unknown';
         const participantName = getParticipantName(participant);
-        const duration = formatSeconds(participant.duration);
-        const calculatedDuration = formatSeconds(calculateDuration(participant.startTime, participant.endTime));
-        const alertTime = participant.alertingTimeMs ? formatShortSeconds(participant.alertingTimeMs) : 'N/A';
-        
-        // Check if this step involved a transfer
+        const { start, end, durationMs } = getParticipantTimes(participant);
+        const duration = formatSeconds(durationMs);
+        const alertMs = getParticipantAlertMs(participant);
+        const alertTime = alertMs ? formatShortSeconds(alertMs) : 'N/A';
+
         const transfer = transferInfo.transfers.find(t => t.step === index);
         
         return `
@@ -861,7 +844,7 @@
                   Time: ${fmt(transfer.time)}
                 </div>
               ` : ''}
-              
+
               <div class="info-grid">
                 <div class="info-item">
                   <span class="info-label">Participant Type:</span>
@@ -869,18 +852,15 @@
                 </div>
                 <div class="info-item">
                   <span class="info-label">Start Time:</span>
-                  <span class="info-value">${fmt(participant.startTime)}</span>
+                  <span class="info-value">${fmt(start)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">End Time:</span>
-                  <span class="info-value">${fmt(participant.endTime)}</span>
+                  <span class="info-value">${fmt(end)}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Duration:</span>
-                  <span class="info-value">
-                    ${duration}
-                    ${calculatedDuration !== duration ? `<span class="duration-badge">calc: ${calculatedDuration}</span>` : ''}
-                  </span>
+                  <span class="info-value">${duration}</span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Alert Time:</span>
@@ -898,16 +878,14 @@
                 <div class="info-item">
                   <span class="info-label">User ID:</span>
                   <span class="info-value" style="font-family: monospace; font-size: 11px;">${participant.userId}</span>
-                </div>
-                ` : ''}
+                </div>` : ''}
                 ${participant.queueId ? `
                 <div class="info-item">
                   <span class="info-label">Queue ID:</span>
                   <span class="info-value" style="font-family: monospace; font-size: 11px;">${participant.queueId}</span>
-                </div>
-                ` : ''}
+                </div>` : ''}
               </div>
-              
+
               ${participant.addresses && participant.addresses.length > 0 ? `
                 <div style="margin-top: 8px;">
                   <strong>Addresses:</strong> 
@@ -916,7 +894,7 @@
                   ).join('')}
                 </div>
               ` : ''}
-              
+
               ${participant.sessions && participant.sessions.length > 0 ? `
                 <div style="margin-top: 8px;">
                   <strong>Sessions:</strong> ${participant.sessions.length}
@@ -929,20 +907,15 @@
     }
 
     function getParticipantName(participant) {
-      if (participant.purpose === 'customer') {
-        return 'Customer';
-      } else if (participant.userId) {
+      if (participant.purpose === 'customer') return 'Customer';
+      if (participant.userId) {
         const user = state.users.find(u => u.id === participant.userId);
         return user ? user.name : `Agent (${participant.userId})`;
-      } else if (participant.purpose === 'acd') {
-        return 'ACD Queue';
-      } else if (participant.purpose === 'ivr') {
-        return 'IVR System';
-      } else if (participant.purpose === 'external') {
-        return 'External System';
-      } else {
-        return participant.purpose || 'Unknown';
       }
+      if (participant.purpose === 'acd') return 'ACD Queue';
+      if (participant.purpose === 'ivr') return 'IVR System';
+      if (participant.purpose === 'external') return 'External System';
+      return participant.purpose || 'Unknown';
     }
 
     function getParticipantType(participant) {
@@ -963,7 +936,6 @@
         'external': 'badge-system',
         'queue': 'badge-queue'
       }[purpose] || 'badge-system';
-      
       return `<span class="participant-badge ${badgeClass}">${name}</span>`;
     }
 
@@ -973,13 +945,11 @@
     // ===== Initialize App =====
     (function init() {
       console.log('Initializing Conversation Explorer...');
-      
       const today = new Date();
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(today.getDate() - 7);
       $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
       $('toDate').value = today.toISOString().slice(0, 10);
-      
       initAuth();
     })();
   </script>
