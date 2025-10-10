@@ -385,102 +385,128 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === FIXED transcript renderer - SPECIFICALLY FOR GENESYS FIELDS ===
+    // === IMPROVED transcript renderer - FIXED TIMESTAMP AND SENTIMENT ===
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = s => (s||'').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]});
       
-      console.log('Full transcript data:', parsed);
+      console.log('Full transcript data structure:', parsed);
       
-      // Function to find utterances with the specific Genesys fields
-      function findGenesysUtterances(obj, depth=0) {
-        if (!obj || depth > 10) return null;
+      // Function to deeply search for utterances with the specific Genesys fields
+      function findGenesysUtterances(obj, path = 'root', depth = 0) {
+        if (!obj || depth > 15) return null;
         
+        // If we found an array, check if it contains utterance objects
         if (Array.isArray(obj)) {
-          // Check if this array contains objects with the specific Genesys fields
           if (obj.length > 0) {
-            const firstItem = obj[0];
-            // Look for the specific Genesys transcript structure
-            const hasGenesysFields = (
-              firstItem && 
-              typeof firstItem === 'object' &&
-              ('participantPurpose' in firstItem || 'decoratedText' in firstItem || 'milliseconds' in firstItem)
-            );
-            
-            if (hasGenesysFields) {
-              console.log('Found Genesys utterances array:', obj);
-              return obj;
+            const first = obj[0];
+            // Look for objects that have the specific Genesys transcript fields
+            if (first && typeof first === 'object') {
+              const hasRequiredFields = (
+                ('participantPurpose' in first || 'purpose' in first) &&
+                ('decoratedText' in first || 'text' in first) &&
+                ('milliseconds' in first || 'offsetMs' in first || 'timeMs' in first)
+              );
+              
+              if (hasRequiredFields) {
+                console.log('Found Genesys utterances at path:', path, obj);
+                return obj;
+              }
             }
           }
           
-          // Recursively search arrays
-          for (const item of obj) {
-            const found = findGenesysUtterances(item, depth + 1);
+          // Recursively search array items
+          for (let i = 0; i < obj.length; i++) {
+            const found = findGenesysUtterances(obj[i], path + '[' + i + ']', depth + 1);
             if (found) return found;
           }
-        } else if (typeof obj === 'object') {
-          // Check common container properties
-          const containerKeys = ['utterances', 'transcript', 'phrases', 'messages', 'conversation', 'transcripts', 'results'];
+        } 
+        // If it's an object, search its properties
+        else if (typeof obj === 'object') {
+          // Check common container property names
+          const containerKeys = [
+            'utterances', 'transcript', 'phrases', 'messages', 
+            'conversation', 'transcripts', 'results', 'data',
+            'utterance', 'segments', 'items', 'entries'
+          ];
+          
           for (const key of containerKeys) {
-            if (obj[key]) {
-              const found = findGenesysUtterances(obj[key], depth + 1);
+            if (obj[key] !== undefined) {
+              const found = findGenesysUtterances(obj[key], path + '.' + key, depth + 1);
               if (found) return found;
             }
           }
           
-          // Recursively search all object properties
+          // Search all object properties recursively
           for (const key of Object.keys(obj)) {
-            const found = findGenesysUtterances(obj[key], depth + 1);
-            if (found) return found;
+            if (!containerKeys.includes(key)) { // Avoid re-searching the same containers
+              const found = findGenesysUtterances(obj[key], path + '.' + key, depth + 1);
+              if (found) return found;
+            }
           }
         }
         
         return null;
       }
 
-      // Extract utterances with the specific Genesys fields
-      const utterances = findGenesysUtterances(parsed) || [];
+      // Find the utterances array
+      const utterancesArray = findGenesysUtterances(parsed);
+      
+      console.log('Found utterances array:', utterancesArray);
 
-      console.log('Extracted Genesys utterances:', utterances);
-
-      if (!utterances || utterances.length === 0) {
-        container.innerHTML = '<div class="muted">No transcript data found with the expected Genesys format.</div>' +
+      if (!utterancesArray || !Array.isArray(utterancesArray) || utterancesArray.length === 0) {
+        container.innerHTML = '<div class="muted">No transcript utterances found with the expected format.</div>' +
           '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(JSON.stringify(parsed, null, 2)) + '</pre></details>';
         return;
       }
 
       // Process each utterance to extract the specific fields
-      const processedUtterances = utterances.map(utterance => {
-        return {
-          participantPurpose: utterance.participantPurpose || 'external',
-          decoratedText: utterance.decoratedText || utterance.text || '',
-          milliseconds: utterance.milliseconds || utterance.offsetMs || utterance.timeMs || 0,
-          sentiment: utterance.sentiment,
-          confidence: utterance.confidence,
-          participantId: utterance.participantId
-        };
-      }).filter(u => u.decoratedText && u.decoratedText.trim()) // Remove empty utterances
-        .sort((a, b) => a.milliseconds - b.milliseconds); // Sort by time
+      const processedUtterances = utterancesArray
+        .map(utterance => {
+          // Extract the specific fields we need
+          const participantPurpose = utterance.participantPurpose || utterance.purpose || 'external';
+          const decoratedText = utterance.decoratedText || utterance.text || '';
+          const milliseconds = utterance.milliseconds || utterance.offsetMs || utterance.timeMs || 0;
+          const sentiment = utterance.sentiment;
+          const participantId = utterance.participantId;
+          
+          return {
+            participantPurpose: participantPurpose.toLowerCase(),
+            decoratedText: decoratedText.trim(),
+            milliseconds: parseInt(milliseconds),
+            sentiment: sentiment !== undefined && sentiment !== null ? parseFloat(sentiment) : null,
+            participantId: participantId
+          };
+        })
+        .filter(u => u.decoratedText && u.decoratedText.length > 0) // Remove empty utterances
+        .sort((a, b) => a.milliseconds - b.milliseconds); // Sort by timestamp
 
-      console.log('Processed utterances:', processedUtterances);
+      console.log('Processed utterances with timestamps:', processedUtterances);
 
       const nameMap = mapParticipantNames(conversation);
       const { internal, external } = participantsByType(conversation);
 
-      // Function to format sentiment
-      function formatSentiment(score) {
+      // Function to format sentiment - ONLY for external participants
+      function formatSentiment(utterance) {
+        // Only show sentiment for external participants (customers)
+        if (utterance.participantPurpose !== 'external') {
+          return '-';
+        }
+        
+        const score = utterance.sentiment;
         if (score === null || score === undefined || isNaN(score)) return '-';
+        
         const val = Number(score);
         const fixed = val.toFixed(3);
-        if (val > 0.1) return '<span class="sentiment-positive">👍 ' + fixed + '</span>';
-        if (val < -0.1) return '<span class="sentiment-negative">👎 ' + fixed + '</span>';
-        return '<span class="sentiment-neutral">🟠 ' + fixed + '</span>';
+        if (val > 0.1) return '<span class="sentiment-positive">' + fixed + '</span>';
+        if (val < -0.1) return '<span class="sentiment-negative">' + fixed + '</span>';
+        return '<span class="sentiment-neutral">' + fixed + '</span>';
       }
 
       // Function to get participant display name
       function getParticipantDisplay(utterance) {
-        const purpose = utterance.participantPurpose || 'external';
+        const purpose = utterance.participantPurpose;
         
-        if (purpose.toLowerCase() === 'internal') {
+        if (purpose === 'internal') {
           // For internal participants, try to find the agent name
           if (utterance.participantId && nameMap[utterance.participantId]) {
             return nameMap[utterance.participantId];
@@ -497,9 +523,9 @@
       html += '<div class="t-summary-grid">';
       html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (getConversationMediaTypes(conversation) || 'Voice') + '</span></div>';
       html += '<div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">' + conversation.conversationId + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Transcript Start Time:</span><span>' + fmt(conversation.conversationStart) + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Transcript End Time:</span><span>' + fmt(conversation.conversationEnd) + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Transcript Duration:</span><span>' + mmss(calculateDuration(conversation.conversationStart, conversation.conversationEnd)) + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Conversation Start:</span><span>' + fmt(conversation.conversationStart) + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Conversation End:</span><span>' + fmt(conversation.conversationEnd) + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Duration:</span><span>' + formatSeconds(calculateDuration(conversation.conversationStart, conversation.conversationEnd)) + '</span></div>';
       html += '<div class="t-kv"><span class="k">Direction:</span><span>' + (getDirection(conversation) || 'Unknown') + '</span></div>';
       html += '<div class="t-kv"><span class="k">Internal Participant(s):</span><span>' + (internal.length ? internal.map(function(n){ return '<span class="pill">' + escapeHtml(n) + '</span>'; }).join(' ') : '-') + '</span></div>';
       html += '<div class="t-kv"><span class="k">External Participant(s):</span><span>' + (external.length ? external.map(function(n){ return '<span class="pill">' + escapeHtml(n) + '</span>'; }).join(' ') : '-') + '</span></div>';
@@ -514,15 +540,15 @@
       } else {
         processedUtterances.forEach(function(utterance) {
           const timeFormatted = mmss(utterance.milliseconds);
-          const participantType = (utterance.participantPurpose || 'external').toLowerCase() === 'internal' ? 'Internal' : 'External';
+          const participantType = utterance.participantPurpose === 'internal' ? 'Internal' : 'External';
           const participantName = getParticipantDisplay(utterance);
           
           html += '<tr>';
-          html += '<td class="mono">' + timeFormatted + '</td>';
+          html += '<td class="mono" style="font-weight:bold;">' + timeFormatted + '</td>';
           html += '<td>' + participantType + '</td>';
           html += '<td>' + escapeHtml(participantName) + '</td>';
           html += '<td>' + escapeHtml(utterance.decoratedText) + '</td>';
-          html += '<td>' + formatSentiment(utterance.sentiment) + '</td>';
+          html += '<td>' + formatSentiment(utterance) + '</td>';
           html += '</tr>';
         });
       }
