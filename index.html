@@ -28,9 +28,15 @@
     }
     #logo-container { text-align: center; margin-bottom: 20px; }
     #logo { width: 300px; }
-    label { margin-top: 10px; display: block; font-weight: bold; color: var(--text-color); }
-    select, input, button { margin-top: 5px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; }
-    select, input { width: 100%; max-width: 360px; background: var(--card-bg); }
+    label { display: block; font-weight: 600; color: var(--text-color); margin-bottom: 6px; }
+    select, input, button {
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--card-bg);
+    }
+    select, input[type="text"], input[type="date"] { width: 100%; }
     button {
       background: var(--primary-color);
       color: white;
@@ -43,7 +49,7 @@
     button:disabled { background: var(--text-light); cursor: not-allowed; }
     #statusMessage { margin-top: 16px; color: var(--primary-color); white-space: pre-wrap; font-weight: 500; }
     #errorMessage { margin-top: 10px; color: #dc2626; white-space: pre-wrap; font-weight: 500; }
-    .row { display:flex; gap: 24px; flex-wrap:wrap; align-items:flex-end; margin-bottom: 16px; }
+
     .card {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
@@ -54,6 +60,29 @@
     }
     .muted { color: var(--text-light); }
     .loading { opacity: 0.6; pointer-events: none; }
+
+    /* Top controls layout: clean alignment + full-width button at bottom */
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px 24px;
+      align-items: start;
+    }
+    .control-group { display: flex; flex-direction: column; gap: 10px; }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+    }
+    .inline span { color: var(--text-light); }
+    .full-width-btn {
+      margin-top: 16px;
+      width: 100%;
+      padding: 14px 18px;
+      font-size: 16px;
+    }
+
     details {
       background: var(--light-bg);
       border: 1px solid var(--border-color);
@@ -237,37 +266,44 @@
     <div class="card">
       <h2 style="margin-top: 0; color: var(--text-color);">Select Agent & Date Range</h2>
 
-      <div class="row">
-        <div>
-          <label for="agentSelect">Select Agent</label>
-          <select id="agentSelect">
-            <option>Loading users...</option>
-          </select>
-          <input id="agentFilter" type="text" placeholder="Filter users by name or email" style="margin-top: 8px;" />
+      <div class="controls">
+        <!-- Agent block -->
+        <div class="control-group">
+          <div>
+            <label for="agentSelect">Select Agent</label>
+            <select id="agentSelect">
+              <option>Loading users...</option>
+            </select>
+          </div>
+          <div>
+            <input id="agentFilter" type="text" placeholder="Filter users by name" />
+          </div>
           <div class="user-info" id="selectedAgentInfo" style="display: none;">
             <strong>Selected Agent:</strong> <span id="selectedAgentName">None</span>
           </div>
         </div>
-        <div>
-          <label for="fromDate">Date Range</label>
-          <div style="display: flex; gap: 8px; align-items: center;">
-            <input id="fromDate" type="date" />
-            <span class="muted">to</span>
-            <input id="toDate" type="date" />
+
+        <!-- Date block -->
+        <div class="control-group">
+          <div>
+            <label for="fromDate">Date Range</label>
+            <div class="inline">
+              <input id="fromDate" type="date" />
+              <span>to</span>
+              <input id="toDate" type="date" />
+            </div>
           </div>
-          <div style="margin-top: 8px;">
-            <label>
-              <input type="checkbox" id="autoChunk" checked />
-              Auto-split large date ranges (recommended)
-            </label>
-          </div>
-          <div style="margin-top: 16px;">
-            <button id="fetchBtn" style="padding: 12px 24px; font-size: 16px;">
-              Fetch Conversations
-            </button>
-          </div>
+          <label style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+            <input type="checkbox" id="autoChunk" checked />
+            Auto-split large date ranges (recommended)
+          </label>
         </div>
       </div>
+
+      <!-- Full-width button across bottom -->
+      <button id="fetchBtn" class="full-width-btn">
+        Fetch Conversations
+      </button>
     </div>
 
     <div id="statusMessage"></div>
@@ -383,7 +419,6 @@
       showAuthStatus();
       const { token, error, errorDescription } = parseTokenFromHash();
 
-      // Always clear the hash so refreshes don’t keep the fragment
       if (location.hash) history.replaceState(null, '', location.pathname);
 
       if (error) {
@@ -463,16 +498,16 @@
 
     function populateUserSelect(users) {
       const select = $('agentSelect');
+      // DROPDOWN: show names only (no emails)
       select.innerHTML = '<option value="">Select an agent...</option>' +
-        users.map(u =>
-          `<option value="${u.id}">${u.name} ${u.email ? `(${u.email})` : ''}</option>`
-        ).join('');
+        users.map(u => `<option value="${u.id}">${u.name || '(Unnamed)'}</option>`).join('');
 
       select.onchange = () => {
         const selectedUser = users.find(u => u.id === select.value);
         state.selectedAgent = selectedUser || null;
         if (selectedUser) {
-          $('selectedAgentName').textContent = `${selectedUser.name} ${selectedUser.email ? `(${selectedUser.email})` : ''}`;
+          // Selected agent panel: show name only
+          $('selectedAgentName').textContent = selectedUser.name || '(Unnamed)';
           $('selectedAgentInfo').style.display = 'block';
         } else {
           $('selectedAgentInfo').style.display = 'none';
@@ -480,13 +515,11 @@
       };
     }
 
+    // Filter also only matches on name now
     $('agentFilter').addEventListener('input', function () {
       const query = this.value.trim().toLowerCase();
       const filteredUsers = query
-        ? state.users.filter(u =>
-            (u.name || '').toLowerCase().includes(query) ||
-            (u.email || '').toLowerCase().includes(query)
-          )
+        ? state.users.filter(u => (u.name || '').toLowerCase().includes(query))
         : state.users;
       populateUserSelect(filteredUsers);
     });
@@ -811,7 +844,6 @@
     }
 
     function renderConversationDetails(conversation) {
-      // Summary box — exact fields requested
       const mediaType = getMediaType(conversation);
       const direction = getDirection(conversation);
       const ani = getANI(conversation);
@@ -848,7 +880,6 @@
         return '<p>No participant data available</p>';
       }
 
-      // Sort participants by computed step start
       const sorted = [...conversation.participants]
         .map(p => ({ p, start: getStepStart(p) }))
         .sort((a,b) => (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity))
@@ -860,7 +891,6 @@
         const start = getStepStart(participant);
         const nextStart = (index < sorted.length - 1) ? getStepStart(sorted[index + 1]) : null;
 
-        // Duration rules
         let durationMs = 0;
         if (participant.userId) {
           durationMs = getAgentWindow(participant).durationMs || 0;
@@ -868,11 +898,9 @@
           if (start && nextStart) durationMs = Math.max(0, nextStart - start);
         }
 
-        // Alert time only for agent; show 0s if none, N/A if non-agent
         const alertMs = participant.userId ? getAlertMsForAgent(participant) : null;
         const alertTime = participant.userId ? formatShortSeconds(alertMs || 0) : 'N/A';
 
-        // Transfer (if any) for this index
         const transfer = transferInfo.transfers.find(t => t.step === index);
 
         return `
@@ -918,16 +946,6 @@
                   <span class="info-value">${(participant.sessions && participant.sessions.length) || 1}</span>
                 </div>
               </div>
-
-              ${participant.addresses && participant.addresses.length > 0 ? `
-                <div style="margin-top: 8px;">
-                  <strong>Addresses:</strong>
-                  ${participant.addresses.map(addr =>
-                    `<span class="participant-badge badge-system">${addr.raw || addr.display || 'N/A'}</span>`
-                  ).join('')}
-                </div>
-              ` : ''}
-
             </div>
           </div>
         `;
