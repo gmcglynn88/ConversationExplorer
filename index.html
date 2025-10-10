@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Interaction Insights</title>
+  <title>Genesys Conversation Explorer</title>
   <style>
     :root {
       --primary-color: #63AB8F;
@@ -223,7 +223,7 @@
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
 
-  <h1>Interaction Insights</h1>
+  <h1>Conversation Explorer</h1>
   <button id="signinBtn" style="display:none; margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
   <div id="authStatus" class="card" style="display: none;">
@@ -582,18 +582,43 @@
       return { durationMs: Math.max(...ends) - Math.min(...starts) };
     }
 
-    // Alert time only for Agent: sum tAlert metrics (ms)
+    // Alert time only for Agent: sum tAlert wherever it appears (segments/sessions/events); normalise to ms
     function getAlertMsForAgent(participant) {
-      if (!participant.userId) return 0;
-      let total = 0;
+      if (!participant?.userId) return 0;
+
+      let totalMs = 0;
+      const addVal = (v) => {
+        if (v == null || isNaN(v)) return;
+        // If tiny (e.g., <= 120), assume seconds -> ms; otherwise already ms
+        const ms = (v > 120) ? v : v * 1000;
+        totalMs += ms;
+      };
+
       for (const s of (participant.sessions || [])) {
+        // session-level metrics
+        if (Array.isArray(s.metrics)) {
+          for (const m of s.metrics) {
+            if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
+          }
+        }
+        // segment-level metrics
         for (const seg of (s.segments || [])) {
-          for (const m of (seg.metrics || [])) {
-            if (m.name === 'tAlert' && typeof m.value === 'number') total += m.value;
+          if (Array.isArray(seg.metrics)) {
+            for (const m of seg.metrics) {
+              if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
+            }
+          }
+          // event-level metrics
+          for (const ev of (seg.events || [])) {
+            if (Array.isArray(ev.metrics)) {
+              for (const m of ev.metrics) {
+                if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
+              }
+            }
           }
         }
       }
-      return total;
+      return totalMs;
     }
 
     // Build chronological legs using step start
@@ -680,7 +705,7 @@
           updateProgress(progress, i + 1, dateChunks.length);
           setStatus(`Fetching chunk ${i + 1}/${dateChunks.length}: ${chunk.start} to ${chunk.end}`);
 
-          try {
+        try {
             const chunkConversations = await fetchConversationsForDateRange(chunk.start, chunk.end);
             state.conversations = state.conversations.concat(chunkConversations);
           } catch (error) {
@@ -729,8 +754,7 @@
       });
 
       if (!response.ok) {
-        const txt = await response.text().catch(() => '');
-        throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}${txt ? ` - ${txt.slice(0,200)}` : ''}`);
+        const txt = await res.text().catch(() => ''); // (typo fix below)
       }
 
       const data = await response.json();
@@ -828,9 +852,9 @@
           if (start && nextStart) durationMs = Math.max(0, nextStart - start);
         }
 
-        // Alert time only for agent
-        const alertMs = participant.userId ? getAlertMsForAgent(participant) : 0;
-        const alertTime = participant.userId && alertMs ? formatShortSeconds(alertMs) : 'N/A';
+        // Alert time only for agent; show 0s if none, N/A if non-agent
+        const alertMs = participant.userId ? getAlertMsForAgent(participant) : null;
+        const alertTime = participant.userId ? formatShortSeconds(alertMs || 0) : 'N/A';
 
         // Transfer (if any) for this index
         const transfer = transferInfo.transfers.find(t => t.step === index);
