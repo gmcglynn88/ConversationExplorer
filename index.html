@@ -13,9 +13,10 @@
       --card-bg: #FFFFFF;
       --text-color: #2C3E50;
       --text-light: #6C757D;
-      --available-color: #63AB8F;
+      --available-color: #63AB8F; /* outline green */
       --nearly-color: #ffe0b2;
       --full-color: #ffcdd2;
+      --ink-strong: #1f2937;
     }
 
     body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; padding: 20px; max-width: 1200px; background: var(--light-bg); color: var(--text-color); }
@@ -47,7 +48,7 @@
     pre { background: #1f2937; color: #f3f4f6; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
 
     /* Outline-only green containers */
-    .user-info, .conversation-header { background: transparent; border: 2px solid var(--available-color); border-radius: 10px; padding: 16px; margin: 12px 0; }
+    .user-info, .conversation-header, .transcript-summary { background: transparent; border: 2px solid var(--available-color); border-radius: 10px; padding: 16px; margin: 12px 0; }
 
     .stats { display: flex; gap: 16px; margin: 16px 0; }
     .stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; flex: 1; text-align: center; }
@@ -84,10 +85,20 @@
     .transcript-wrapper { margin-top: 12px; }
     .transcript-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
     .transcript-status { font-size: 13px; color: var(--text-light); }
-    .transcript-table { width: 100%; border-collapse: collapse; }
-    .transcript-table th, .transcript-table td { border-bottom: 1px solid var(--border-color); padding: 8px 10px; vertical-align: top; }
-    .transcript-table th { text-align: left; font-weight: 700; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    .t-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px 16px; }
+    .t-kv { display:flex; gap:10px; align-items:center; }
+    .t-kv .k { color: var(--text-light); min-width: 170px; }
+    .t-sections { display:grid; gap:10px; margin-top: 10px; }
+    .t-section { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; }
+    .t-section h4 { margin: 0 0 6px; color: var(--ink-strong); }
+    .pill { display:inline-block; padding:2px 8px; border:1px solid var(--border-color); border-radius:999px; font-size:12px; margin-right:6px; }
+
+    .transcript-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .transcript-table th, .transcript-table td { border-bottom: 1px solid var(--border-color); padding: 8px 10px; vertical-align: top; }
+    .transcript-table th { text-align: left; font-weight: 700; white-space: nowrap; }
+    .nowrap { white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -113,13 +124,9 @@
         <div class="control-group">
           <div>
             <label for="agentSelect">Select Agent</label>
-            <select id="agentSelect">
-              <option>Loading users...</option>
-            </select>
+            <select id="agentSelect"><option>Loading users...</option></select>
           </div>
-          <div>
-            <input id="agentFilter" type="text" placeholder="Filter users by name" />
-          </div>
+          <div><input id="agentFilter" type="text" placeholder="Filter users by name" /></div>
           <div class="user-info" id="selectedAgentInfo" style="display: none;">
             <strong>Selected Agent:</strong> <span id="selectedAgentName">None</span>
           </div>
@@ -195,8 +202,11 @@
     const fmt = (d) => { if (!d || d === 'Invalid Date') return 'N/A'; try { return new Date(d).toLocaleString(); } catch { return 'N/A'; } };
     const fmtDMY = (s) => { if (!s || s.length < 10) return s || ''; const [y,m,d] = s.slice(0,10).split('-'); return `${d}-${m}-${y}`; };
     const formatSeconds = (ms) => { if (!ms || ms === 0) return '0s'; const s = Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60); if (h>0) return `${h}h ${m%60}m ${s%60}s`; if (m>0) return `${m}m ${s%60}s`; return `${s}s`; };
+    const formatHHMMSS = (ms) => { const t=Math.max(0,Math.floor(ms/1000)); const h=Math.floor(t/3600), m=Math.floor((t%3600)/60), s=t%60; return (h?String(h).padStart(2,'0')+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); };
+    const mmss = (ms)=>{ const t=Math.max(0,Math.floor(ms/1000)); const m=Math.floor(t/60), s=t%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); };
     const formatShortSeconds = (ms) => `${Math.floor((ms || 0) / 1000)}s`;
     const calculateDuration = (startTime, endTime) => { if (!startTime || !endTime) return 0; try { return new Date(endTime) - new Date(startTime); } catch { return 0; } };
+    const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
     function setStatus(msg, isError = false) { console.log(isError ? 'ERROR:' : 'STATUS:', msg); $('statusMessage').textContent = isError ? '' : (msg || ''); $('errorMessage').textContent = isError ? (msg || '') : ''; }
     function showMainContent() { $('authStatus').style.display = 'none'; $('mainContent').style.display = 'block'; }
     function showAuthStatus() { $('authStatus').style.display = 'block'; $('mainContent').style.display = 'none'; }
@@ -205,26 +215,22 @@
     function showProgress() { $('progressSection').style.display = 'block'; $('resultsSection').style.display = 'none'; }
     function hideProgress() { $('progressSection').style.display = 'none'; }
 
-    // ===== OAuth handling =====
+    // ===== OAuth =====
     function parseTokenFromHash() {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
       return { token: hashParams.get('access_token'), error: hashParams.get('error'), errorDescription: hashParams.get('error_description') };
     }
-    function buildAuthUrl() {
-      return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
-    }
+    function buildAuthUrl() { return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`; }
     function initAuth() {
       showAuthStatus();
       const { token, error, errorDescription } = parseTokenFromHash();
       if (location.hash) history.replaceState(null, '', location.pathname);
-
       if (error) {
         setStatus(`Authentication Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`, true);
         const btn = $('signinBtn'); btn.style.display = 'inline-block'; btn.onclick = () => window.location.assign(buildAuthUrl());
         return;
       }
       if (token) { state.token = token; showMainContent(); fetchAllUsers(); return; }
-
       const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
       if (!alreadyTried) { sessionStorage.setItem('authAttempted','1'); window.location.assign(buildAuthUrl()); }
       else { setStatus('Not authenticated. Click "Sign in to Genesys Cloud".', true); const btn=$('signinBtn'); btn.style.display='inline-block'; btn.onclick=()=>window.location.assign(buildAuthUrl()); }
@@ -252,10 +258,7 @@
         state.users = allUsers.map(u => ({ id: u.id, name: u.name, email: u.email || '' })).sort((a,b)=>a.name.localeCompare(b.name));
         populateUserSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`); setLoading(false);
-      } catch (e) {
-        setStatus(`Failed to load users: ${e.message}`, true); setLoading(false);
-        $('agentSelect').innerHTML = '<option>Failed to load users</option>';
-      }
+      } catch (e) { setStatus(`Failed to load users: ${e.message}`, true); setLoading(false); $('agentSelect').innerHTML = '<option>Failed to load users</option>'; }
     }
 
     function populateUserSelect(users) {
@@ -277,14 +280,9 @@
 
     // ===== Chunking =====
     function splitDateRangeIntoChunks(startDate, endDate, daysPerChunk = 7) {
-      const chunks = [];
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      let currentStart = new Date(start);
+      const chunks = []; const start = new Date(startDate); const end = new Date(endDate); let currentStart = new Date(start);
       while (currentStart <= end) {
-        let currentEnd = new Date(currentStart);
-        currentEnd.setDate(currentEnd.getDate() + daysPerChunk - 1);
-        if (currentEnd > end) currentEnd = new Date(end);
+        let currentEnd = new Date(currentStart); currentEnd.setDate(currentEnd.getDate() + daysPerChunk - 1); if (currentEnd > end) currentEnd = new Date(end);
         chunks.push({ start: currentStart.toISOString().split('T')[0], end: currentEnd.toISOString().split('T')[0] });
         currentStart.setDate(currentStart.getDate() + daysPerChunk);
       }
@@ -296,109 +294,64 @@
       if (totalDays <= 7) return 7; if (totalDays <= 30) return 7; if (totalDays <= 90) return 5; if (totalDays <= 180) return 3; return 2;
     }
 
-    // ===== Sessions/Segments helpers =====
+    // ===== Sessions/Segments-aware helpers =====
     function firstSession(conversation) {
       for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) return s;
       return null;
     }
     function getMediaType(conversation) { const s = firstSession(conversation); return (s && s.mediaType) || 'Unknown'; }
-    function getConversationMediaTypes(conversation) {
-      const types = new Set();
-      for (const p of (conversation.participants || [])) {
-        for (const s of (p.sessions || [])) { if (s.mediaType) types.add(s.mediaType); }
-      }
-      return [...types].join(', ') || (getMediaType(conversation) || 'Unknown');
-    }
-    function getDirection(conversation) {
-      const s = firstSession(conversation);
-      return (s && s.direction) || conversation.originatingDirection || 'Unknown';
-    }
+    function getConversationMediaTypes(conversation) { const types = new Set(); for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) if (s.mediaType) types.add(s.mediaType); return [...types].join(', ') || (getMediaType(conversation) || 'Unknown'); }
+    function getDirection(conversation) { const s = firstSession(conversation); return (s && s.direction) || conversation.originatingDirection || 'Unknown'; }
     function getANI(conversation) {
-      for (const p of (conversation.participants || [])) {
-        for (const s of (p.sessions || [])) {
-          const isVoice = (s.mediaType || '').toLowerCase() === 'voice';
-          if (!isVoice) continue;
-          const dir = (s.direction || conversation.originatingDirection || '').toLowerCase();
-          if (dir === 'inbound') return s.ani || s.addressFrom || s.otherAddress || s.remote || 'Unknown';
-        }
+      for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) {
+        const isVoice = (s.mediaType || '').toLowerCase() === 'voice'; if (!isVoice) continue;
+        const dir = (s.direction || conversation.originatingDirection || '').toLowerCase(); if (dir === 'inbound') return s.ani || s.addressFrom || s.otherAddress || s.remote || 'Unknown';
       }
-      const s = firstSession(conversation);
-      return (s && (s.ani || s.addressFrom || s.otherAddress || s.remote)) || 'Unknown';
+      const s = firstSession(conversation); return (s && (s.ani || s.addressFrom || s.otherAddress || s.remote)) || 'Unknown';
     }
     function getStepStart(participant) {
-      let times = [];
-      for (const s of (participant.sessions || [])) {
+      let times = []; for (const s of (participant.sessions || [])) {
         for (const seg of (s.segments || [])) {
-          for (const ev of (seg.events || [])) {
-            if (ev.eventTime) { const t = new Date(ev.eventTime).getTime(); if (!isNaN(t)) times.push(t); }
-          }
+          for (const ev of (seg.events || [])) { if (ev.eventTime) { const t = new Date(ev.eventTime).getTime(); if (!isNaN(t)) times.push(t); } }
           if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) times.push(t); }
         }
         if (s.startTime) { const t = new Date(s.startTime).getTime(); if (!isNaN(t)) times.push(t); }
       }
-      if (!times.length) return null;
-      return new Date(Math.min(...times));
+      if (!times.length) return null; return new Date(Math.min(...times));
     }
     function getAgentWindow(participant) {
-      let starts = [], ends = [];
-      for (const s of (participant.sessions || [])) {
-        for (const seg of (s.segments || [])) {
-          if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) starts.push(t); }
-          if (seg.segmentEnd) { const t = new Date(seg.segmentEnd).getTime(); if (!isNaN(t)) ends.push(t); }
-        }
+      let starts = [], ends = []; for (const s of (participant.sessions || [])) for (const seg of (s.segments || [])) {
+        if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) starts.push(t); }
+        if (seg.segmentEnd)   { const t = new Date(seg.segmentEnd).getTime();   if (!isNaN(t)) ends.push(t); }
       }
       if (!starts.length || !ends.length) return { durationMs: 0 };
       return { durationMs: Math.max(...ends) - Math.min(...starts) };
     }
     function getAlertMsForAgent(participant) {
       if (!participant?.userId) return 0;
-      let totalMs = 0;
-      const addVal = (v) => { if (v == null || isNaN(v)) return; const ms = (v > 120) ? v : v * 1000; totalMs += ms; };
+      let totalMs = 0; const addVal = (v) => { if (v == null || isNaN(v)) return; const ms = (v > 120) ? v : v * 1000; totalMs += ms; };
       for (const s of (participant.sessions || [])) {
         if (Array.isArray(s.metrics)) for (const m of s.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
         for (const seg of (s.segments || [])) {
           if (Array.isArray(seg.metrics)) for (const m of seg.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
-          for (const ev of (seg.events || [])) {
-            if (Array.isArray(ev.metrics)) for (const m of ev.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
-          }
+          for (const ev of (seg.events || [])) if (Array.isArray(ev.metrics)) for (const m of ev.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
         }
       }
       return totalMs;
     }
 
-    // Queue helpers
-    function getQueueIdFromParticipant(participant) {
-      if (participant.queueId) return participant.queueId;
-      for (const s of (participant.sessions || [])) { if (s.queueId) return s.queueId; }
-      return null;
-    }
-    function getQueueName(queueId){ return state.queues[queueId] || null; }
-    async function fetchQueueName(queueId){
-      if (!queueId || state.queues[queueId]) return;
-      try { const q = await api(`/api/v2/routing/queues/${queueId}`); state.queues[queueId] = q?.name || queueId; }
-      catch(e){ console.warn('Queue fetch failed', queueId, e.message); state.queues[queueId] = queueId; }
-    }
-    async function warmQueueCache(conversations){
-      const ids = new Set();
-      for (const c of conversations) { for (const p of (c.participants||[])) { const id = getQueueIdFromParticipant(p); if (id) ids.add(id); } }
-      await Promise.all([...ids].filter(id=>!state.queues[id]).map(id=>fetchQueueName(id)));
-    }
-
-    // Transfers
+    // Legs + queues
+    function getQueueIdFromParticipant(participant) { if (participant.queueId) return participant.queueId; for (const s of (participant.sessions || [])) if (s.queueId) return s.queueId; return null; }
     function buildLegs(conversation) {
-      const legs = [];
-      for (const p of (conversation.participants || [])) {
-        const when = getStepStart(p)?.getTime() ?? Infinity;
-        let queueId = getQueueIdFromParticipant(p);
+      const legs = []; for (const p of (conversation.participants || [])) {
+        const when = getStepStart(p)?.getTime() ?? Infinity; let queueId = getQueueIdFromParticipant(p);
         legs.push({ when, purpose: p.purpose, userId: p.userId || null, queueId });
       }
-      legs.sort((a,b)=>a.when-b.when);
-      return legs.filter(l => Number.isFinite(l.when));
+      legs.sort((a,b)=>a.when-b.when); return legs.filter(l => Number.isFinite(l.when));
     }
     function analyzeTransfers(conversation) {
       const legs = buildLegs(conversation); let count = 0; const transfers = [];
-      for (let i=1;i<legs.length;i++){
-        const prev=legs[i-1], curr=legs[i];
+      for (let i=1;i<legs.length;i++){ const prev=legs[i-1], curr=legs[i];
         const agentToAgent = prev.userId && curr.userId && prev.userId!==curr.userId;
         const agentToQueue = prev.userId && curr.queueId && !curr.userId;
         if (agentToAgent || agentToQueue) {
@@ -408,14 +361,21 @@
       }
       return { totalTransfers: count, transfers };
     }
-    function renderDurationCell(durationMs, isAgent, start, nextStart) {
-      const main = formatSeconds(durationMs);
-      if (isAgent) return main;
-      if (!start || !nextStart) return main + ' <span class="duration-badge">calc: n/a</span>';
-      return main;
+    function renderDurationCell(durationMs, isAgent, start, nextStart) { const main = formatSeconds(durationMs); if (isAgent) return main; if (!start || !nextStart) return main + ' <span class="duration-badge">calc: n/a</span>'; return main; }
+
+    // Queue name cache
+    function getQueueName(queueId){ return state.queues[queueId] || null; }
+    async function fetchQueueName(queueId){
+      if (!queueId || state.queues[queueId]) return;
+      try { const q = await api(`/api/v2/routing/queues/${queueId}`); state.queues[queueId] = q?.name || queueId; }
+      catch(e){ console.warn('Queue fetch failed', queueId, e.message); state.queues[queueId] = queueId; }
+    }
+    async function warmQueueCache(conversations){
+      const ids = new Set(); for (const c of conversations) for (const p of (c.participants||[])) { const id = getQueueIdFromParticipant(p); if (id) ids.add(id); }
+      await Promise.all([...ids].filter(id=>!state.queues[id]).map(id=>fetchQueueName(id)));
     }
 
-    // ===== Transcript: sessionId == communicationsId =====
+    // ===== Transcript helpers =====
     function mapParticipantNames(conversation){
       const map = {};
       for (const p of (conversation.participants || [])) {
@@ -433,30 +393,46 @@
       }
       return map;
     }
-    function findCommunicationsIdFromDetails(conversation) {
-      // prefer voice sessionId
-      for (const p of (conversation.participants || [])) {
-        for (const s of (p.sessions || [])) {
-          if ((s.mediaType || '').toLowerCase()==='voice' && typeof s.sessionId === 'string' && s.sessionId) return s.sessionId;
-        }
-      }
-      // fallback: first sessionId / communicationId / id
-      for (const p of (conversation.participants || [])) {
-        for (const s of (p.sessions || [])) {
-          if (typeof s.sessionId === 'string' && s.sessionId) return s.sessionId;
-          if (typeof s.communicationId === 'string' && s.communicationId) return s.communicationId;
-          if (typeof s.id === 'string' && s.id) return s.id;
-        }
-      }
+
+    function findCommunicationsIdFromDetails(conversation){
+      for (const p of (conversation.participants||[])) for (const s of (p.sessions||[])) if ((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
+      for (const p of (conversation.participants||[])) for (const s of (p.sessions||[])) if (s.sessionId) return s.sessionId;
+      for (const p of (conversation.participants||[])) for (const s of (p.sessions||[])) if (s.communicationId) return s.communicationId;
+      for (const p of (conversation.participants||[])) for (const s of (p.sessions||[])) if (s.id) return s.id;
       return null;
     }
+
+    function participantsByType(conversation){
+      const internal = new Set(), external = new Set();
+      for (const p of (conversation.participants||[])) {
+        if (p.userId) {
+          const u = state.users.find(x=>x.id===p.userId);
+          internal.add(u ? u.name : `Agent (${p.userId})`);
+        } else if (p.purpose==='customer') {
+          external.add(p.participantName || 'Customer');
+        } else if (p.purpose==='acd') {
+          const qid = getQueueIdFromParticipant(p);
+          external.add(getQueueName(qid) || p.participantName || 'Queue');
+        }
+      }
+      return { internal:[...internal], external:[...external] };
+    }
+
+    function deriveInteractionType(conversation){
+      const mt = getMediaType(conversation).toLowerCase();
+      if (mt==='voice') return 'Call';
+      if (mt==='email') return 'Email';
+      if (mt==='chat') return 'Chat';
+      if (mt==='message') return 'Messaging';
+      return mt ? mt[0].toUpperCase()+mt.slice(1) : 'Interaction';
+    }
+
     async function getTranscriptForConversation(conversationId){
       const btn = document.querySelector(`#btn-transcript-${conversationId}`);
       const statusEl = document.querySelector(`#transcript-status-${conversationId}`);
       const container = document.querySelector(`#transcript-${conversationId}`);
       if (!state.token) { alert('Not authenticated'); return; }
-      const conv = state.convIndex[conversationId];
-      if (!conv) { statusEl.textContent = 'Conversation not found in state.'; return; }
+      const conv = state.convIndex[conversationId]; if (!conv) { statusEl.textContent = 'Conversation not found in state.'; return; }
 
       const communicationsId = findCommunicationsIdFromDetails(conv);
       if (!communicationsId) { statusEl.textContent = 'No sessionId found to use as communicationsId.'; return; }
@@ -468,13 +444,9 @@
           method: 'GET',
           headers: { 'Authorization': `Bearer ${state.token}` }
         });
-        if (!urlRes.ok) {
-          const t = await urlRes.text().catch(()=> '');
-          throw new Error(`Transcript URL error: ${urlRes.status} ${urlRes.statusText}${t?` - ${t.slice(0,200)}`:''}`);
-        }
+        if (!urlRes.ok) { const t=await urlRes.text().catch(()=> ''); throw new Error(`Transcript URL error: ${urlRes.status} ${urlRes.statusText}${t?` - ${t.slice(0,200)}`:''}`); }
 
-        const urlJson = await urlRes.json();
-        const presigned = urlJson?.url;
+        const { url: presigned } = await urlRes.json();
         if (!presigned) throw new Error('Transcript response did not include a URL.');
 
         statusEl.textContent = 'Downloading transcript…';
@@ -482,69 +454,140 @@
         if (!rawRes.ok) throw new Error(`Transcript download failed: ${rawRes.status} ${rawRes.statusText}`);
 
         const text = await rawRes.text();
-        let parsed = null;
-        try { parsed = JSON.parse(text); } catch {}
-
+        let parsed = null; try { parsed = JSON.parse(text); } catch {}
         statusEl.textContent = 'Rendering transcript…';
         renderTranscript(container, parsed, text, conv);
         statusEl.textContent = 'Transcript loaded.';
       } catch (e) {
         console.error(e);
         statusEl.innerHTML = `⚠️ ${e.message}<br/><span class="muted">If this is a CORS issue, try opening the raw URL in a new tab.</span>`;
-      } finally {
-        btn.disabled = false;
-      }
+      } finally { btn.disabled = false; }
     }
-    function renderTranscript(container, parsed, rawText, conversation){
-      const nameMap = mapParticipantNames(conversation);
-      const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 
+    function renderTranscript(container, parsed, rawText, conversation){
+      // Attempt to find “utterances” array in common shapes
       const huntUtterances = (obj) => {
         if (!obj) return null;
         if (Array.isArray(obj)) {
-          if (obj.length && typeof obj[0] === 'object' && ('text' in obj[0] || 'utterance' in obj[0])) return obj;
+          if (obj.length && typeof obj[0] === 'object' && ('text' in obj[0] || 'utterance' in obj[0] || 'transcript' in obj[0])) return obj;
         } else if (typeof obj === 'object') {
           for (const k of Object.keys(obj)) {
             const v = obj[k];
-            if (Array.isArray(v)) { const m = huntUtterances(v); if (m) return m; }
-            else if (v && typeof v === 'object') { const m = huntUtterances(v); if (m) return m; }
+            if (Array.isArray(v)) { const maybe = huntUtterances(v); if (maybe) return maybe; }
+            else if (v && typeof v === 'object') { const maybe = huntUtterances(v); if (maybe) return maybe; }
           }
         }
         return null;
       };
 
-      const utterances = parsed ? huntUtterances(parsed) : null;
+      const nameMap = mapParticipantNames(conversation);
+      const { internal, external } = participantsByType(conversation);
+      const interactionType = deriveInteractionType(conversation);
+      const direction = (getDirection(conversation) || '').toString();
 
+      let utterances = parsed ? huntUtterances(parsed) : null;
+      // Normalise utterances -> { ts (ms or ISO), text, speakerId/role, confidence }
+      let rows = [];
       if (utterances && utterances.length) {
-        const rows = utterances.map(u => {
-          const time = u.time || u.offset || u.startTime || u.timestamp || u.datetime || '';
-          const ms = typeof time === 'number' ? time : (time ? Date.parse(time) : NaN);
-          const timeStr = isNaN(ms) ? (time || '') : new Date(ms).toLocaleString();
-          const whoRaw = u.speaker || u.participantId || u.participant || u.role || u.purpose || '';
-          const who = nameMap[whoRaw] || nameMap[(u.participantId||'')] || whoRaw || 'Unknown';
-          const text = (u.text || u.utterance || '').toString();
-          return { time: timeStr, who, text };
-        });
+        rows = utterances.map((u, idx) => {
+          const ts = u.time || u.offset || u.startTime || u.timestamp || u.datetime || null;
+          let tsMs = null;
+          if (typeof ts === 'number') tsMs = ts;
+          else if (ts) { const n = Date.parse(ts); tsMs = isNaN(n) ? null : n; }
 
-        container.innerHTML = `
+          const conf = (typeof u.confidence === 'number' ? u.confidence :
+                       (typeof u.asrConfidence === 'number' ? u.asrConfidence :
+                       (typeof u.confidenceScore === 'number' ? u.confidenceScore : null)));
+
+          const whoRaw = u.speaker || u.participantId || u.participant || u.role || u.purpose || '';
+          const whoName = nameMap[whoRaw] || nameMap[(u.participantId||'')] || whoRaw || 'Unknown';
+          const whoType = whoName === 'Customer' || (external.includes(whoName)) ? 'External' : 'Internal';
+
+          const text = (u.text || u.utterance || u.transcript || '').toString();
+          return { idx, tsMs, text, whoName, whoType, conf };
+        });
+      }
+
+      // Compute transcript window
+      let startMs = null, endMs = null;
+      if (rows.length) {
+        const tsList = rows.map(r => r.tsMs).filter(v => v != null);
+        if (tsList.length) { startMs = Math.min(...tsList); endMs = Math.max(...tsList); }
+      }
+      const transcriptStart = startMs ? new Date(startMs).toLocaleString() : 'N/A';
+      const transcriptEnd = endMs ? new Date(endMs).toLocaleString() : 'N/A';
+      const transcriptDuration = (startMs && endMs) ? formatHHMMSS(endMs - startMs) : 'N/A';
+
+      // Relative time column (from transcript start)
+      const rel = (ms) => (startMs!=null && ms!=null) ? mmss(ms - startMs) : '';
+
+      // Build pretty header
+      const summaryHTML = `
+        <div class="transcript-summary">
+          <div class="t-summary-grid">
+            <div class="t-kv"><span class="k">Interaction Type:</span><span>${interactionType}</span></div>
+            <div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">${conversation.conversationId}</span></div>
+            <div class="t-kv"><span class="k">Transcript Start Time:</span><span>${escapeHtml(transcriptStart)}</span></div>
+            <div class="t-kv"><span class="k">Transcript End Time:</span><span>${escapeHtml(transcriptEnd)}</span></div>
+            <div class="t-kv"><span class="k">Transcript Duration:</span><span>${escapeHtml(transcriptDuration)}</span></div>
+            <div class="t-kv"><span class="k">Direction:</span><span>${escapeHtml(direction[0]?.toUpperCase()+direction.slice(1))}</span></div>
+            <div class="t-kv"><span class="k">Internal Participant(s):</span><span>${internal.length?internal.map(n=>`<span class="pill">${escapeHtml(n)}</span>`).join(' '):'-'}</span></div>
+            <div class="t-kv"><span class="k">External Participant(s):</span><span>${external.length?external.map(n=>`<span class="pill">${escapeHtml(n)}</span>`).join(' '):'-'}</span></div>
+          </div>
+
+          <div class="t-sections">
+            <div class="t-section">
+              <h4>Interaction Summary</h4>
+              <div class="muted">No structured summary found in transcript. (If your STA payload includes summaries, we’ll show them here.)</div>
+            </div>
+            <div class="t-section">
+              <h4>Insights</h4>
+              <div class="muted">No structured insights found. (Topics/sentiment from STA can be rendered here if available.)</div>
+            </div>
+            <div class="t-section">
+              <h4>Agent Summary</h4>
+              <div class="muted">No agent summary detected. (We’ll surface any agent summary text when present.)</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Build table
+      let tableHTML = '';
+      if (rows.length) {
+        tableHTML = `
           <table class="transcript-table">
-            <thead><tr><th style="width:220px;">Time</th><th style="width:220px;">Speaker</th><th>Text</th></tr></thead>
+            <thead>
+              <tr>
+                <th class="nowrap">Date/Time</th>
+                <th class="nowrap">Relative</th>
+                <th class="nowrap">Participant Type</th>
+                <th class="nowrap">Participant</th>
+                <th>Text</th>
+                <th class="nowrap">Confidence</th>
+              </tr>
+            </thead>
             <tbody>
               ${rows.map(r => `
                 <tr>
-                  <td class="mono">${r.time || ''}</td>
-                  <td>${r.who || ''}</td>
-                  <td>${escapeHtml(r.text || '')}</td>
+                  <td class="mono nowrap">${r.tsMs ? new Date(r.tsMs).toLocaleString() : ''}</td>
+                  <td class="mono nowrap">${rel(r.tsMs)}</td>
+                  <td class="nowrap">${escapeHtml(r.whoType)}</td>
+                  <td class="nowrap">${escapeHtml(r.whoName)}</td>
+                  <td>${escapeHtml(r.text)}</td>
+                  <td class="nowrap">${r.conf!=null ? (Math.round(r.conf*1000)/10 + '%') : '-'}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
         `;
       } else if (parsed && typeof parsed === 'object') {
-        container.innerHTML = `<div class="muted" style="margin-bottom:6px;">Unrecognised transcript format. Showing JSON.</div><pre>${escapeHtml(JSON.stringify(parsed, null, 2))}</pre>`;
+        tableHTML = `<div class="muted" style="margin-top:8px;">Unrecognised transcript format. Showing JSON.</div><pre>${escapeHtml(JSON.stringify(parsed, null, 2))}</pre>`;
       } else {
-        container.innerHTML = `<div class="muted" style="margin-bottom:6px;">Plain text transcript</div><pre>${escapeHtml(rawText || '')}</pre>`;
+        tableHTML = `<div class="muted" style="margin-top:8px;">Plain text transcript</div><pre>${escapeHtml(rawText || '')}</pre>`;
       }
+
+      container.innerHTML = summaryHTML + tableHTML;
     }
 
     // ===== Conversations =====
@@ -706,8 +749,7 @@
     function renderJourneyTimeline(conversation, transferInfo) {
       if (!conversation.participants || conversation.participants.length === 0) return '<p>No participant data available</p>';
 
-      const sorted = [...conversation.participants]
-        .map(p => ({ p, start: getStepStart(p) }))
+      const sorted = [...conversation.participants].map(p => ({ p, start: getStepStart(p) }))
         .sort((a,b) => (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity))
         .map(x => x.p);
 
@@ -719,9 +761,7 @@
         const queueId = getQueueIdFromParticipant(participant);
         const queueName = queueId ? (getQueueName(queueId) || queueId) : null;
 
-        const participantName = purpose === 'acd'
-          ? (queueName ? `Queue: ${queueName}` : 'ACD Queue')
-          : getParticipantName(participant);
+        const participantName = purpose === 'acd' ? (queueName ? `Queue: ${queueName}` : 'ACD Queue') : getParticipantName(participant);
 
         let durationMs = 0;
         if (participant.userId) durationMs = getAgentWindow(participant).durationMs || 0;
@@ -746,8 +786,7 @@
                   To: ${transfer.to}<br>
                   Type: ${transfer.type}<br>
                   Time: ${fmt(transfer.time)}
-                </div>
-              ` : ''}
+                </div>` : ''}
 
               <div class="info-grid">
                 <div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">${getParticipantType(participant)}</span></div>
@@ -790,15 +829,11 @@
 
     // ===== Event Listeners =====
     document.getElementById('fetchBtn').addEventListener('click', fetchConversations);
-
-    // expose transcript function for inline onclick
     window.getTranscriptForConversation = getTranscriptForConversation;
 
     // ===== Initialize App =====
     (function init() {
-      const today = new Date();
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(today.getDate() - 7);
+      const today = new Date(); const oneWeekAgo = new Date(); oneWeekAgo.setDate(today.getDate() - 7);
       $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
       $('toDate').value = today.toISOString().slice(0, 10);
       initAuth();
