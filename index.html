@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Interaction Insights</title>
+  <title>Genesys Conversation Explorer</title>
   <style>
     :root {
       --primary-color: #63AB8F;
@@ -13,238 +13,81 @@
       --card-bg: #FFFFFF;
       --text-color: #2C3E50;
       --text-light: #6C757D;
-      --available-color: #63AB8F; /* green outline */
+      --available-color: #63AB8F;
       --nearly-color: #ffe0b2;
       --full-color: #ffcdd2;
     }
 
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      margin: 20px;
-      padding: 20px;
-      max-width: 1200px;
-      background: var(--light-bg);
-      color: var(--text-color);
-    }
+    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; padding: 20px; max-width: 1200px; background: var(--light-bg); color: var(--text-color); }
     #logo-container { text-align: center; margin-bottom: 20px; }
     #logo { width: 300px; }
     label { display: block; font-weight: 600; color: var(--text-color); margin-bottom: 6px; }
-    select, input, button {
-      padding: 10px;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      font-size: 14px;
-      background: var(--card-bg);
-    }
+    select, input, button { padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; background: var(--card-bg); }
     select, input[type="text"], input[type="date"] { width: 100%; }
-    button {
-      background: var(--primary-color);
-      color: white;
-      border: none;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background 0.2s;
-    }
+    button { background: var(--primary-color); color: white; border: none; cursor: pointer; font-weight: 600; transition: background 0.2s; }
     button:hover { background: var(--secondary-color); }
     button:disabled { background: var(--text-light); cursor: not-allowed; }
     #statusMessage { margin-top: 16px; color: var(--primary-color); white-space: pre-wrap; font-weight: 500; }
     #errorMessage { margin-top: 10px; color: #dc2626; white-space: pre-wrap; font-weight: 500; }
 
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 24px;
-      margin-top: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
+    .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; margin-top: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     .muted { color: var(--text-light); }
     .loading { opacity: 0.6; pointer-events: none; }
 
-    /* Top controls layout: alignment + full-width button at bottom */
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 20px 24px;
-      align-items: start;
-    }
+    /* Top controls */
+    .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px 24px; align-items: start; }
     .control-group { display: flex; flex-direction: column; gap: 10px; }
-    .inline {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 16px; /* more spacing around "to" */
-    }
+    .inline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; }
     .inline span { color: var(--text-light); padding: 0 4px; }
-    .full-width-btn {
-      margin-top: 16px;
-      width: 100%;
-      padding: 14px 18px;
-      font-size: 16px;
-    }
+    .full-width-btn { margin-top: 16px; width: 100%; padding: 14px 18px; font-size: 16px; }
 
-    details {
-      background: var(--light-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 16px;
-      margin: 12px 0;
-    }
-    details>summary {
-      cursor: pointer;
-      font-weight: 600;
-      padding: 8px 0;
-      font-size: 16px;
-      color: var(--text-color);
-    }
-    pre {
-      background: #1f2937;
-      color: #f3f4f6;
-      padding: 16px;
-      border-radius: 6px;
-      overflow-x: auto;
-      font-size: 12px;
-      margin: 8px 0;
-    }
+    details { background: var(--light-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; margin: 12px 0; }
+    details>summary { cursor: pointer; font-weight: 600; padding: 8px 0; font-size: 16px; color: var(--text-color); }
+    pre { background: #1f2937; color: #f3f4f6; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
 
     /* Outline-only green containers */
-    .user-info, .conversation-header {
-      background: transparent;
-      border: 2px solid var(--available-color);
-      border-radius: 10px;
-      padding: 16px;
-      margin: 12px 0;
-    }
+    .user-info, .conversation-header { background: transparent; border: 2px solid var(--available-color); border-radius: 10px; padding: 16px; margin: 12px 0; }
 
     .stats { display: flex; gap: 16px; margin: 16px 0; }
-    .stat-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 16px;
-      flex: 1;
-      text-align: center;
-    }
+    .stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; flex: 1; text-align: center; }
     .stat-number { font-size: 24px; font-weight: bold; color: var(--primary-color); }
     .stat-label { color: var(--text-light); font-size: 14px; }
 
-    .journey-timeline {
-      margin: 20px 0;
-      padding-left: 20px;
-      border-left: 3px solid var(--primary-color);
-    }
+    .journey-timeline { margin: 20px 0; padding-left: 20px; border-left: 3px solid var(--primary-color); }
     .journey-step { margin-bottom: 20px; position: relative; }
-    .journey-step:before {
-      content: '';
-      position: absolute;
-      left: -26px;
-      top: 0;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--primary-color);
-    }
+    .journey-step:before { content: ''; position: absolute; left: -26px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--primary-color); }
     .step-header { font-weight: bold; color: var(--secondary-color); margin-bottom: 8px; }
-    .step-details {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 12px;
-    }
+    .step-details { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; }
 
-    /* Non-squashy grid: bigger min width & nowrap */
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 14px 18px;
-      margin: 12px 0;
-    }
-    .info-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border-color);
-      white-space: nowrap;
-    }
-    .info-label {
-      font-weight: 600;
-      color: var(--text-color);
-      min-width: 180px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .info-value {
-      color: var(--text-color);
-      text-align: right;
-      flex: 1;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-variant-numeric: tabular-nums;
-    }
+    /* Non-squashy grid */
+    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px 18px; margin: 12px 0; }
+    .info-item { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+    .info-label { font-weight: 600; color: var(--text-color); min-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .info-value { color: var(--text-color); text-align: right; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 
-    .participant-badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      margin: 2px;
-      border: 1px solid transparent;
-    }
+    .participant-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 2px; border: 1px solid transparent; }
     .badge-customer { background: transparent; border-color: var(--available-color); color: var(--secondary-color); }
     .badge-agent { background: #dbeafe; color: #1e40af; }
     .badge-system { background: var(--nearly-color); color: #92400e; }
     .badge-queue { background: var(--full-color); color: #7c3aed; }
     .badge-ivr { background: #fce7f3; color: #be185d; }
 
-    .transfer-count {
-      background: #fecaca;
-      color: #dc2626;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-weight: bold;
-    }
-    .transfer-info {
-      background: var(--nearly-color);
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      padding: 8px;
-      margin: 8px 0;
-    }
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: var(--border-color);
-      border-radius: 4px;
-      margin: 10px 0;
-      overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%;
-      background: var(--primary-color);
-      transition: width 0.3s ease;
-    }
-    .chunk-info {
-      background: var(--nearly-color);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 12px;
-      margin: 12px 0;
-    }
-    .duration-badge {
-      background: #eefbf4;
-      color: var(--secondary-color);
-      padding: 2px 6px;
-      border: 1px solid var(--available-color);
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-      white-space: nowrap;
-    }
+    .transfer-count { background: #fecaca; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+    .transfer-info { background: var(--nearly-color); border: 1px solid var(--border-color); border-radius: 4px; padding: 8px; margin: 8px 0; }
+
+    .progress-bar { width: 100%; height: 8px; background: var(--border-color); border-radius: 4px; margin: 10px 0; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--primary-color); transition: width 0.3s ease; }
+    .chunk-info { background: var(--nearly-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; margin: 12px 0; }
+    .duration-badge { background: #eefbf4; color: var(--secondary-color); padding: 2px 6px; border: 1px solid var(--available-color); border-radius: 4px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+
+    /* Transcript styles */
+    .transcript-wrapper { margin-top: 12px; }
+    .transcript-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .transcript-status { font-size: 13px; color: var(--text-light); }
+    .transcript-table { width: 100%; border-collapse: collapse; }
+    .transcript-table th, .transcript-table td { border-bottom: 1px solid var(--border-color); padding: 8px 10px; vertical-align: top; }
+    .transcript-table th { text-align: left; font-weight: 700; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   </style>
 </head>
 <body>
@@ -252,7 +95,7 @@
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
 
-  <h1>Interaction Insights</h1>
+  <h1>Conversation Explorer</h1>
   <button id="signinBtn" style="display:none; margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
   <div id="authStatus" class="card" style="display: none;">
@@ -301,9 +144,7 @@
       </div>
 
       <!-- Full-width button across bottom -->
-      <button id="fetchBtn" class="full-width-btn">
-        Fetch Conversations
-      </button>
+      <button id="fetchBtn" class="full-width-btn">Fetch Conversations</button>
     </div>
 
     <div id="statusMessage"></div>
@@ -312,15 +153,10 @@
     <div id="progressSection" style="display: none;">
       <div class="card">
         <h3 style="margin-top: 0; color: var(--text-color);">Fetching Conversations</h3>
-        <div class="chunk-info" id="chunkInfo">
-          Processing date range in smaller chunks...
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-        </div>
+        <div class="chunk-info" id="chunkInfo">Processing date range in smaller chunks...</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 0%"></div></div>
         <div style="display: flex; justify-content: space-between; font-size: 14px;" class="muted">
-          <span id="progressText">0%</span>
-          <span id="chunkText">Chunk 0/0</span>
+          <span id="progressText">0%</span><span id="chunkText">Chunk 0/0</span>
         </div>
       </div>
     </div>
@@ -329,18 +165,9 @@
       <div class="card">
         <h2 style="margin-top: 0; color: var(--text-color);">Conversation Results</h2>
         <div class="stats">
-          <div class="stat-card">
-            <div class="stat-number" id="totalConversations">0</div>
-            <div class="stat-label">Total Conversations</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number" id="dateRange">-</div>
-            <div class="stat-label">Date Range</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number" id="selectedAgent">-</div>
-            <div class="stat-label">Selected Agent</div>
-          </div>
+          <div class="stat-card"><div class="stat-number" id="totalConversations">0</div><div class="stat-label">Total Conversations</div></div>
+          <div class="stat-card"><div class="stat-number" id="dateRange">-</div><div class="stat-label">Date Range</div></div>
+          <div class="stat-card"><div class="stat-number" id="selectedAgent">-</div><div class="stat-label">Selected Agent</div></div>
         </div>
         <div id="results"></div>
       </div>
@@ -353,7 +180,7 @@
       clientId: 'd4529142-7340-4cd8-a9f9-f3a4d25670df',
       redirectUri: 'https://gmcglynn88.github.io/ConversationExplorer/',
       loginHost: 'https://login.mypurecloud.ie',
-      apiHost: 'https://api.mypurecloud.ie'
+      apiHost: 'https://api.mypurecloud.ie' // use regional host for all API calls
     };
 
     // ===== App State =====
@@ -362,396 +189,345 @@
       conversations: [],
       users: [],
       selectedAgent: null,
-      queues: {} // id -> name cache
+      queues: {},             // queueId -> name
+      convIndex: {}           // conversationId -> conversation object
     };
 
     // ===== Helpers =====
     const $ = (id) => document.getElementById(id);
-    const fmt = (d) => {
-      if (!d || d === 'Invalid Date') return 'N/A';
-      try { return new Date(d).toLocaleString(); } catch { return 'N/A'; }
-    };
-    const fmtDMY = (s) => {
-      // input "YYYY-MM-DD" -> "DD-MM-YYYY"
-      if (!s || s.length < 10) return s || '';
-      const [y,m,d] = s.slice(0,10).split('-');
-      return `${d}-${m}-${y}`;
-    };
-    const formatSeconds = (ms) => {
-      if (!ms || ms === 0) return '0s';
-      const seconds = Math.floor(ms / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      if (hours > 0) return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-      if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
-      return `${seconds}s`;
-    };
+    const fmt = (d) => { if (!d || d === 'Invalid Date') return 'N/A'; try { return new Date(d).toLocaleString(); } catch { return 'N/A'; } };
+    const fmtDMY = (s) => { if (!s || s.length < 10) return s || ''; const [y,m,d] = s.slice(0,10).split('-'); return `${d}-${m}-${y}`; };
+    const formatSeconds = (ms) => { if (!ms || ms === 0) return '0s'; const s = Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60); if (h>0) return `${h}h ${m%60}m ${s%60}s`; if (m>0) return `${m}m ${s%60}s`; return `${s}s`; };
     const formatShortSeconds = (ms) => `${Math.floor((ms || 0) / 1000)}s`;
-    const calculateDuration = (startTime, endTime) => {
-      if (!startTime || !endTime) return 0;
-      try { return new Date(endTime) - new Date(startTime); } catch { return 0; }
-    };
-    function setStatus(msg, isError = false) {
-      console.log(isError ? 'ERROR:' : 'STATUS:', msg);
-      $('statusMessage').textContent = isError ? '' : (msg || '');
-      $('errorMessage').textContent = isError ? (msg || '') : '';
-    }
+    const calculateDuration = (startTime, endTime) => { if (!startTime || !endTime) return 0; try { return new Date(endTime) - new Date(startTime); } catch { return 0; } };
+    function setStatus(msg, isError = false) { console.log(isError ? 'ERROR:' : 'STATUS:', msg); $('statusMessage').textContent = isError ? '' : (msg || ''); $('errorMessage').textContent = isError ? (msg || '') : ''; }
     function showMainContent() { $('authStatus').style.display = 'none'; $('mainContent').style.display = 'block'; }
     function showAuthStatus() { $('authStatus').style.display = 'block'; $('mainContent').style.display = 'none'; }
     function setLoading(loading) { $('mainContent').classList.toggle('loading', !!loading); }
-    function updateProgress(percent, currentChunk, totalChunks) {
-      $('progressFill').style.width = `${percent}%`;
-      $('progressText').textContent = `${Math.round(percent)}%`;
-      $('chunkText').textContent = `Chunk ${currentChunk}/${totalChunks}`;
-    }
+    function updateProgress(percent, currentChunk, totalChunks) { $('progressFill').style.width = `${percent}%`; $('progressText').textContent = `${Math.round(percent)}%`; $('chunkText').textContent = `Chunk ${currentChunk}/${totalChunks}`; }
     function showProgress() { $('progressSection').style.display = 'block'; $('resultsSection').style.display = 'none'; }
     function hideProgress() { $('progressSection').style.display = 'none'; }
 
     // ===== OAuth handling =====
     function parseTokenFromHash() {
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-      return {
-        token: hashParams.get('access_token'),
-        error: hashParams.get('error'),
-        errorDescription: hashParams.get('error_description')
-      };
+      return { token: hashParams.get('access_token'), error: hashParams.get('error'), errorDescription: hashParams.get('error_description') };
     }
     function buildAuthUrl() {
-      return `${CONFIG.loginHost}/oauth/authorize` +
-             `?client_id=${encodeURIComponent(CONFIG.clientId)}` +
-             `&response_type=token` +
-             `&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
+      return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
     }
     function initAuth() {
       showAuthStatus();
       const { token, error, errorDescription } = parseTokenFromHash();
-
       if (location.hash) history.replaceState(null, '', location.pathname);
-
       if (error) {
-        const msg = `Authentication Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`;
-        setStatus(msg, true);
-        const btn = document.getElementById('signinBtn');
-        btn.style.display = 'inline-block';
-        btn.onclick = () => window.location.assign(buildAuthUrl());
+        setStatus(`Authentication Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`, true);
+        const btn = $('signinBtn'); btn.style.display = 'inline-block'; btn.onclick = () => window.location.assign(buildAuthUrl());
         return;
       }
-
-      if (token) {
-        state.token = token;
-        showMainContent();
-        fetchAllUsers();
-        return;
-      }
-
+      if (token) { state.token = token; showMainContent(); fetchAllUsers(); return; }
       const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
-      if (!alreadyTried) {
-        sessionStorage.setItem('authAttempted', '1');
-        window.location.assign(buildAuthUrl());
-      } else {
-        setStatus('Not authenticated. Click "Sign in to Genesys Cloud".', true);
-        const btn = document.getElementById('signinBtn');
-        btn.style.display = 'inline-block';
-        btn.onclick = () => window.location.assign(buildAuthUrl());
-      }
+      if (!alreadyTried) { sessionStorage.setItem('authAttempted','1'); window.location.assign(buildAuthUrl()); }
+      else { setStatus('Not authenticated. Click "Sign in to Genesys Cloud".', true); const btn = $('signinBtn'); btn.style.display='inline-block'; btn.onclick = () => window.location.assign(buildAuthUrl()); }
     }
 
     // ===== API helper =====
     async function api(path) {
       if (!state.token) throw new Error('Not authenticated');
-      const res = await fetch(`${CONFIG.apiHost}${path}`, {
-        headers: { 'Authorization': `Bearer ${state.token}` }
-      });
-      if (res.status === 401 || res.status === 403) {
-        throw new Error(`Authentication error (${res.status}). Please refresh the page.`);
-      }
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(`API Error: ${res.status} ${res.statusText}${txt ? ` - ${txt.slice(0,200)}` : ''}`);
-      }
+      const res = await fetch(`${CONFIG.apiHost}${path}`, { headers: { 'Authorization': `Bearer ${state.token}` } });
+      if (res.status === 401 || res.status === 403) throw new Error(`Authentication error (${res.status}). Please refresh the page.`);
+      if (!res.ok) { const txt = await res.text().catch(()=>''); throw new Error(`API Error: ${res.status} ${res.statusText}${txt ? ` - ${txt.slice(0,200)}` : ''}`); }
       return res.json();
     }
 
     // ===== Users =====
     async function fetchAllUsers() {
       try {
-        setStatus('Loading users...');
-        setLoading(true);
-        let allUsers = [];
-        let pageNumber = 1;
-        const pageSize = 100;
-
+        setStatus('Loading users...'); setLoading(true);
+        let allUsers = [], pageNumber = 1, pageSize = 100;
         while (true) {
           const data = await api(`/api/v2/users?pageSize=${pageSize}&pageNumber=${pageNumber}`);
-          const batch = data?.entities || [];
-          allUsers = allUsers.concat(batch);
-          if (!data?.nextUri || batch.length < pageSize) break;
-          pageNumber++;
+          const batch = data?.entities || []; allUsers = allUsers.concat(batch);
+          if (!data?.nextUri || batch.length < pageSize) break; pageNumber++;
         }
-
-        state.users = allUsers
-          .map(u => ({ id: u.id, name: u.name, email: u.email || '' }))
-          .sort((a, b) => a.name.localeCompare(b.name));
-
+        state.users = allUsers.map(u => ({ id: u.id, name: u.name, email: u.email || '' })).sort((a,b)=>a.name.localeCompare(b.name));
         populateUserSelect(state.users);
-        setStatus(`Loaded ${state.users.length} users`);
-        setLoading(false);
-      } catch (e) {
-        setStatus(`Failed to load users: ${e.message}`, true);
-        setLoading(false);
-        $('agentSelect').innerHTML = '<option>Failed to load users</option>';
-      }
+        setStatus(`Loaded ${state.users.length} users`); setLoading(false);
+      } catch (e) { setStatus(`Failed to load users: ${e.message}`, true); setLoading(false); $('agentSelect').innerHTML = '<option>Failed to load users</option>'; }
     }
 
     function populateUserSelect(users) {
       const select = $('agentSelect');
-      // Names only
-      select.innerHTML = '<option value="">Select an agent...</option>' +
-        users.map(u => `<option value="${u.id}">${u.name || '(Unnamed)'}</option>`).join('');
-
+      select.innerHTML = '<option value="">Select an agent...</option>' + users.map(u => `<option value="${u.id}">${u.name || '(Unnamed)'}</option>`).join('');
       select.onchange = () => {
         const selectedUser = users.find(u => u.id === select.value);
         state.selectedAgent = selectedUser || null;
-        if (selectedUser) {
-          $('selectedAgentName').textContent = selectedUser.name || '(Unnamed)';
-          $('selectedAgentInfo').style.display = 'block';
-        } else {
-          $('selectedAgentInfo').style.display = 'none';
-        }
+        if (selectedUser) { $('selectedAgentName').textContent = selectedUser.name || '(Unnamed)'; $('selectedAgentInfo').style.display = 'block'; }
+        else { $('selectedAgentInfo').style.display = 'none'; }
       };
     }
 
-    // Filter only by name now
     $('agentFilter').addEventListener('input', function () {
       const query = this.value.trim().toLowerCase();
-      const filteredUsers = query
-        ? state.users.filter(u => (u.name || '').toLowerCase().includes(query))
-        : state.users;
+      const filteredUsers = query ? state.users.filter(u => (u.name || '').toLowerCase().includes(query)) : state.users;
       populateUserSelect(filteredUsers);
     });
 
     // ===== Chunking =====
     function splitDateRangeIntoChunks(startDate, endDate, daysPerChunk = 7) {
-      const chunks = [];
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      let currentStart = new Date(start);
+      const chunks = []; const start = new Date(startDate); const end = new Date(endDate); let currentStart = new Date(start);
       while (currentStart <= end) {
-        let currentEnd = new Date(currentStart);
-        currentEnd.setDate(currentEnd.getDate() + daysPerChunk - 1);
-        if (currentEnd > end) currentEnd = new Date(end);
-        chunks.push({
-          start: currentStart.toISOString().split('T')[0],
-          end: currentEnd.toISOString().split('T')[0]
-        });
+        let currentEnd = new Date(currentStart); currentEnd.setDate(currentEnd.getDate() + daysPerChunk - 1); if (currentEnd > end) currentEnd = new Date(end);
+        chunks.push({ start: currentStart.toISOString().split('T')[0], end: currentEnd.toISOString().split('T')[0] });
         currentStart.setDate(currentStart.getDate() + daysPerChunk);
       }
       return chunks;
     }
     function calculateOptimalChunkSize(startDate, endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
-      if (totalDays <= 7) return 7;
-      if (totalDays <= 30) return 7;
-      if (totalDays <= 90) return 5;
-      if (totalDays <= 180) return 3;
-      return 2;
+      const start = new Date(startDate), end = new Date(endDate);
+      const totalDays = Math.ceil((end - start) / (1000*60*60*24)) + 1;
+      if (totalDays <= 7) return 7; if (totalDays <= 30) return 7; if (totalDays <= 90) return 5; if (totalDays <= 180) return 3; return 2;
     }
 
     // ===== Sessions/Segments-aware helpers =====
     function firstSession(conversation) {
-      for (const p of (conversation.participants || [])) {
-        for (const s of (p.sessions || [])) return s;
-      }
+      for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) return s;
       return null;
     }
-
-    function getMediaType(conversation) {
-      const s = firstSession(conversation);
-      return (s && s.mediaType) || 'Unknown';
-    }
-
+    function getMediaType(conversation) { const s = firstSession(conversation); return (s && s.mediaType) || 'Unknown'; }
     function getConversationMediaTypes(conversation) {
-      const types = new Set();
-      for (const p of (conversation.participants || [])) {
-        for (const s of (p.sessions || [])) {
-          if (s.mediaType) types.add(s.mediaType);
-        }
-      }
+      const types = new Set(); for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) if (s.mediaType) types.add(s.mediaType);
       return [...types].join(', ') || (getMediaType(conversation) || 'Unknown');
     }
-
-    function getDirection(conversation) {
-      const s = firstSession(conversation);
-      return (s && s.direction) || conversation.originatingDirection || 'Unknown';
-    }
-
+    function getDirection(conversation) { const s = firstSession(conversation); return (s && s.direction) || conversation.originatingDirection || 'Unknown'; }
     function getANI(conversation) {
-      for (const p of (conversation.participants || [])) {
-        for (const s of (p.sessions || [])) {
-          const isVoice = (s.mediaType || '').toLowerCase() === 'voice';
-          if (!isVoice) continue;
-          const dir = (s.direction || conversation.originatingDirection || '').toLowerCase();
-          if (dir === 'inbound') {
-            return s.ani || s.addressFrom || s.otherAddress || s.remote || 'Unknown';
-          }
-        }
+      for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) {
+        const isVoice = (s.mediaType || '').toLowerCase() === 'voice'; if (!isVoice) continue;
+        const dir = (s.direction || conversation.originatingDirection || '').toLowerCase(); if (dir === 'inbound') return s.ani || s.addressFrom || s.otherAddress || s.remote || 'Unknown';
       }
-      const s = firstSession(conversation);
-      return (s && (s.ani || s.addressFrom || s.otherAddress || s.remote)) || 'Unknown';
+      const s = firstSession(conversation); return (s && (s.ani || s.addressFrom || s.otherAddress || s.remote)) || 'Unknown';
     }
-
-    // Start Time = earliest event.eventTime; fallback to segmentStart; fallback to session.startTime
     function getStepStart(participant) {
-      let times = [];
-      for (const s of (participant.sessions || [])) {
+      let times = []; for (const s of (participant.sessions || [])) {
         for (const seg of (s.segments || [])) {
-          for (const ev of (seg.events || [])) {
-            if (ev.eventTime) { const t = new Date(ev.eventTime).getTime(); if (!isNaN(t)) times.push(t); }
-          }
+          for (const ev of (seg.events || [])) { if (ev.eventTime) { const t = new Date(ev.eventTime).getTime(); if (!isNaN(t)) times.push(t); } }
           if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) times.push(t); }
         }
         if (s.startTime) { const t = new Date(s.startTime).getTime(); if (!isNaN(t)) times.push(t); }
       }
-      if (!times.length) return null;
-      return new Date(Math.min(...times));
+      if (!times.length) return null; return new Date(Math.min(...times));
     }
-
-    // Agent handled window = min(segmentStart) .. max(segmentEnd)
     function getAgentWindow(participant) {
-      let starts = [], ends = [];
-      for (const s of (participant.sessions || [])) {
-        for (const seg of (s.segments || [])) {
-          if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) starts.push(t); }
-          if (seg.segmentEnd)   { const t = new Date(seg.segmentEnd).getTime();   if (!isNaN(t)) ends.push(t); }
-        }
+      let starts = [], ends = []; for (const s of (participant.sessions || [])) for (const seg of (s.segments || [])) {
+        if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) starts.push(t); }
+        if (seg.segmentEnd)   { const t = new Date(seg.segmentEnd).getTime();   if (!isNaN(t)) ends.push(t); }
       }
       if (!starts.length || !ends.length) return { durationMs: 0 };
       return { durationMs: Math.max(...ends) - Math.min(...starts) };
     }
-
-    // Alert time only for Agent: sum tAlert wherever it appears (segments/sessions/events); normalise to ms
     function getAlertMsForAgent(participant) {
       if (!participant?.userId) return 0;
-
-      let totalMs = 0;
-      const addVal = (v) => {
-        if (v == null || isNaN(v)) return;
-        // If tiny (<= 120), assume seconds -> ms; otherwise already ms
-        const ms = (v > 120) ? v : v * 1000;
-        totalMs += ms;
-      };
-
+      let totalMs = 0; const addVal = (v) => { if (v == null || isNaN(v)) return; const ms = (v > 120) ? v : v * 1000; totalMs += ms; };
       for (const s of (participant.sessions || [])) {
-        // session-level metrics
-        if (Array.isArray(s.metrics)) {
-          for (const m of s.metrics) {
-            if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
-          }
-        }
-        // segment-level metrics
+        if (Array.isArray(s.metrics)) for (const m of s.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
         for (const seg of (s.segments || [])) {
-          if (Array.isArray(seg.metrics)) {
-            for (const m of seg.metrics) {
-              if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
-            }
-          }
-          // event-level metrics
-          for (const ev of (seg.events || [])) {
-            if (Array.isArray(ev.metrics)) {
-              for (const m of ev.metrics) {
-                if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
-              }
-            }
-          }
+          if (Array.isArray(seg.metrics)) for (const m of seg.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
+          for (const ev of (seg.events || [])) if (Array.isArray(ev.metrics)) for (const m of ev.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
         }
       }
       return totalMs;
     }
 
-    // Build chronological legs using step start, and collect queueIds
+    // Legs + queues
+    function getQueueIdFromParticipant(participant) { if (participant.queueId) return participant.queueId; for (const s of (participant.sessions || [])) if (s.queueId) return s.queueId; return null; }
     function buildLegs(conversation) {
-      const legs = [];
-      for (const p of (conversation.participants || [])) {
-        const when = getStepStart(p)?.getTime() ?? Infinity;
-        let queueId = p.queueId || null;
-        for (const s of (p.sessions || [])) {
-          queueId = queueId || s.queueId || null;
-        }
+      const legs = []; for (const p of (conversation.participants || [])) {
+        const when = getStepStart(p)?.getTime() ?? Infinity; let queueId = getQueueIdFromParticipant(p);
         legs.push({ when, purpose: p.purpose, userId: p.userId || null, queueId });
       }
-      legs.sort((a,b)=>a.when-b.when);
-      return legs.filter(l => Number.isFinite(l.when));
+      legs.sort((a,b)=>a.when-b.when); return legs.filter(l => Number.isFinite(l.when));
     }
-
-    // Count only agent→queue OR agent→agent
     function analyzeTransfers(conversation) {
-      const legs = buildLegs(conversation);
-      let count = 0;
-      const transfers = [];
-      for (let i = 1; i < legs.length; i++) {
-        const prev = legs[i-1];
-        const curr = legs[i];
-        const agentToAgent = prev.userId && curr.userId && prev.userId !== curr.userId;
+      const legs = buildLegs(conversation); let count = 0; const transfers = [];
+      for (let i=1;i<legs.length;i++){ const prev=legs[i-1], curr=legs[i];
+        const agentToAgent = prev.userId && curr.userId && prev.userId!==curr.userId;
         const agentToQueue = prev.userId && curr.queueId && !curr.userId;
         if (agentToAgent || agentToQueue) {
           count++;
-          transfers.push({
-            step: i,
-            from: prev.userId ? getParticipantName({ userId: prev.userId, purpose: 'user' }) : (prev.queueId ? (getQueueName(prev.queueId) || 'Queue') : (prev.purpose || 'Unknown')),
-            to:   curr.userId ? getParticipantName({ userId: curr.userId, purpose: 'user' }) : (curr.queueId ? (getQueueName(curr.queueId) || 'Queue') : (curr.purpose || 'Unknown')),
-            time: new Date(curr.when).toISOString(),
-            type: agentToAgent ? 'Agent → Agent' : 'Agent → Queue'
-          });
+          transfers.push({ step:i, from: prev.userId ? getParticipantName({userId:prev.userId,purpose:'user'}) : (prev.queueId?'Queue':(prev.purpose||'Unknown')), to: curr.userId ? getParticipantName({userId:curr.userId,purpose:'user'}) : (curr.queueId?'Queue':(curr.purpose||'Unknown')), time:new Date(curr.when).toISOString(), type: agentToAgent?'Agent → Agent':'Agent → Queue' });
         }
       }
       return { totalTransfers: count, transfers };
     }
+    function renderDurationCell(durationMs, isAgent, start, nextStart) { const main = formatSeconds(durationMs); if (isAgent) return main; if (!start || !nextStart) return main + ' <span class="duration-badge">calc: n/a</span>'; return main; }
 
-    // Parser-safe duration rendering
-    function renderDurationCell(durationMs, isAgent, start, nextStart) {
-      const main = formatSeconds(durationMs);
-      if (isAgent) return main;
-      if (!start || !nextStart) return main + ' <span class="duration-badge">calc: n/a</span>';
-      return main;
-    }
-
-    // ===== Queue helpers =====
-    function getQueueIdFromParticipant(participant) {
-      if (participant.queueId) return participant.queueId;
-      for (const s of (participant.sessions || [])) {
-        if (s.queueId) return s.queueId;
-      }
-      return null;
-    }
-    function getQueueName(queueId) {
-      return state.queues[queueId] || null;
-    }
-    async function fetchQueueName(queueId) {
+    // Queue name cache
+    function getQueueName(queueId){ return state.queues[queueId] || null; }
+    async function fetchQueueName(queueId){
       if (!queueId || state.queues[queueId]) return;
-      try {
-        const q = await api(`/api/v2/routing/queues/${queueId}`);
-        state.queues[queueId] = q?.name || queueId;
-      } catch (e) {
-        console.warn('Queue fetch failed', queueId, e.message);
-        state.queues[queueId] = queueId; // fallback to id
-      }
+      try { const q = await api(`/api/v2/routing/queues/${queueId}`); state.queues[queueId] = q?.name || queueId; }
+      catch(e){ console.warn('Queue fetch failed', queueId, e.message); state.queues[queueId] = queueId; }
     }
-    async function warmQueueCache(conversations) {
-      const ids = new Set();
-      for (const c of conversations) {
-        for (const p of (c.participants || [])) {
-          const id = getQueueIdFromParticipant(p);
-          if (id) ids.add(id);
+    async function warmQueueCache(conversations){
+      const ids = new Set(); for (const c of conversations) for (const p of (c.participants||[])) { const id = getQueueIdFromParticipant(p); if (id) ids.add(id); }
+      await Promise.all([...ids].filter(id=>!state.queues[id]).map(id=>fetchQueueName(id)));
+    }
+
+    // ===== Transcript helpers =====
+    function mapParticipantNames(conversation){
+      const map = {};
+      for (const p of (conversation.participants || [])) {
+        if (p.userId) {
+          const user = state.users.find(u=>u.id===p.userId);
+          map[p.participantId || p.userId] = user ? user.name : `Agent (${p.userId})`;
+        } else if (p.purpose === 'customer') {
+          map[p.participantId || 'customer'] = 'Customer';
+        } else if (p.purpose === 'acd') {
+          const qid = getQueueIdFromParticipant(p);
+          map[p.participantId || qid || 'acd'] = qid ? (getQueueName(qid) || 'Queue') : 'Queue';
+        } else if (p.purpose) {
+          map[p.participantId || p.purpose] = p.purpose.toUpperCase();
         }
       }
-      const toFetch = [...ids].filter(id => !state.queues[id]);
-      // Fetch sequentially to stay polite; could be parallel if needed
-      for (const id of toFetch) {
-        // eslint-disable-next-line no-await-in-loop
-        await fetchQueueName(id);
+      return map;
+    }
+
+    function findCommunicationId(conversation){
+      // Prefer voice session's communicationId if present; otherwise first session communicationId
+      for (const p of (conversation.participants||[])) {
+        for (const s of (p.sessions||[])) {
+          if (s.mediaType && s.mediaType.toLowerCase()==='voice' && s.communicationId) return s.communicationId;
+        }
       }
+      for (const p of (conversation.participants||[])) for (const s of (p.sessions||[])) if (s.communicationId) return s.communicationId;
+      return null;
+    }
+
+    async function getTranscriptForConversation(conversationId){
+      const btn = document.querySelector(`#btn-transcript-${conversationId}`);
+      const statusEl = document.querySelector(`#transcript-status-${conversationId}`);
+      const container = document.querySelector(`#transcript-${conversationId}`);
+      if (!state.token) { alert('Not authenticated'); return; }
+      const conv = state.convIndex[conversationId];
+      if (!conv) { alert('Conversation not found in state'); return; }
+
+      const communicationId = findCommunicationId(conv);
+      if (!communicationId) { statusEl.textContent = 'No communicationId found in this conversation.'; return; }
+
+      try {
+        btn.disabled = true; statusEl.textContent = 'Requesting transcript URL…';
+
+        // Regional endpoint (use CONFIG.apiHost)
+        const urlRes = await fetch(`${CONFIG.apiHost}/api/v2/speechandtextanalytics/conversations/${conversationId}/communications/${communicationId}/transcripturl`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${state.token}` }
+        });
+
+        if (!urlRes.ok) {
+          const t = await urlRes.text().catch(()=> '');
+          throw new Error(`Transcript URL error: ${urlRes.status} ${urlRes.statusText}${t?` - ${t.slice(0,200)}`:''}`);
+        }
+
+        const urlJson = await urlRes.json();
+        const presigned = urlJson?.url;
+        if (!presigned) { throw new Error('Transcript response did not include a URL.'); }
+
+        statusEl.textContent = 'Downloading transcript…';
+
+        // Fetch the transcript from the presigned URL
+        const rawRes = await fetch(presigned);
+        if (!rawRes.ok) throw new Error(`Transcript download failed: ${rawRes.status} ${rawRes.statusText}`);
+
+        let text = await rawRes.text();
+        // Try parsing as JSON; if it fails, we’ll display plain text
+        let parsed = null;
+        try { parsed = JSON.parse(text); } catch { /* plain text fallback */ }
+
+        statusEl.textContent = 'Rendering transcript…';
+        renderTranscript(container, parsed, text, conv);
+
+        statusEl.textContent = 'Transcript loaded.';
+      } catch (e) {
+        console.error(e);
+        statusEl.innerHTML = `⚠️ ${e.message}<br/><span class="muted">If this is a CORS issue, you can open the transcript directly in a new tab from the raw URL.</span>`;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderTranscript(container, parsed, rawText, conversation){
+      const nameMap = mapParticipantNames(conversation);
+
+      // Heuristics: detect common shapes
+      // 1) Array of utterances
+      let utterances = null;
+
+      const huntUtterances = (obj) => {
+        if (!obj) return null;
+        if (Array.isArray(obj)) {
+          // Check if array looks like utterances (objects with text)
+          if (obj.length && typeof obj[0] === 'object' && ('text' in obj[0] || 'utterance' in obj[0])) return obj;
+        } else if (typeof obj === 'object') {
+          for (const k of Object.keys(obj)) {
+            const v = obj[k];
+            if (Array.isArray(v)) {
+              const maybe = huntUtterances(v);
+              if (maybe) return maybe;
+            } else if (v && typeof v === 'object') {
+              const maybe = huntUtterances(v);
+              if (maybe) return maybe;
+            }
+          }
+        }
+        return null;
+      };
+
+      if (parsed) utterances = huntUtterances(parsed);
+
+      if (utterances && utterances.length) {
+        const rows = utterances.map(u => {
+          const time = u.time || u.offset || u.startTime || u.timestamp || u.datetime || '';
+          const ms = typeof time === 'number' ? time : (time ? Date.parse(time) : NaN);
+          const timeStr = isNaN(ms) ? (time || '') : new Date(ms).toLocaleString();
+          const whoRaw = u.speaker || u.participantId || u.participant || u.role || u.purpose || '';
+          const who = nameMap[whoRaw] || nameMap[(u.participantId||'')] || whoRaw || 'Unknown';
+          const text = (u.text || u.utterance || '').toString();
+          return { time: timeStr, who, text };
+        });
+
+        container.innerHTML = `
+          <table class="transcript-table">
+            <thead><tr><th style="width:220px;">Time</th><th style="width:220px;">Speaker</th><th>Text</th></tr></thead>
+            <tbody>
+              ${rows.map(r => `
+                <tr>
+                  <td class="mono">${r.time || ''}</td>
+                  <td>${r.who || ''}</td>
+                  <td>${escapeHtml(r.text || '')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } else if (parsed && typeof parsed === 'object') {
+        // Show structured JSON if we can’t identify utterances
+        container.innerHTML = `
+          <div class="muted" style="margin-bottom:6px;">Unrecognised transcript format. Showing JSON.</div>
+          <pre>${escapeHtml(JSON.stringify(parsed, null, 2))}</pre>
+        `;
+      } else {
+        // Plain text fallback
+        container.innerHTML = `
+          <div class="muted" style="margin-bottom:6px;">Plain text transcript</div>
+          <pre>${escapeHtml(rawText || '')}</pre>
+        `;
+      }
+    }
+
+    function escapeHtml(s){
+      return (s || '').replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+      }[c]));
     }
 
     // ===== Conversations =====
@@ -763,20 +539,14 @@
         const toDate = $('toDate').value || fromDate;
         if (!fromDate) { setStatus('Please select a start date', true); return; }
 
-        setStatus('Fetching conversations...');
-        setLoading(true);
-        $('resultsSection').style.display = 'none';
+        setStatus('Fetching conversations...'); setLoading(true); $('resultsSection').style.display = 'none';
 
         const autoChunk = $('autoChunk').checked;
         let dateChunks;
-
         if (autoChunk) {
           const chunkSize = calculateOptimalChunkSize(fromDate, toDate);
           dateChunks = splitDateRangeIntoChunks(fromDate, toDate, chunkSize);
-          $('chunkInfo').innerHTML = `
-            Large date range detected: <strong>${fmtDMY(fromDate)} to ${fmtDMY(toDate)}</strong><br>
-            Auto-splitting into <strong>${dateChunks.length} chunks</strong> of ${chunkSize} days each.
-          `;
+          $('chunkInfo').innerHTML = `Large date range detected: <strong>${fmtDMY(fromDate)} to ${fmtDMY(toDate)}</strong><br>Auto-splitting into <strong>${dateChunks.length} chunks</strong> of ${chunkSize} days each.`;
         } else {
           dateChunks = [{ start: fromDate, end: toDate }];
           $('chunkInfo').innerHTML = `Processing date range: <strong>${fmtDMY(fromDate)} to ${fmtDMY(toDate)}</strong>`;
@@ -784,6 +554,7 @@
 
         showProgress();
         state.conversations = [];
+        state.convIndex = {};
 
         for (let i = 0; i < dateChunks.length; i++) {
           const chunk = dateChunks[i];
@@ -793,6 +564,7 @@
 
           try {
             const chunkConversations = await fetchConversationsForDateRange(chunk.start, chunk.end);
+            for (const c of chunkConversations) { state.convIndex[c.conversationId] = c; }
             state.conversations = state.conversations.concat(chunkConversations);
           } catch (error) {
             console.error(`Error in chunk ${i + 1}:`, error);
@@ -801,18 +573,15 @@
           if (i < dateChunks.length - 1) await new Promise(r => setTimeout(r, 400));
         }
 
-        // Warm queue cache before rendering
         await warmQueueCache(state.conversations);
 
         updateProgress(100, dateChunks.length, dateChunks.length);
         renderResults(state.conversations);
         setStatus(`Found ${state.conversations.length} conversations for the selected period`);
-        setLoading(false);
-        hideProgress();
+        setLoading(false); hideProgress();
       } catch (error) {
         setStatus(`Error fetching conversations: ${error.message}`, true);
-        setLoading(false);
-        hideProgress();
+        setLoading(false); hideProgress();
       }
     }
 
@@ -822,23 +591,12 @@
         interval,
         order: 'asc',
         orderBy: 'conversationStart',
-        segmentFilters: [{
-          type: 'and',
-          predicates: [{
-            type: 'dimension',
-            dimension: 'userId',
-            operator: 'matches',
-            value: state.selectedAgent.id
-          }]
-        }]
+        segmentFilters: [{ type: 'and', predicates: [{ type: 'dimension', dimension: 'userId', operator: 'matches', value: state.selectedAgent.id }]}]
       };
 
       const response = await fetch(`${CONFIG.apiHost}/api/v2/analytics/conversations/details/query`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${state.token}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Authorization': `Bearer ${state.token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       });
 
@@ -856,9 +614,7 @@
       const fromDate = $('fromDate').value || '-';
       const toDate = $('toDate').value || fromDate;
 
-      // Date range in DD-MM-YYYY
       $('dateRange').textContent = `${fmtDMY(fromDate)} to ${fmtDMY(toDate)}`;
-
       $('totalConversations').textContent = conversations.length;
       $('selectedAgent').textContent = state.selectedAgent?.name || '-';
 
@@ -868,8 +624,7 @@
             <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
             <h3>No Conversations Found</h3>
             <p>No conversations found for ${state.selectedAgent?.name || 'the selected agent'} during the selected date range.</p>
-          </div>
-        `;
+          </div>`;
       } else {
         resultsContainer.innerHTML = conversations.map(conv => {
           const media = getConversationMediaTypes(conv);
@@ -909,6 +664,14 @@
             <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${formatSeconds(totalDuration)}</span></div>
             <div class="info-item"><span class="info-label">Transfers (Agent→Queue/Agent):</span><span class="info-value"><span class="transfer-count">${transferInfo.totalTransfers}</span></span></div>
           </div>
+
+          <div class="transcript-wrapper">
+            <div class="transcript-actions">
+              <button id="btn-transcript-${conversation.conversationId}" onclick="getTranscriptForConversation('${conversation.conversationId}')">Get Transcript</button>
+              <span id="transcript-status-${conversation.conversationId}" class="transcript-status"></span>
+            </div>
+            <div id="transcript-${conversation.conversationId}"></div>
+          </div>
         </div>
 
         <h3 style="color: var(--text-color);">Customer Journey Timeline</h3>
@@ -924,12 +687,9 @@
     }
 
     function renderJourneyTimeline(conversation, transferInfo) {
-      if (!conversation.participants || conversation.participants.length === 0) {
-        return '<p>No participant data available</p>';
-      }
+      if (!conversation.participants || conversation.participants.length === 0) return '<p>No participant data available</p>';
 
-      const sorted = [...conversation.participants]
-        .map(p => ({ p, start: getStepStart(p) }))
+      const sorted = [...conversation.participants].map(p => ({ p, start: getStepStart(p) }))
         .sort((a,b) => (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity))
         .map(x => x.p);
 
@@ -938,28 +698,18 @@
         const start = getStepStart(participant);
         const nextStart = (index < sorted.length - 1) ? getStepStart(sorted[index + 1]) : null;
 
-        // Queue name (if queue step)
         const queueId = getQueueIdFromParticipant(participant);
         const queueName = queueId ? (getQueueName(queueId) || queueId) : null;
 
-        // Name in badge
-        const participantName = purpose === 'acd'
-          ? (queueName ? `Queue: ${queueName}` : 'ACD Queue')
-          : getParticipantName(participant);
+        const participantName = purpose === 'acd' ? (queueName ? `Queue: ${queueName}` : 'ACD Queue') : getParticipantName(participant);
 
-        // Duration rules
         let durationMs = 0;
-        if (participant.userId) {
-          durationMs = getAgentWindow(participant).durationMs || 0;
-        } else {
-          if (start && nextStart) durationMs = Math.max(0, nextStart - start);
-        }
+        if (participant.userId) durationMs = getAgentWindow(participant).durationMs || 0;
+        else if (start && nextStart) durationMs = Math.max(0, nextStart - start);
 
-        // Alert time only for agent
         const alertMs = participant.userId ? getAlertMsForAgent(participant) : null;
         const alertTime = participant.userId ? formatShortSeconds(alertMs || 0) : 'N/A';
 
-        // Transfer (if any) for this index
         const transfer = transferInfo.transfers.find(t => t.step === index);
 
         return `
@@ -976,40 +726,16 @@
                   To: ${transfer.to}<br>
                   Type: ${transfer.type}<br>
                   Time: ${fmt(transfer.time)}
-                </div>
-              ` : ''}
+                </div>` : ''}
 
               <div class="info-grid">
-                <div class="info-item">
-                  <span class="info-label">Participant Type:</span>
-                  <span class="info-value">${getParticipantType(participant)}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Start Time:</span>
-                  <span class="info-value">${fmt(start)}</span>
-                </div>
-                ${queueName ? `
-                <div class="info-item">
-                  <span class="info-label">Queue:</span>
-                  <span class="info-value">${queueName}</span>
-                </div>
-                ` : ''}
-                <div class="info-item">
-                  <span class="info-label">Duration:</span>
-                  <span class="info-value">${renderDurationCell(durationMs, !!participant.userId, start, nextStart)}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Alert Time:</span>
-                  <span class="info-value">${alertTime}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Purpose:</span>
-                  <span class="info-value">${purpose}</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">Sessions:</span>
-                  <span class="info-value">${(participant.sessions && participant.sessions.length) || 1}</span>
-                </div>
+                <div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">${getParticipantType(participant)}</span></div>
+                <div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">${fmt(start)}</span></div>
+                ${queueName ? `<div class="info-item"><span class="info-label">Queue:</span><span class="info-value">${queueName}</span></div>` : ''}
+                <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${renderDurationCell(durationMs, !!participant.userId, start, nextStart)}</span></div>
+                <div class="info-item"><span class="info-label">Alert Time:</span><span class="info-value">${alertTime}</span></div>
+                <div class="info-item"><span class="info-label">Purpose:</span><span class="info-value">${purpose}</span></div>
+                <div class="info-item"><span class="info-label">Sessions:</span><span class="info-value">${(participant.sessions && participant.sessions.length) || 1}</span></div>
               </div>
             </div>
           </div>
@@ -1028,7 +754,6 @@
       if (participant.purpose === 'acd') return 'ACD Queue';
       return participant.purpose || 'Unknown';
     }
-
     function getParticipantType(participant) {
       if (participant.purpose === 'customer') return 'Customer';
       if (participant.userId) return 'Agent';
@@ -1037,16 +762,8 @@
       if (participant.purpose === 'external') return 'External';
       return participant.purpose || 'Unknown';
     }
-
     function getParticipantBadge(purpose, name) {
-      const badgeClass = {
-        'customer': 'badge-customer',
-        'acd': 'badge-queue',
-        'user': 'badge-agent',
-        'ivr': 'badge-ivr',
-        'external': 'badge-system',
-        'queue': 'badge-queue'
-      }[purpose] || 'badge-system';
+      const badgeClass = { 'customer': 'badge-customer', 'acd': 'badge-queue', 'user': 'badge-agent', 'ivr': 'badge-ivr', 'external': 'badge-system', 'queue': 'badge-queue' }[purpose] || 'badge-system';
       return `<span class="participant-badge ${badgeClass}">${name}</span>`;
     }
 
@@ -1055,12 +772,12 @@
 
     // ===== Initialize App =====
     (function init() {
-      const today = new Date();
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(today.getDate() - 7);
+      const today = new Date(); const oneWeekAgo = new Date(); oneWeekAgo.setDate(today.getDate() - 7);
       $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
       $('toDate').value = today.toISOString().slice(0, 10);
       initAuth();
+      // Expose transcript function to inline onclicks
+      window.getTranscriptForConversation = getTranscriptForConversation;
     })();
   </script>
 </body>
