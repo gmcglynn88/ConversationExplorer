@@ -477,17 +477,17 @@
         return `<span class="sentiment-neutral">🟠 ${fixed}</span>`;
       };
 
-      container.innerHTML = \`
+      container.innerHTML = `
         <div class="transcript-summary">
           <div class="t-summary-grid">
-            <div class="t-kv"><span class="k">Interaction Type:</span><span>\${media||'Interaction'}</span></div>
-            <div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">\${conversation.conversationId}</span></div>
-            <div class="t-kv"><span class="k">Transcript Start Time:</span><span>\${fmt(conversation.conversationStart)}</span></div>
-            <div class="t-kv"><span class="k">Transcript End Time:</span><span>\${fmt(conversation.conversationEnd)}</span></div>
-            <div class="t-kv"><span class="k">Transcript Duration:</span><span>\${dur}</span></div>
-            <div class="t-kv"><span class="k">Direction:</span><span>\${direction[0]?direction[0].toUpperCase()+direction.slice(1):'-'}</span></div>
-            <div class="t-kv"><span class="k">Internal Participant(s):</span><span>\${internal.length?internal.map(n=>\`<span class="pill">\${n.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>\`).join(' '):'-'}</span></div>
-            <div class="t-kv"><span class="k">External Participant(s):</span><span>\${external.length?external.map(n=>\`<span class="pill">\${n.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>\`).join(' '):'-'}</span></div>
+            <div class="t-kv"><span class="k">Interaction Type:</span><span>${media||'Interaction'}</span></div>
+            <div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">${conversation.conversationId}</span></div>
+            <div class="t-kv"><span class="k">Transcript Start Time:</span><span>${fmt(conversation.conversationStart)}</span></div>
+            <div class="t-kv"><span class="k">Transcript End Time:</span><span>${fmt(conversation.conversationEnd)}</span></div>
+            <div class="t-kv"><span class="k">Transcript Duration:</span><span>${dur}</span></div>
+            <div class="t-kv"><span class="k">Direction:</span><span>${direction[0]?direction[0].toUpperCase()+direction.slice(1):'-'}</span></div>
+            <div class="t-kv"><span class="k">Internal Participant(s):</span><span>${internal.length?internal.map(n=>`<span class="pill">${n.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`).join(' '):'-'}</span></div>
+            <div class="t-kv"><span class="k">External Participant(s):</span><span>${external.length?external.map(n=>`<span class="pill">${n.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`).join(' '):'-'}</span></div>
           </div>
         </div>
         <table class="transcript-table">
@@ -495,17 +495,17 @@
             <th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th>
           </tr></thead>
           <tbody>
-            \${rows.map(r=>\`
+            ${rows.map(r=>`
               <tr>
-                <td class="mono">\${r.rel}</td>
-                <td>\${r.purpose}</td>
-                <td>\${escapeHtml(r.who)}</td>
-                <td>\${escapeHtml(r.text)}</td>
-                <td>\${renderSentimentCell(r)}</td>
-              </tr>\`).join('')}
+                <td class="mono">${r.rel}</td>
+                <td>${r.purpose}</td>
+                <td>${escapeHtml(r.who)}</td>
+                <td>${escapeHtml(r.text)}</td>
+                <td>${renderSentimentCell(r)}</td>
+              </tr>`).join('')}
           </tbody>
         </table>
-      \`;
+      `;
     }
 
     // ===== Fetch conversations =====
