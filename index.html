@@ -5,51 +5,206 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Genesys Conversation Explorer</title>
   <style>
-    body { font-family: 'Segoe UI', Arial, sans-serif; margin: 20px; padding: 20px; max-width: 1200px; background: #f8fafc; }
+    :root {
+      --primary-color: #63AB8F;
+      --secondary-color: #4A8C7D;
+      --border-color: #DEE2E6;
+      --light-bg: #F8F9FA;
+      --card-bg: #FFFFFF;
+      --text-color: #2C3E50;
+      --text-light: #6C757D;
+      --available-color: #c8e6c9;
+      --nearly-color: #ffe0b2;
+      --full-color: #ffcdd2;
+    }
+
+    body { 
+      font-family: 'Segoe UI', Arial, sans-serif; 
+      margin: 20px; 
+      padding: 20px; 
+      max-width: 1200px; 
+      background: var(--light-bg);
+      color: var(--text-color);
+    }
     #logo-container { text-align: center; margin-bottom: 20px; }
     #logo { width: 300px; }
-    label { margin-top: 10px; display: block; font-weight: bold; color: #374151; }
-    select, input, button { margin-top: 5px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; }
-    select, input { width: 100%; max-width: 320px; background: white; }
-    button { background: #3b82f6; color: white; border: none; cursor: pointer; font-weight: 600; transition: background 0.2s; }
-    button:hover { background: #2563eb; }
-    button:disabled { background: #9ca3af; cursor: not-allowed; }
-    #statusMessage { margin-top: 20px; color: #059669; white-space: pre-wrap; font-weight: 500; }
+    label { margin-top: 10px; display: block; font-weight: bold; color: var(--text-color); }
+    select, input, button { margin-top: 5px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; }
+    select, input { width: 100%; max-width: 320px; background: var(--card-bg); }
+    button { 
+      background: var(--primary-color); 
+      color: white; 
+      border: none; 
+      cursor: pointer; 
+      font-weight: 600; 
+      transition: background 0.2s; 
+    }
+    button:hover { background: var(--secondary-color); }
+    button:disabled { background: var(--text-light); cursor: not-allowed; }
+    #statusMessage { margin-top: 20px; color: var(--primary-color); white-space: pre-wrap; font-weight: 500; }
     #errorMessage { margin-top: 10px; color: #dc2626; white-space: pre-wrap; font-weight: 500; }
     .row { display:flex; gap: 20px; flex-wrap:wrap; align-items:flex-end; margin-bottom: 16px; }
-    .card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-top: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .muted { color: #6b7280; }
+    .card { 
+      background: var(--card-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: 12px; 
+      padding: 24px; 
+      margin-top: 16px; 
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+    }
+    .muted { color: var(--text-light); }
     .loading { opacity: 0.6; pointer-events: none; }
-    details { background:#f9fafb; border:1px solid #e5e7eb; border-radius: 8px; padding:16px; margin:12px 0; }
-    details>summary { cursor:pointer; font-weight:600; padding: 8px 0; font-size: 16px; }
-    pre { background: #1f2937; color: #f3f4f6; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin: 8px 0; }
-    .user-info { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 12px; margin: 12px 0; }
+    details { 
+      background: var(--light-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: 8px; 
+      padding: 16px; 
+      margin: 12px 0; 
+    }
+    details>summary { 
+      cursor: pointer; 
+      font-weight: 600; 
+      padding: 8px 0; 
+      font-size: 16px; 
+      color: var(--text-color);
+    }
+    pre { 
+      background: #1f2937; 
+      color: #f3f4f6; 
+      padding: 16px; 
+      border-radius: 6px; 
+      overflow-x: auto; 
+      font-size: 12px; 
+      margin: 8px 0; 
+    }
+    .user-info { 
+      background: var(--available-color); 
+      border: 1px solid var(--primary-color); 
+      border-radius: 8px; 
+      padding: 12px; 
+      margin: 12px 0; 
+    }
     .stats { display: flex; gap: 16px; margin: 16px 0; }
-    .stat-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; flex: 1; text-align: center; }
-    .stat-number { font-size: 24px; font-weight: bold; color: #3b82f6; }
-    .stat-label { color: #6b7280; font-size: 14px; }
-    .conversation-header { background: #e0f2fe; border-radius: 8px; padding: 16px; margin: 12px 0; }
-    .journey-timeline { margin: 20px 0; padding-left: 20px; border-left: 3px solid #3b82f6; }
+    .stat-card { 
+      background: var(--card-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: 8px; 
+      padding: 16px; 
+      flex: 1; 
+      text-align: center; 
+    }
+    .stat-number { font-size: 24px; font-weight: bold; color: var(--primary-color); }
+    .stat-label { color: var(--text-light); font-size: 14px; }
+    .conversation-header { 
+      background: var(--available-color); 
+      border-radius: 8px; 
+      padding: 16px; 
+      margin: 12px 0; 
+    }
+    .journey-timeline { 
+      margin: 20px 0; 
+      padding-left: 20px; 
+      border-left: 3px solid var(--primary-color); 
+    }
     .journey-step { margin-bottom: 20px; position: relative; }
-    .journey-step:before { content: ''; position: absolute; left: -26px; top: 0; width: 16px; height: 16px; border-radius: 50%; background: #3b82f6; }
-    .step-header { font-weight: bold; color: #1e40af; margin-bottom: 8px; }
-    .step-details { background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; }
-    .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0; }
-    .info-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
-    .info-label { font-weight: 600; color: #374151; min-width: 120px; }
-    .info-value { color: #1f2937; text-align: right; flex: 1; }
-    .participant-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; margin: 2px; }
-    .badge-customer { background: #dbeafe; color: #1e40af; }
-    .badge-agent { background: #dcfce7; color: #166534; }
-    .badge-system { background: #fef3c7; color: #92400e; }
-    .badge-queue { background: #f3e8ff; color: #7c3aed; }
+    .journey-step:before { 
+      content: ''; 
+      position: absolute; 
+      left: -26px; 
+      top: 0; 
+      width: 16px; 
+      height: 16px; 
+      border-radius: 50%; 
+      background: var(--primary-color); 
+    }
+    .step-header { font-weight: bold; color: var(--secondary-color); margin-bottom: 8px; }
+    .step-details { 
+      background: var(--card-bg); 
+      border: 1px solid var(--border-color); 
+      border-radius: 6px; 
+      padding: 12px; 
+    }
+    .info-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
+      gap: 12px; 
+      margin: 12px 0; 
+    }
+    .info-item { 
+      display: flex; 
+      justify-content: space-between; 
+      padding: 8px 0; 
+      border-bottom: 1px solid var(--border-color); 
+    }
+    .info-label { 
+      font-weight: 600; 
+      color: var(--text-color); 
+      min-width: 140px; 
+      white-space: nowrap;
+    }
+    .info-value { 
+      color: var(--text-color); 
+      text-align: right; 
+      flex: 1; 
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .participant-badge { 
+      display: inline-block; 
+      padding: 4px 8px; 
+      border-radius: 4px; 
+      font-size: 12px; 
+      font-weight: 600; 
+      margin: 2px; 
+    }
+    .badge-customer { background: var(--available-color); color: var(--secondary-color); }
+    .badge-agent { background: #dbeafe; color: #1e40af; }
+    .badge-system { background: var(--nearly-color); color: #92400e; }
+    .badge-queue { background: var(--full-color); color: #7c3aed; }
     .badge-ivr { background: #fce7f3; color: #be185d; }
-    .transfer-count { background: #fecaca; color: #dc2626; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-    .transfer-info { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 4px; padding: 8px; margin: 8px 0; }
-    .progress-bar { width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; margin: 10px 0; overflow: hidden; }
-    .progress-fill { height: 100%; background: #10b981; transition: width 0.3s ease; }
-    .chunk-info { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px; margin: 12px 0; }
-    .duration-badge { background: #e0f2fe; color: #0369a1; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .transfer-count { 
+      background: #fecaca; 
+      color: #dc2626; 
+      padding: 4px 8px; 
+      border-radius: 4px; 
+      font-weight: bold; 
+    }
+    .transfer-info { 
+      background: var(--nearly-color); 
+      border: 1px solid var(--border-color); 
+      border-radius: 4px; 
+      padding: 8px; 
+      margin: 8px 0; 
+    }
+    .progress-bar { 
+      width: 100%; 
+      height: 8px; 
+      background: var(--border-color); 
+      border-radius: 4px; 
+      margin: 10px 0; 
+      overflow: hidden; 
+    }
+    .progress-fill { 
+      height: 100%; 
+      background: var(--primary-color); 
+      transition: width 0.3s ease; 
+    }
+    .chunk-info { 
+      background: var(--nearly-color); 
+      border: 1px solid var(--border-color); 
+      border-radius: 6px; 
+      padding: 12px; 
+      margin: 12px 0; 
+    }
+    .duration-badge { 
+      background: var(--available-color); 
+      color: var(--secondary-color); 
+      padding: 2px 6px; 
+      border-radius: 4px; 
+      font-size: 11px; 
+      font-weight: 600; 
+    }
   </style>
 </head>
 <body>
@@ -61,14 +216,14 @@
 
   <div id="authStatus" class="card" style="display: none;">
     <div style="text-align: center; padding: 20px;">
-      <div style="font-size: 18px; color: #d97706; margin-bottom: 10px;">🔐 Authenticating...</div>
-      <div style="color: #6b7280;">Please wait while we connect to Genesys Cloud</div>
+      <div style="font-size: 18px; color: var(--secondary-color); margin-bottom: 10px;">🔐 Authenticating...</div>
+      <div style="color: var(--text-light);">Please wait while we connect to Genesys Cloud</div>
     </div>
   </div>
 
   <div id="mainContent" style="display: none;">
     <div class="card">
-      <h2 style="margin-top: 0; color: #1f2937;">Select Agent & Date Range</h2>
+      <h2 style="margin-top: 0; color: var(--text-color);">Select Agent & Date Range</h2>
       
       <div class="row">
         <div>
@@ -85,7 +240,7 @@
           <label for="fromDate">Date Range</label>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input id="fromDate" type="date" />
-            <span style="color: #6b7280;">to</span>
+            <span style="color: var(--text-light);">to</span>
             <input id="toDate" type="date" />
           </div>
           <div style="margin-top: 8px;">
@@ -108,14 +263,14 @@
 
     <div id="progressSection" style="display: none;">
       <div class="card">
-        <h3 style="margin-top: 0;">Fetching Conversations</h3>
+        <h3 style="margin-top: 0; color: var(--text-color);">Fetching Conversations</h3>
         <div class="chunk-info" id="chunkInfo">
           Processing date range in smaller chunks...
         </div>
         <div class="progress-bar">
           <div class="progress-fill" id="progressFill" style="width: 0%"></div>
         </div>
-        <div style="display: flex; justify-content: space-between; font-size: 14px; color: #6b7280;">
+        <div style="display: flex; justify-content: space-between; font-size: 14px; color: var(--text-light);">
           <span id="progressText">0%</span>
           <span id="chunkText">Chunk 0/0</span>
         </div>
@@ -124,7 +279,7 @@
 
     <div id="resultsSection" style="display: none;">
       <div class="card">
-        <h2 style="margin-top: 0; color: #1f2937;">Conversation Results</h2>
+        <h2 style="margin-top: 0; color: var(--text-color);">Conversation Results</h2>
         <div class="stats">
           <div class="stat-card">
             <div class="stat-number" id="totalConversations">0</div>
@@ -545,7 +700,7 @@
       
       if (conversations.length === 0) {
         resultsContainer.innerHTML = `
-          <div style="text-align: center; padding: 40px; color: #6b7280;">
+          <div style="text-align: center; padding: 40px; color: var(--text-light);">
             <div style="font-size: 48px; margin-bottom: 16px;">📭</div>
             <h3>No Conversations Found</h3>
             <p>No conversations found for ${state.selectedAgent.name} during the selected date range.</p>
@@ -556,7 +711,7 @@
           <details>
             <summary>
               <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
-              <span style="color: #6b7280; font-size: 0.9em; margin-left: 8px;">
+              <span style="color: var(--text-light); font-size: 0.9em; margin-left: 8px;">
                 (${conv.participants ? conv.participants.length : 0} participants)
               </span>
             </summary>
@@ -569,6 +724,7 @@
     }
 
     function renderConversationDetails(conversation) {
+      // Get conversation-level data
       const mediaType = conversation.mediaType || 'Unknown';
       const direction = conversation.originatingDirection || 'Unknown';
       const ani = getANI(conversation);
@@ -609,7 +765,7 @@
           </div>
         </div>
         
-        <h3>Customer Journey Timeline</h3>
+        <h3 style="color: var(--text-color);">Customer Journey Timeline</h3>
         <div class="journey-timeline">
           ${renderJourneyTimeline(conversation, transferInfo)}
         </div>
@@ -625,7 +781,7 @@
       if (conversation.participants) {
         for (const participant of conversation.participants) {
           if (participant.purpose === 'customer') {
-            return participant.addresses?.[0]?.raw || 'Unknown';
+            return participant.addresses?.[0]?.raw || participant.addresses?.[0]?.display || 'Unknown';
           }
         }
       }
