@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Genesys Conversation Explorer</title>
   <style>
@@ -24,7 +24,7 @@
     }
     #logo-container { text-align: center; margin-bottom: 20px; }
     #logo { width: 300px; }
-    h1 { text-align: left; color: var(--text-color); margin-bottom: 24px; }
+    h1 { color: var(--text-color); }
     .card {
       background: var(--card-bg);
       border: 1px solid var(--border-color);
@@ -39,7 +39,6 @@
       gap: 20px 24px;
       align-items: start;
     }
-    .control-group { display: flex; flex-direction: column; gap: 10px; }
     label { font-weight: 600; color: var(--text-color); margin-bottom: 6px; display: block; }
     select, input, button {
       border: 1px solid var(--border-color);
@@ -61,15 +60,10 @@
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 12px; /* more space between date inputs */
+      gap: 12px;
     }
     .inline span { color: var(--text-light); text-align: center; }
-    .full-width-btn {
-      margin-top: 16px;
-      width: 100%;
-      padding: 14px 18px;
-      font-size: 16px;
-    }
+    .full-width-btn { width: 100%; padding: 14px; margin-top: 12px; font-size: 16px; }
     .user-info {
       border: 2px solid var(--primary-color);
       border-radius: 10px;
@@ -88,28 +82,29 @@
       font-weight: 600;
       font-size: 16px;
       color: var(--text-color);
-      padding: 8px 0;
     }
-    pre {
-      background: #1f2937;
-      color: #f3f4f6;
-      padding: 16px;
-      border-radius: 6px;
-      overflow-x: auto;
-      font-size: 12px;
-    }
-    .muted { color: var(--text-light); }
-    .pill {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 12px;
+    .journey-timeline { margin-top: 10px; padding-left: 16px; border-left: 3px solid var(--primary-color); }
+    .journey-step { margin-bottom: 20px; position: relative; }
+    .journey-step:before {
+      content: '';
+      position: absolute;
+      left: -26px;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
       background: var(--primary-color);
-      color: #fff;
-      font-size: 12px;
-      margin: 2px;
     }
-    .mono { font-family: monospace; }
-    .nowrap { white-space: nowrap; }
+    .step-header { font-weight: bold; color: var(--secondary-color); margin-bottom: 8px; }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 12px;
+      margin: 12px 0;
+    }
+    .info-item { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 4px 0; }
+    .info-label { font-weight: 600; color: var(--text-color); }
+    .info-value { color: var(--text-color); text-align: right; }
     .transcript-summary {
       border: 2px solid var(--primary-color);
       border-radius: 10px;
@@ -125,7 +120,6 @@
     }
     .t-kv { display: flex; justify-content: space-between; gap: 12px; }
     .t-kv .k { font-weight: 600; }
-    .t-section { margin-bottom: 16px; }
     .transcript-table {
       width: 100%;
       border-collapse: collapse;
@@ -155,18 +149,17 @@
   </div>
   <h1>Conversation Explorer</h1>
 
-  <!-- Container for the app -->
   <div id="mainContent" class="card">
     <div class="controls">
-      <div class="control-group">
+      <div>
         <label for="agentSelect">Select Agent</label>
         <select id="agentSelect"><option>Loading users...</option></select>
-        <input id="agentFilter" type="text" placeholder="Filter users by name" />
-        <div class="user-info" id="selectedAgentInfo" style="display: none;">
+        <input id="agentFilter" type="text" placeholder="Filter users by name"/>
+        <div class="user-info" id="selectedAgentInfo" style="display:none;">
           <strong>Selected Agent:</strong> <span id="selectedAgentName">None</span>
         </div>
       </div>
-      <div class="control-group">
+      <div>
         <label>Date Range</label>
         <div class="inline">
           <input id="fromDate" type="date" />
@@ -174,11 +167,12 @@
           <input id="toDate" type="date" />
         </div>
         <label style="margin-top: 8px;">
-          <input type="checkbox" id="autoChunk" checked /> Auto-split large date ranges (recommended)
+          <input type="checkbox" id="autoChunk" checked /> Auto-split large date ranges
         </label>
       </div>
     </div>
     <button id="fetchBtn" class="full-width-btn">Fetch Conversations</button>
+
     <div id="resultsSection" style="display:none;">
       <div id="results"></div>
     </div>
@@ -192,63 +186,79 @@
       apiHost: 'https://api.mypurecloud.ie'
     };
 
-    const state = { token: null, conversations: [], users: [], selectedAgent: null, convIndex: {} };
+    const state = { token: null, selectedAgent: null, convIndex: {} };
     const $ = (id) => document.getElementById(id);
 
-    // Simplified mock initAuth for demo
     window.onload = () => {
-      $('fromDate').value = '2025-09-01';
-      $('toDate').value = '2025-09-07';
       $('agentSelect').innerHTML = '<option value="1">Gerard McGlynn</option>';
+      $('fromDate').value = '2025-09-01';
+      $('toDate').value = '2025-09-05';
+      $('fetchBtn').onclick = showDemoConversation;
       state.token = 'demo';
-      $('fetchBtn').onclick = fakeConversations;
     };
 
-    async function fakeConversations() {
+    function showDemoConversation() {
       $('resultsSection').style.display = 'block';
-      const conv = {
-        conversationId: 'abc123',
-        participants: [],
-        conversationStart: new Date().toISOString(),
-        conversationEnd: new Date(Date.now()+300000).toISOString()
+      const conversation = {
+        conversationId: 'abc-123',
+        conversationStart: '2025-09-23T12:02:00Z',
+        conversationEnd: '2025-09-23T12:09:00Z',
+        participants: [
+          { purpose: 'customer', sessions: [{ sessionId: 'sess-456', mediaType: 'voice' }] },
+          { purpose: 'user', userId: '1', name: 'Gerard McGlynn' }
+        ]
       };
-      const parsedTranscript = [
+
+      $('results').innerHTML = `
+        <details open>
+          <summary><strong>${conversation.conversationId}</strong> - ${new Date(conversation.conversationStart).toLocaleString()} (3 participants)</summary>
+          <div class="journey-timeline">
+            <div class="journey-step">
+              <div class="step-header">Step 1: <span class="info-label">Customer Joined</span></div>
+              <div class="info-grid">
+                <div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">Customer</span></div>
+                <div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">${new Date(conversation.conversationStart).toLocaleString()}</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="transcript-wrapper" id="transcript-wrapper-${conversation.conversationId}">
+            <button onclick="getTranscriptForConversation('${conversation.conversationId}', 'sess-456')" style="margin-top:12px;">Get Transcript</button>
+            <div id="transcript-${conversation.conversationId}"></div>
+          </div>
+        </details>
+      `;
+    }
+
+    async function getTranscriptForConversation(conversationId, sessionId) {
+      const el = document.querySelector(`#transcript-${conversationId}`);
+      el.innerHTML = '<div class="muted">Fetching transcript...</div>';
+
+      // Demo fake transcript data
+      const transcript = [
         { milliseconds: 7000, participantPurpose: 'Internal', decoratedText: "Thank you for calling, how can I help?", sentiment: 0.8 },
         { milliseconds: 29000, participantPurpose: 'External', decoratedText: "Hi, I need help with my account.", sentiment: -0.2 },
         { milliseconds: 60000, participantPurpose: 'Internal', decoratedText: "Sure, can you verify your details?", sentiment: 0.4 },
         { milliseconds: 90000, participantPurpose: 'External', decoratedText: "Yes, address is 27 Green Fill Lane.", sentiment: 0.1 },
         { milliseconds: 120000, participantPurpose: 'Internal', decoratedText: "Great, how can I assist today?", sentiment: 0.9 }
       ];
-      const div = document.createElement('div');
-      renderTranscript(div, parsedTranscript, JSON.stringify(parsedTranscript, null, 2), conv);
-      $('results').innerHTML = '<h2>Demo Transcript</h2>';
-      $('results').appendChild(div);
+
+      renderTranscript(el, transcript, JSON.stringify(transcript, null, 2), { conversationId, conversationStart: '2025-09-23T12:02:00Z', conversationEnd: '2025-09-23T12:09:00Z' });
     }
 
-    // === NEW Transcript Renderer ===
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
       const mmss = (ms)=>{ const t=Math.max(0,Math.floor((+ms||0)/1000)); const m=Math.floor(t/60), s=t%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); };
-
       const rows = (parsed || []).map(u => ({
-        ms: Number(u.milliseconds) || 0,
+        ms: Number(u.milliseconds)||0,
         rel: mmss(u.milliseconds),
-        purpose: (u.participantPurpose || '').toString().toLowerCase() === 'internal' ? 'Internal' : 'External',
-        who: (u.participantPurpose || '').toLowerCase() === 'internal' ? 'Agent' : 'Customer',
-        text: (u.decoratedText || '').toString(),
-        sentiment: (u.sentiment !== undefined && u.sentiment !== null) ? u.sentiment : null
+        purpose: (u.participantPurpose||'').toLowerCase()==='internal'?'Internal':'External',
+        who: (u.participantPurpose||'').toLowerCase()==='internal'?'Agent':'Customer',
+        text: (u.decoratedText||'').toString(),
+        sentiment: (u.sentiment!==undefined&&u.sentiment!==null)?u.sentiment:null
       }));
-
-      if (!rows.length) {
-        container.innerHTML = `<pre>${escapeHtml(rawText || '')}</pre>`;
-        return;
-      }
-
-      const startMs = Math.min(...rows.map(r=>r.ms));
-      const endMs = Math.max(...rows.map(r=>r.ms));
-      const duration = mmss(endMs - startMs);
-
-      container.innerHTML = `
+      if(!rows.length){ container.innerHTML=`<pre>${escapeHtml(rawText||'')}</pre>`; return;}
+      const startMs=Math.min(...rows.map(r=>r.ms)), endMs=Math.max(...rows.map(r=>r.ms)), duration=mmss(endMs-startMs);
+      container.innerHTML=`
         <div class="transcript-summary">
           <div class="t-summary-grid">
             <div class="t-kv"><span class="k">Interaction Type:</span><span>Call</span></div>
@@ -265,11 +275,7 @@
           </div>
         </div>
         <table class="transcript-table">
-          <thead>
-            <tr>
-              <th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th></tr></thead>
           <tbody>
             ${rows.map(r=>`
               <tr>
@@ -282,8 +288,7 @@
                 </td>
               </tr>`).join('')}
           </tbody>
-        </table>
-      `;
+        </table>`;
     }
   </script>
 </body>
