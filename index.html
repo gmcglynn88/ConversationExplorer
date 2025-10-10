@@ -371,7 +371,7 @@
       try{
         btn.disabled=true; statusEl.textContent='Requesting transcript URL…';
         const urlRes = await fetch(CONFIG.apiHost + '/api/v2/speechandtextanalytics/conversations/' + conversationId + '/communications/' + commId + '/transcripturl', {headers:{Authorization:'Bearer ' + state.token}});
-        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); }
+        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + res.statusText + (t?' - ' + t.slice(0,200):'')); }
         const {url:presigned} = await urlRes.json(); if(!presigned) throw new Error('No URL in transcript response.');
         statusEl.textContent='Downloading transcript…';
         const raw = await fetch(presigned); if(!raw.ok) throw new Error('Transcript download failed: ' + raw.status + ' ' + raw.statusText);
@@ -385,114 +385,61 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === IMPROVED transcript renderer - FIXED TIMESTAMP AND SENTIMENT ===
+    // === FIXED transcript renderer - SPECIFIC FOR THE PHRASES STRUCTURE ===
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = s => (s||'').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]});
       
-      console.log('Full transcript data structure:', parsed);
+      console.log('Transcript data structure:', parsed);
       
-      // Function to deeply search for utterances with the specific Genesys fields
-      function findGenesysUtterances(obj, path = 'root', depth = 0) {
-        if (!obj || depth > 15) return null;
-        
-        // If we found an array, check if it contains utterance objects
-        if (Array.isArray(obj)) {
-          if (obj.length > 0) {
-            const first = obj[0];
-            // Look for objects that have the specific Genesys transcript fields
-            if (first && typeof first === 'object') {
-              const hasRequiredFields = (
-                ('participantPurpose' in first || 'purpose' in first) &&
-                ('decoratedText' in first || 'text' in first) &&
-                ('milliseconds' in first || 'offsetMs' in first || 'timeMs' in first)
-              );
-              
-              if (hasRequiredFields) {
-                console.log('Found Genesys utterances at path:', path, obj);
-                return obj;
-              }
-            }
+      // Extract all phrases from all transcripts
+      let allPhrases = [];
+      
+      if (parsed && Array.isArray(parsed.transcripts)) {
+        parsed.transcripts.forEach(transcript => {
+          if (transcript.phrases && Array.isArray(transcript.phrases)) {
+            allPhrases = allPhrases.concat(transcript.phrases);
           }
-          
-          // Recursively search array items
-          for (let i = 0; i < obj.length; i++) {
-            const found = findGenesysUtterances(obj[i], path + '[' + i + ']', depth + 1);
-            if (found) return found;
-          }
-        } 
-        // If it's an object, search its properties
-        else if (typeof obj === 'object') {
-          // Check common container property names
-          const containerKeys = [
-            'utterances', 'transcript', 'phrases', 'messages', 
-            'conversation', 'transcripts', 'results', 'data',
-            'utterance', 'segments', 'items', 'entries'
-          ];
-          
-          for (const key of containerKeys) {
-            if (obj[key] !== undefined) {
-              const found = findGenesysUtterances(obj[key], path + '.' + key, depth + 1);
-              if (found) return found;
-            }
-          }
-          
-          // Search all object properties recursively
-          for (const key of Object.keys(obj)) {
-            if (!containerKeys.includes(key)) { // Avoid re-searching the same containers
-              const found = findGenesysUtterances(obj[key], path + '.' + key, depth + 1);
-              if (found) return found;
-            }
-          }
-        }
-        
-        return null;
+        });
       }
-
-      // Find the utterances array
-      const utterancesArray = findGenesysUtterances(parsed);
       
-      console.log('Found utterances array:', utterancesArray);
+      console.log('All phrases found:', allPhrases);
 
-      if (!utterancesArray || !Array.isArray(utterancesArray) || utterancesArray.length === 0) {
-        container.innerHTML = '<div class="muted">No transcript utterances found with the expected format.</div>' +
+      if (!allPhrases || allPhrases.length === 0) {
+        container.innerHTML = '<div class="muted">No transcript phrases found.</div>' +
           '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(JSON.stringify(parsed, null, 2)) + '</pre></details>';
         return;
       }
 
-      // Process each utterance to extract the specific fields
-      const processedUtterances = utterancesArray
-        .map(utterance => {
-          // Extract the specific fields we need
-          const participantPurpose = utterance.participantPurpose || utterance.purpose || 'external';
-          const decoratedText = utterance.decoratedText || utterance.text || '';
-          const milliseconds = utterance.milliseconds || utterance.offsetMs || utterance.timeMs || 0;
-          const sentiment = utterance.sentiment;
-          const participantId = utterance.participantId;
-          
+      // Process phrases to extract the data we need
+      const processedPhrases = allPhrases
+        .map(phrase => {
           return {
-            participantPurpose: participantPurpose.toLowerCase(),
-            decoratedText: decoratedText.trim(),
-            milliseconds: parseInt(milliseconds),
-            sentiment: sentiment !== undefined && sentiment !== null ? parseFloat(sentiment) : null,
-            participantId: participantId
+            participantPurpose: phrase.participantPurpose || 'external',
+            decoratedText: phrase.decoratedText || phrase.text || '',
+            startTimeMs: phrase.startTimeMs || 0,
+            sentiment: phrase.sentiment,
+            confidence: phrase.confidence,
+            participantId: phrase.participantId,
+            userIds: phrase.userIds || [],
+            externalContactIds: phrase.externalContactIds || []
           };
         })
-        .filter(u => u.decoratedText && u.decoratedText.length > 0) // Remove empty utterances
-        .sort((a, b) => a.milliseconds - b.milliseconds); // Sort by timestamp
+        .filter(p => p.decoratedText && p.decoratedText.trim()) // Remove empty phrases
+        .sort((a, b) => a.startTimeMs - b.startTimeMs); // Sort by timestamp
 
-      console.log('Processed utterances with timestamps:', processedUtterances);
+      console.log('Processed phrases:', processedPhrases);
 
       const nameMap = mapParticipantNames(conversation);
       const { internal, external } = participantsByType(conversation);
 
       // Function to format sentiment - ONLY for external participants
-      function formatSentiment(utterance) {
+      function formatSentiment(phrase) {
         // Only show sentiment for external participants (customers)
-        if (utterance.participantPurpose !== 'external') {
+        if (phrase.participantPurpose !== 'external') {
           return '-';
         }
         
-        const score = utterance.sentiment;
+        const score = phrase.sentiment;
         if (score === null || score === undefined || isNaN(score)) return '-';
         
         const val = Number(score);
@@ -503,13 +450,21 @@
       }
 
       // Function to get participant display name
-      function getParticipantDisplay(utterance) {
-        const purpose = utterance.participantPurpose;
+      function getParticipantDisplay(phrase) {
+        const purpose = phrase.participantPurpose;
         
         if (purpose === 'internal') {
-          // For internal participants, try to find the agent name
-          if (utterance.participantId && nameMap[utterance.participantId]) {
-            return nameMap[utterance.participantId];
+          // For internal participants, try to find the agent name from userIds
+          if (phrase.userIds && phrase.userIds.length > 0) {
+            const userId = phrase.userIds[0];
+            if (nameMap[userId]) {
+              return nameMap[userId];
+            }
+            // Try to find user in state.users
+            const user = state.users.find(u => u.id === userId);
+            if (user) {
+              return user.name;
+            }
           }
           return internal[0] || 'Agent';
         } else {
@@ -518,6 +473,9 @@
         }
       }
 
+      // Calculate relative timestamps (from conversation start)
+      const conversationStartTime = new Date(conversation.conversationStart).getTime();
+      
       // Build the transcript HTML
       let html = '<div class="transcript-summary">';
       html += '<div class="t-summary-grid">';
@@ -535,20 +493,22 @@
       html += '<th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th>';
       html += '</tr></thead><tbody>';
 
-      if (processedUtterances.length === 0) {
+      if (processedPhrases.length === 0) {
         html += '<tr><td colspan="5" class="muted" style="text-align:center;">No transcript content found</td></tr>';
       } else {
-        processedUtterances.forEach(function(utterance) {
-          const timeFormatted = mmss(utterance.milliseconds);
-          const participantType = utterance.participantPurpose === 'internal' ? 'Internal' : 'External';
-          const participantName = getParticipantDisplay(utterance);
+        processedPhrases.forEach(function(phrase) {
+          // Calculate relative time from conversation start
+          const relativeTimeMs = phrase.startTimeMs - conversationStartTime;
+          const timeFormatted = mmss(relativeTimeMs);
+          const participantType = phrase.participantPurpose === 'internal' ? 'Internal' : 'External';
+          const participantName = getParticipantDisplay(phrase);
           
           html += '<tr>';
           html += '<td class="mono" style="font-weight:bold;">' + timeFormatted + '</td>';
           html += '<td>' + participantType + '</td>';
           html += '<td>' + escapeHtml(participantName) + '</td>';
-          html += '<td>' + escapeHtml(utterance.decoratedText) + '</td>';
-          html += '<td>' + formatSentiment(utterance) + '</td>';
+          html += '<td>' + escapeHtml(phrase.decoratedText) + '</td>';
+          html += '<td>' + formatSentiment(phrase) + '</td>';
           html += '</tr>';
         });
       }
