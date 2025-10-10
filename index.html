@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Interaction Insights</title>
+  <title>Genesys Conversation Explorer</title>
   <style>
     :root {
       --primary-color: #63AB8F;
@@ -61,7 +61,7 @@
     .muted { color: var(--text-light); }
     .loading { opacity: 0.6; pointer-events: none; }
 
-    /* Top controls layout: clean alignment + full-width button at bottom */
+    /* Top controls layout: alignment + full-width button at bottom */
     .controls {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -73,9 +73,9 @@
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 8px;
+      gap: 16px; /* more spacing around "to" */
     }
-    .inline span { color: var(--text-light); }
+    .inline span { color: var(--text-light); padding: 0 4px; }
     .full-width-btn {
       margin-top: 16px;
       width: 100%;
@@ -252,7 +252,7 @@
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
 
-  <h1>Interaction Insights</h1>
+  <h1>Conversation Explorer</h1>
   <button id="signinBtn" style="display:none; margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
   <div id="authStatus" class="card" style="display: none;">
@@ -361,7 +361,8 @@
       token: null,
       conversations: [],
       users: [],
-      selectedAgent: null
+      selectedAgent: null,
+      queues: {} // id -> name cache
     };
 
     // ===== Helpers =====
@@ -369,6 +370,12 @@
     const fmt = (d) => {
       if (!d || d === 'Invalid Date') return 'N/A';
       try { return new Date(d).toLocaleString(); } catch { return 'N/A'; }
+    };
+    const fmtDMY = (s) => {
+      // input "YYYY-MM-DD" -> "DD-MM-YYYY"
+      if (!s || s.length < 10) return s || '';
+      const [y,m,d] = s.slice(0,10).split('-');
+      return `${d}-${m}-${y}`;
     };
     const formatSeconds = (ms) => {
       if (!ms || ms === 0) return '0s';
@@ -498,7 +505,7 @@
 
     function populateUserSelect(users) {
       const select = $('agentSelect');
-      // DROPDOWN: show names only (no emails)
+      // Names only
       select.innerHTML = '<option value="">Select an agent...</option>' +
         users.map(u => `<option value="${u.id}">${u.name || '(Unnamed)'}</option>`).join('');
 
@@ -506,7 +513,6 @@
         const selectedUser = users.find(u => u.id === select.value);
         state.selectedAgent = selectedUser || null;
         if (selectedUser) {
-          // Selected agent panel: show name only
           $('selectedAgentName').textContent = selectedUser.name || '(Unnamed)';
           $('selectedAgentInfo').style.display = 'block';
         } else {
@@ -515,7 +521,7 @@
       };
     }
 
-    // Filter also only matches on name now
+    // Filter only by name now
     $('agentFilter').addEventListener('input', function () {
       const query = this.value.trim().toLowerCase();
       const filteredUsers = query
@@ -664,14 +670,14 @@
       return totalMs;
     }
 
-    // Build chronological legs using step start
+    // Build chronological legs using step start, and collect queueIds
     function buildLegs(conversation) {
       const legs = [];
       for (const p of (conversation.participants || [])) {
         const when = getStepStart(p)?.getTime() ?? Infinity;
-        let queueId = null;
+        let queueId = p.queueId || null;
         for (const s of (p.sessions || [])) {
-          queueId = queueId || s.queueId || p.queueId || null;
+          queueId = queueId || s.queueId || null;
         }
         legs.push({ when, purpose: p.purpose, userId: p.userId || null, queueId });
       }
@@ -693,8 +699,8 @@
           count++;
           transfers.push({
             step: i,
-            from: prev.userId ? getParticipantName({ userId: prev.userId, purpose: 'user' }) : (prev.queueId ? 'Queue' : prev.purpose || 'Unknown'),
-            to:   curr.userId ? getParticipantName({ userId: curr.userId, purpose: 'user' }) : (curr.queueId ? 'Queue' : curr.purpose || 'Unknown'),
+            from: prev.userId ? getParticipantName({ userId: prev.userId, purpose: 'user' }) : (prev.queueId ? (getQueueName(prev.queueId) || 'Queue') : (prev.purpose || 'Unknown')),
+            to:   curr.userId ? getParticipantName({ userId: curr.userId, purpose: 'user' }) : (curr.queueId ? (getQueueName(curr.queueId) || 'Queue') : (curr.purpose || 'Unknown')),
             time: new Date(curr.when).toISOString(),
             type: agentToAgent ? 'Agent → Agent' : 'Agent → Queue'
           });
@@ -703,12 +709,49 @@
       return { totalTransfers: count, transfers };
     }
 
-    // Parser-safe duration rendering (no nested ternaries inside template)
+    // Parser-safe duration rendering
     function renderDurationCell(durationMs, isAgent, start, nextStart) {
       const main = formatSeconds(durationMs);
       if (isAgent) return main;
       if (!start || !nextStart) return main + ' <span class="duration-badge">calc: n/a</span>';
       return main;
+    }
+
+    // ===== Queue helpers =====
+    function getQueueIdFromParticipant(participant) {
+      if (participant.queueId) return participant.queueId;
+      for (const s of (participant.sessions || [])) {
+        if (s.queueId) return s.queueId;
+      }
+      return null;
+    }
+    function getQueueName(queueId) {
+      return state.queues[queueId] || null;
+    }
+    async function fetchQueueName(queueId) {
+      if (!queueId || state.queues[queueId]) return;
+      try {
+        const q = await api(`/api/v2/routing/queues/${queueId}`);
+        state.queues[queueId] = q?.name || queueId;
+      } catch (e) {
+        console.warn('Queue fetch failed', queueId, e.message);
+        state.queues[queueId] = queueId; // fallback to id
+      }
+    }
+    async function warmQueueCache(conversations) {
+      const ids = new Set();
+      for (const c of conversations) {
+        for (const p of (c.participants || [])) {
+          const id = getQueueIdFromParticipant(p);
+          if (id) ids.add(id);
+        }
+      }
+      const toFetch = [...ids].filter(id => !state.queues[id]);
+      // Fetch sequentially to stay polite; could be parallel if needed
+      for (const id of toFetch) {
+        // eslint-disable-next-line no-await-in-loop
+        await fetchQueueName(id);
+      }
     }
 
     // ===== Conversations =====
@@ -731,12 +774,12 @@
           const chunkSize = calculateOptimalChunkSize(fromDate, toDate);
           dateChunks = splitDateRangeIntoChunks(fromDate, toDate, chunkSize);
           $('chunkInfo').innerHTML = `
-            Large date range detected: <strong>${fromDate} to ${toDate}</strong><br>
+            Large date range detected: <strong>${fmtDMY(fromDate)} to ${fmtDMY(toDate)}</strong><br>
             Auto-splitting into <strong>${dateChunks.length} chunks</strong> of ${chunkSize} days each.
           `;
         } else {
           dateChunks = [{ start: fromDate, end: toDate }];
-          $('chunkInfo').innerHTML = `Processing date range: <strong>${fromDate} to ${toDate}</strong>`;
+          $('chunkInfo').innerHTML = `Processing date range: <strong>${fmtDMY(fromDate)} to ${fmtDMY(toDate)}</strong>`;
         }
 
         showProgress();
@@ -757,6 +800,9 @@
           }
           if (i < dateChunks.length - 1) await new Promise(r => setTimeout(r, 400));
         }
+
+        // Warm queue cache before rendering
+        await warmQueueCache(state.conversations);
 
         updateProgress(100, dateChunks.length, dateChunks.length);
         renderResults(state.conversations);
@@ -810,8 +856,10 @@
       const fromDate = $('fromDate').value || '-';
       const toDate = $('toDate').value || fromDate;
 
+      // Date range in DD-MM-YYYY
+      $('dateRange').textContent = `${fmtDMY(fromDate)} to ${fmtDMY(toDate)}`;
+
       $('totalConversations').textContent = conversations.length;
-      $('dateRange').textContent = `${fromDate} to ${toDate}`;
       $('selectedAgent').textContent = state.selectedAgent?.name || '-';
 
       if (conversations.length === 0) {
@@ -887,10 +935,19 @@
 
       return sorted.map((participant, index) => {
         const purpose = participant.purpose || 'unknown';
-        const participantName = getParticipantName(participant);
         const start = getStepStart(participant);
         const nextStart = (index < sorted.length - 1) ? getStepStart(sorted[index + 1]) : null;
 
+        // Queue name (if queue step)
+        const queueId = getQueueIdFromParticipant(participant);
+        const queueName = queueId ? (getQueueName(queueId) || queueId) : null;
+
+        // Name in badge
+        const participantName = purpose === 'acd'
+          ? (queueName ? `Queue: ${queueName}` : 'ACD Queue')
+          : getParticipantName(participant);
+
+        // Duration rules
         let durationMs = 0;
         if (participant.userId) {
           durationMs = getAgentWindow(participant).durationMs || 0;
@@ -898,9 +955,11 @@
           if (start && nextStart) durationMs = Math.max(0, nextStart - start);
         }
 
+        // Alert time only for agent
         const alertMs = participant.userId ? getAlertMsForAgent(participant) : null;
         const alertTime = participant.userId ? formatShortSeconds(alertMs || 0) : 'N/A';
 
+        // Transfer (if any) for this index
         const transfer = transferInfo.transfers.find(t => t.step === index);
 
         return `
@@ -929,6 +988,12 @@
                   <span class="info-label">Start Time:</span>
                   <span class="info-value">${fmt(start)}</span>
                 </div>
+                ${queueName ? `
+                <div class="info-item">
+                  <span class="info-label">Queue:</span>
+                  <span class="info-value">${queueName}</span>
+                </div>
+                ` : ''}
                 <div class="info-item">
                   <span class="info-label">Duration:</span>
                   <span class="info-value">${renderDurationCell(durationMs, !!participant.userId, start, nextStart)}</span>
@@ -958,9 +1023,9 @@
         const user = state.users.find(u => u.id === participant.userId);
         return user ? user.name : `Agent (${participant.userId})`;
       }
-      if (participant.purpose === 'acd') return 'ACD Queue';
       if (participant.purpose === 'ivr') return 'IVR System';
       if (participant.purpose === 'external') return 'External System';
+      if (participant.purpose === 'acd') return 'ACD Queue';
       return participant.purpose || 'Unknown';
     }
 
