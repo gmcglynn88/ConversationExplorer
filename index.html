@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Genesys Conversation Explorer</title>
+  <title>Interaction Insights</title>
   <style>
     :root {
       --primary-color: #63AB8F;
@@ -223,7 +223,7 @@
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
 
-  <h1>Conversation Explorer</h1>
+  <h1>Interaction Insights</h1>
   <button id="signinBtn" style="display:none; margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
   <div id="authStatus" class="card" style="display: none;">
@@ -533,6 +533,16 @@
       return (s && s.mediaType) || 'Unknown';
     }
 
+    function getConversationMediaTypes(conversation) {
+      const types = new Set();
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) {
+          if (s.mediaType) types.add(s.mediaType);
+        }
+      }
+      return [...types].join(', ') || (getMediaType(conversation) || 'Unknown');
+    }
+
     function getDirection(conversation) {
       const s = firstSession(conversation);
       return (s && s.direction) || conversation.originatingDirection || 'Unknown';
@@ -589,7 +599,7 @@
       let totalMs = 0;
       const addVal = (v) => {
         if (v == null || isNaN(v)) return;
-        // If tiny (e.g., <= 120), assume seconds -> ms; otherwise already ms
+        // If tiny (<= 120), assume seconds -> ms; otherwise already ms
         const ms = (v > 120) ? v : v * 1000;
         totalMs += ms;
       };
@@ -705,7 +715,7 @@
           updateProgress(progress, i + 1, dateChunks.length);
           setStatus(`Fetching chunk ${i + 1}/${dateChunks.length}: ${chunk.start} to ${chunk.end}`);
 
-        try {
+          try {
             const chunkConversations = await fetchConversationsForDateRange(chunk.start, chunk.end);
             state.conversations = state.conversations.concat(chunkConversations);
           } catch (error) {
@@ -754,7 +764,8 @@
       });
 
       if (!response.ok) {
-        const txt = await res.text().catch(() => ''); // (typo fix below)
+        const txt = await response.text().catch(() => '');
+        throw new Error(`Failed to fetch conversations: ${response.status} ${response.statusText}${txt ? ` - ${txt.slice(0,200)}` : ''}`);
       }
 
       const data = await response.json();
@@ -779,17 +790,22 @@
           </div>
         `;
       } else {
-        resultsContainer.innerHTML = conversations.map(conv => `
-          <details>
-            <summary>
-              <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
-              <span class="muted" style="font-size: 0.9em; margin-left: 8px;">
-                (${conv.participants ? conv.participants.length : 0} participants)
-              </span>
-            </summary>
-            ${renderConversationDetails(conv)}
-          </details>
-        `).join('');
+        resultsContainer.innerHTML = conversations.map(conv => {
+          const media = getConversationMediaTypes(conv);
+          const dir = getDirection(conv);
+          const participants = (conv.participants ? conv.participants.length : 0);
+          return `
+            <details>
+              <summary>
+                <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
+                <span class="muted" style="font-size: 0.9em; margin-left: 8px;">
+                  (${participants} participants) • Media: ${media} • Dir: ${dir}
+                </span>
+              </summary>
+              ${renderConversationDetails(conv)}
+            </details>
+          `;
+        }).join('');
       }
       $('resultsSection').style.display = 'block';
     }
