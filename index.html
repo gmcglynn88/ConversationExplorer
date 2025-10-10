@@ -53,7 +53,7 @@
     .transcript-table th{background:var(--primary-color);color:#fff;text-align:left}
     .sentiment-positive{color:#16a34a;font-weight:700}
     .sentiment-negative{color:#dc2626;font-weight:700}
-    .sentiment-neutral{color:#f59e0b;font-weight:700}
+    .sentiment-neutral{color:#f59e0b;font-weight=700}
     .loading{opacity:.6;pointer-events:none}
   </style>
 </head>
@@ -161,18 +161,33 @@
     function authUrl(){
       return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
     }
+    
     function initAuth(){
-      showAuthStatus();
+      console.log('Initializing auth...');
+      
       const {token,error,errorDescription} = parseTokenFromHash();
-      if(location.hash) history.replaceState(null,'',location.pathname);
-      if(error){
-        setStatus(`Authentication Error: ${error}${errorDescription?` - ${decodeURIComponent(errorDescription)}`:''}`, true);
-        const b=$('signinBtn'); b.style.display='inline-block'; b.onclick=()=>location.assign(authUrl()); return;
+      console.log('Token present:', !!token);
+      console.log('Error:', error);
+      
+      if(location.hash) {
+        console.log('Clearing hash from URL');
+        history.replaceState(null,'',location.pathname);
       }
-      if(token){ state.token=token; showMain(); fetchAllUsers(); return; }
-      const tried = sessionStorage.getItem('authAttempted')==='1';
-      if(!tried){ sessionStorage.setItem('authAttempted','1'); location.assign(authUrl()); }
-      else{ setStatus('Not authenticated. Click "Sign in to Genesys Cloud".', true); const b=$('signinBtn'); b.style.display='inline-block'; b.onclick=()=>location.assign(authUrl()); }
+      
+      if(token){
+        console.log('Authentication successful');
+        state.token = token;
+        showMain();
+        fetchAllUsers();
+      } else {
+        console.log('No token found, showing signin option');
+        $('signinBtn').style.display = 'inline-block';
+        $('signinBtn').onclick = () => {
+          console.log('Initiating OAuth flow');
+          location.assign(authUrl());
+        };
+        $('authStatus').style.display = 'none';
+      }
     }
 
     // ===== API helper =====
@@ -311,7 +326,7 @@
     }
     function badge(purpose,name){
       const cls = {'customer':'badge-customer','user':'badge-agent','acd':'badge-queue','ivr':'badge-ivr','external':'badge-system','queue':'badge-queue'}[purpose]||'badge-system';
-      return `<span class="participant-badge ${cls}">${name}</span>`;
+      return '<span class="participant-badge ' + cls + '">' + name + '</span>';
     }
 
     // ===== Transcript helpers =====
@@ -339,9 +354,9 @@
     }
 
     async function getTranscriptForConversation(conversationId){
-      const statusEl = document.querySelector(`#transcript-status-${conversationId}`);
-      const container = document.querySelector(`#transcript-${conversationId}`);
-      const btn = document.querySelector(`#btn-transcript-${conversationId}`);
+      const statusEl = document.querySelector('#transcript-status-' + conversationId);
+      const container = document.querySelector('#transcript-' + conversationId);
+      const btn = document.querySelector('#btn-transcript-' + conversationId);
       if(!state.token){ alert('Not authenticated'); return; }
       const conv = state.convIndex[conversationId]; if(!conv){ statusEl.textContent='Conversation not found in state.'; return; }
 
@@ -349,28 +364,26 @@
       if(!commId){ statusEl.textContent='No sessionId found to use as communicationsId.'; return; }
 
       try{
-        btn.disabled=true; statusEl.textContent=`Requesting transcript URL…`;
-        const urlRes = await fetch(`${CONFIG.apiHost}/api/v2/speechandtextanalytics/conversations/${conversationId}/communications/${commId}/transcripturl`, {headers:{Authorization:`Bearer ${state.token}`}});
-        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error(`Transcript URL error: ${urlRes.status} ${urlRes.statusText}${t?` - ${t.slice(0,200)}`:''}`); }
+        btn.disabled=true; statusEl.textContent='Requesting transcript URL…';
+        const urlRes = await fetch(CONFIG.apiHost + '/api/v2/speechandtextanalytics/conversations/' + conversationId + '/communications/' + commId + '/transcripturl', {headers:{Authorization:'Bearer ' + state.token}});
+        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); }
         const {url:presigned} = await urlRes.json(); if(!presigned) throw new Error('No URL in transcript response.');
         statusEl.textContent='Downloading transcript…';
-        const raw = await fetch(presigned); if(!raw.ok) throw new Error(`Transcript download failed: ${raw.status} ${raw.statusText}`);
+        const raw = await fetch(presigned); if(!raw.ok) throw new Error('Transcript download failed: ' + raw.status + ' ' + raw.statusText);
         const text = await raw.text(); let parsed=null; try{ parsed=JSON.parse(text);}catch{}
         statusEl.textContent='Rendering transcript…';
         renderTranscript(container, parsed, text, conv);
         statusEl.textContent='Transcript loaded.';
       }catch(e){
-        console.error(e); statusEl.innerHTML=`⚠️ ${e.message}<br><span class="muted">If this is a CORS issue, try opening the raw URL in a new tab.</span>`;
+        console.error(e); statusEl.innerHTML='⚠️ ' + e.message + '<br><span class="muted">If this is a CORS issue, try opening the raw URL in a new tab.</span>';
       }finally{ btn.disabled=false; }
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
     // === Robust transcript renderer ===
     function renderTranscript(container, parsed, rawText, conversation){
-      const escapeHtml = s => (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-      const mmss = ms => { const t=Math.max(0,Math.floor((+ms||0)/1000)); const m=Math.floor(t/60), s=t%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); };
-      const toMs = v => (typeof v==='number' && isFinite(v)) ? v : NaN;
-
+      const escapeHtml = s => (s||'').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]});
+      
       function huntUtterances(obj, depth=0){
         if(!obj || depth>6) return null;
         if(Array.isArray(obj)){
@@ -403,12 +416,14 @@
         return 0;
       }
 
+      function toMs(v) { return (typeof v==='number' && isFinite(v)) ? v : NaN; }
+
       function extractText(u){
         if (typeof u.decoratedText === 'string') return u.decoratedText;
         if (typeof u.text === 'string') return u.text;
         if (typeof u.body === 'string') return u.body;
         if (typeof u.transcript === 'string') return u.transcript;
-        if (Array.isArray(u.decorated)) return u.decorated.map(r => r?.text || '').join('').trim();
+        if (Array.isArray(u.decorated)) return u.decorated.map(function(r){ return (r?.text || ''); }).join('').trim();
         return '';
       }
 
@@ -444,23 +459,23 @@
       const utterances = parsed ? huntUtterances(parsed) : null;
 
       if(!utterances || !utterances.length){
-        container.innerHTML = `<div class="muted">Couldn’t find transcript utterances in the payload. Showing raw JSON.</div><pre>${escapeHtml(parsed?JSON.stringify(parsed,null,2):rawText||'')}</pre>`;
+        container.innerHTML = '<div class="muted">Couldn\'t find transcript utterances in the payload. Showing raw JSON.</div><pre>' + escapeHtml(parsed?JSON.stringify(parsed,null,2):rawText||'') + '</pre>';
         return;
       }
 
       const nameMap = mapParticipantNames(conversation);
       const { internal, external } = participantsByType(conversation);
 
-      const rows = utterances.map(u=>{
+      const rows = utterances.map(function(u){
         const ms = extractMs(u);
         const purpose = extractPurpose(u);
         const who = extractWho(u, purpose, nameMap, internal, external);
         const text = extractText(u);
         const sentiment = extractSentiment(u);
-        return { ms, rel:mmss(ms), purpose, who, text, sentiment };
-      }).sort((a,b)=>a.ms-b.ms);
+        return { ms: ms, rel: mmss(ms), purpose: purpose, who: who, text: text, sentiment: sentiment };
+      }).sort(function(a,b){ return a.ms - b.ms; });
 
-      try{ console.log('[Transcript] sample rows:', rows.slice(0,3)); }catch{}
+      try{ console.log('[Transcript] sample rows:', rows.slice(0,3)); }catch(e){}
 
       const start = rows.length ? rows[0].ms : 0;
       const end = rows.length ? rows[rows.length-1].ms : 0;
@@ -468,44 +483,43 @@
       const direction = (getDirection(conversation)||'').toString();
       const media = getConversationMediaTypes(conversation);
 
-      const renderSentimentCell = (r)=>{
+      function renderSentimentCell(r){
         if (r.purpose !== 'External' || r.sentiment === null || r.sentiment === undefined || isNaN(r.sentiment)) return '-';
         const val = Number(r.sentiment);
         const fixed = val.toFixed(2);
-        if (val > 0) return `<span class="sentiment-positive">👍 ${fixed}</span>`;
-        if (val < 0) return `<span class="sentiment-negative">👎 ${fixed}</span>`;
-        return `<span class="sentiment-neutral">🟠 ${fixed}</span>`;
-      };
+        if (val > 0) return '<span class="sentiment-positive">👍 ' + fixed + '</span>';
+        if (val < 0) return '<span class="sentiment-negative">👎 ' + fixed + '</span>';
+        return '<span class="sentiment-neutral">🟠 ' + fixed + '</span>';
+      }
 
-      container.innerHTML = `
-        <div class="transcript-summary">
-          <div class="t-summary-grid">
-            <div class="t-kv"><span class="k">Interaction Type:</span><span>${media||'Interaction'}</span></div>
-            <div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">${conversation.conversationId}</span></div>
-            <div class="t-kv"><span class="k">Transcript Start Time:</span><span>${fmt(conversation.conversationStart)}</span></div>
-            <div class="t-kv"><span class="k">Transcript End Time:</span><span>${fmt(conversation.conversationEnd)}</span></div>
-            <div class="t-kv"><span class="k">Transcript Duration:</span><span>${dur}</span></div>
-            <div class="t-kv"><span class="k">Direction:</span><span>${direction[0]?direction[0].toUpperCase()+direction.slice(1):'-'}</span></div>
-            <div class="t-kv"><span class="k">Internal Participant(s):</span><span>${internal.length?internal.map(n=>`<span class="pill">${n.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`).join(' '):'-'}</span></div>
-            <div class="t-kv"><span class="k">External Participant(s):</span><span>${external.length?external.map(n=>`<span class="pill">${n.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`).join(' '):'-'}</span></div>
-          </div>
-        </div>
-        <table class="transcript-table">
-          <thead><tr>
-            <th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th>
-          </tr></thead>
-          <tbody>
-            ${rows.map(r=>`
-              <tr>
-                <td class="mono">${r.rel}</td>
-                <td>${r.purpose}</td>
-                <td>${escapeHtml(r.who)}</td>
-                <td>${escapeHtml(r.text)}</td>
-                <td>${renderSentimentCell(r)}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table>
-      `;
+      let html = '<div class="transcript-summary">';
+      html += '<div class="t-summary-grid">';
+      html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (media||'Interaction') + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">' + conversation.conversationId + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Transcript Start Time:</span><span>' + fmt(conversation.conversationStart) + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Transcript End Time:</span><span>' + fmt(conversation.conversationEnd) + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Transcript Duration:</span><span>' + dur + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Direction:</span><span>' + (direction[0]?direction[0].toUpperCase()+direction.slice(1):'-') + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Internal Participant(s):</span><span>' + (internal.length?internal.map(function(n){ return '<span class="pill">' + n.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>'; }).join(' '):'-') + '</span></div>';
+      html += '<div class="t-kv"><span class="k">External Participant(s):</span><span>' + (external.length?external.map(function(n){ return '<span class="pill">' + n.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>'; }).join(' '):'-') + '</span></div>';
+      html += '</div></div>';
+      
+      html += '<table class="transcript-table"><thead><tr>';
+      html += '<th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th>';
+      html += '</tr></thead><tbody>';
+      
+      rows.forEach(function(r){
+        html += '<tr>';
+        html += '<td class="mono">' + r.rel + '</td>';
+        html += '<td>' + r.purpose + '</td>';
+        html += '<td>' + escapeHtml(r.who) + '</td>';
+        html += '<td>' + escapeHtml(r.text) + '</td>';
+        html += '<td>' + renderSentimentCell(r) + '</td>';
+        html += '</tr>';
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
     }
 
     // ===== Fetch conversations =====
@@ -522,67 +536,57 @@
         const dateChunks = auto? chunks(from,to,days) : [{start:from,end:to}];
 
         $('chunkInfo').innerHTML = auto
-          ? `Large range: <strong>${fmtDMY(from)} to ${fmtDMY(to)}</strong><br>Auto-splitting into <strong>${dateChunks.length} chunks</strong> of ${days} days.`
-          : `Processing range: <strong>${fmtDMY(from)} to ${fmtDMY(to)}</strong>`;
+          ? 'Large range: <strong>' + fmtDMY(from) + ' to ' + fmtDMY(to) + '</strong><br>Auto-splitting into <strong>' + dateChunks.length + ' chunks</strong> of ' + days + ' days.'
+          : 'Processing range: <strong>' + fmtDMY(from) + ' to ' + fmtDMY(to) + '</strong>';
 
         showProgress();
         state.conversations=[]; state.convIndex={};
 
         for(let i=0;i<dateChunks.length;i++){
           const ch=dateChunks[i]; updateProgress((i/dateChunks.length)*100, i+1, dateChunks.length);
-          setStatus(`Fetching chunk ${i+1}/${dateChunks.length}: ${ch.start} → ${ch.end}`);
+          setStatus('Fetching chunk ' + (i+1) + '/' + dateChunks.length + ': ' + ch.start + ' → ' + ch.end);
           try{
             const body = {
-              interval: `${ch.start}T00:00:00/${ch.end}T23:59:59`,
+              interval: ch.start + 'T00:00:00/' + ch.end + 'T23:59:59',
               order:'asc', orderBy:'conversationStart',
               segmentFilters:[{type:'and',predicates:[{type:'dimension',dimension:'userId',operator:'matches',value: state.selectedAgent.id }]}]
             };
-            const res = await fetch(`${CONFIG.apiHost}/api/v2/analytics/conversations/details/query`, {
-              method:'POST', headers:{Authorization:`Bearer ${state.token}`,'Content-Type':'application/json'}, body:JSON.stringify(body)
+            const res = await fetch(CONFIG.apiHost + '/api/v2/analytics/conversations/details/query', {
+              method:'POST', headers:{Authorization:'Bearer ' + state.token,'Content-Type':'application/json'}, body:JSON.stringify(body)
             });
-            if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error(`Details error: ${res.status} ${res.statusText}${t?` - ${t.slice(0,200)}`:''}`); }
+            if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error('Details error: ' + res.status + ' ' + res.statusText + (t?' - ' + t.slice(0,200):'')); }
             const data = await res.json(); const convs = data.conversations||[];
             for(const c of convs) state.convIndex[c.conversationId]=c;
             state.conversations = state.conversations.concat(convs);
-          }catch(e){ console.error(e); setStatus(`Warning: failed chunk ${i+1}, continuing…`, true); }
-          if(i<dateChunks.length-1) await new Promise(r=>setTimeout(r,400));
+          }catch(e){ console.error(e); setStatus('Warning: failed chunk ' + (i+1) + ', continuing…', true); }
+          if(i<dateChunks.length-1) await new Promise(function(r){return setTimeout(r,400);});
         }
 
         await warmQueueCache(state.conversations);
 
         updateProgress(100, dateChunks.length, dateChunks.length);
         renderResults(state.conversations, from, to);
-        setStatus(`Found ${state.conversations.length} conversations for the selected period`);
+        setStatus('Found ' + state.conversations.length + ' conversations for the selected period');
         setLoading(false); hideProgress();
-      }catch(e){ setStatus(`Error fetching conversations: ${e.message}`, true); setLoading(false); hideProgress(); }
+      }catch(e){ setStatus('Error fetching conversations: ' + e.message, true); setLoading(false); hideProgress(); }
     }
 
     function renderResults(conversations, from, to){
       const results=$('results');
-      $('dateRange').textContent = `${fmtDMY(from)} to ${fmtDMY(to||from)}`;
+      $('dateRange').textContent = fmtDMY(from) + ' to ' + fmtDMY(to||from);
       $('selectedAgent').textContent = state.selectedAgent?.name||'-';
       $('totalConversations').textContent = conversations.length;
 
       if(!conversations.length){
-        results.innerHTML = `<div class="muted" style="text-align:center;padding:40px">
-          <div style="font-size:48px;margin-bottom:12px">📭</div>
-          <div>No conversations found for ${state.selectedAgent?.name||'the selected agent'}.</div></div>`;
+        results.innerHTML = '<div class="muted" style="text-align:center;padding:40px"><div style="font-size:48px;margin-bottom:12px">📭</div><div>No conversations found for ' + (state.selectedAgent?.name||'the selected agent') + '.</div></div>';
         $('resultsSection').style.display='block'; return;
       }
 
-      results.innerHTML = conversations.map(conv=>{
+      results.innerHTML = conversations.map(function(conv){
         const participants = conv.participants ? conv.participants.length : 0;
         const media = getConversationMediaTypes(conv);
         const dir = getDirection(conv);
-        return `
-          <details>
-            <summary>
-              <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
-              <span class="muted" style="margin-left:8px;font-size:.9em">(${participants} participants) • Media: ${media} • Dir: ${dir}</span>
-            </summary>
-            ${renderConversationDetails(conv)}
-          </details>
-        `;
+        return '<details><summary><strong>' + conv.conversationId + '</strong> - ' + fmt(conv.conversationStart) + '<span class="muted" style="margin-left:8px;font-size:.9em">(' + participants + ' participants) • Media: ' + media + ' • Dir: ' + dir + '</span></summary>' + renderConversationDetails(conv) + '</details>';
       }).join('');
 
       $('resultsSection').style.display='block';
@@ -595,77 +599,73 @@
       const totalDur = calculateDuration(conv.conversationStart, conv.conversationEnd);
       const transfers = analyzeTransfers(conv);
 
-      return `
-        <div class="conversation-header">
-          <div class="info-grid">
-            <div class="info-item"><span class="info-label">Media Type:</span><span class="info-value">${mediaType}</span></div>
-            <div class="info-item"><span class="info-label">Customer Number:</span><span class="info-value">${ani}</span></div>
-            <div class="info-item"><span class="info-label">Interaction Direction:</span><span class="info-value">${direction}</span></div>
-            <div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">${fmt(conv.conversationStart)}</span></div>
-            <div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">${fmt(conv.conversationEnd)}</span></div>
-            <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${formatSeconds(totalDur)}</span></div>
-            <div class="info-item"><span class="info-label">Transfers (Agent→Queue/Agent):</span><span class="info-value"><span class="transfer-count">${transfers.totalTransfers}</span></span></div>
-          </div>
+      let html = '<div class="conversation-header">';
+      html += '<div class="info-grid">';
+      html += '<div class="info-item"><span class="info-label">Media Type:</span><span class="info-value">' + mediaType + '</span></div>';
+      html += '<div class="info-item"><span class="info-label">Customer Number:</span><span class="info-value">' + ani + '</span></div>';
+      html += '<div class="info-item"><span class="info-label">Interaction Direction:</span><span class="info-value">' + direction + '</span></div>';
+      html += '<div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">' + fmt(conv.conversationStart) + '</span></div>';
+      html += '<div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">' + fmt(conv.conversationEnd) + '</span></div>';
+      html += '<div class="info-item"><span class="info-label">Duration:</span><span class="info-value">' + formatSeconds(totalDur) + '</span></div>';
+      html += '<div class="info-item"><span class="info-label">Transfers (Agent→Queue/Agent):</span><span class="info-value"><span class="transfer-count">' + transfers.totalTransfers + '</span></span></div>';
+      html += '</div>';
 
-          <div class="transcript-actions" style="display:flex;gap:8px;align-items:center;margin-top:8px">
-            <button id="btn-transcript-${conv.conversationId}" onclick="getTranscriptForConversation('${conv.conversationId}')">Get Transcript</button>
-            <span id="transcript-status-${conv.conversationId}" class="muted"></span>
-          </div>
-          <div id="transcript-${conv.conversationId}" style="margin-top:10px;"></div>
-        </div>
+      html += '<div class="transcript-actions" style="display:flex;gap:8px;align-items:center;margin-top:8px">';
+      html += '<button id="btn-transcript-' + conv.conversationId + '" onclick="getTranscriptForConversation(\'' + conv.conversationId + '\')">Get Transcript</button>';
+      html += '<span id="transcript-status-' + conv.conversationId + '" class="muted"></span>';
+      html += '</div>';
+      html += '<div id="transcript-' + conv.conversationId + '" style="margin-top:10px;"></div>';
+      html += '</div>';
 
-        <h3 style="margin:14px 0 6px;">Customer Journey Timeline</h3>
-        <div class="journey-timeline">
-          ${renderJourneyTimeline(conv, transfers)}
-        </div>
+      html += '<h3 style="margin:14px 0 6px;">Customer Journey Timeline</h3>';
+      html += '<div class="journey-timeline">';
+      html += renderJourneyTimeline(conv, transfers);
+      html += '</div>';
 
-        <details>
-          <summary>Raw Conversation Data</summary>
-          <pre>${JSON.stringify(conv, null, 2)}</pre>
-        </details>
-      `;
+      html += '<details><summary>Raw Conversation Data</summary><pre>' + JSON.stringify(conv, null, 2) + '</pre></details>';
+      
+      return html;
     }
 
     function renderJourneyTimeline(conv, transferInfo){
       if(!conv.participants || !conv.participants.length) return '<p class="muted">No participant data available</p>';
-      const sorted = [...conv.participants].map(p=>({p,start:getStepStart(p)}))
-        .sort((a,b)=>(a.start?.getTime()??Infinity)-(b.start?.getTime()??Infinity))
-        .map(x=>x.p);
+      const sorted = [...conv.participants].map(function(p){return {p:p,start:getStepStart(p)};})
+        .sort(function(a,b){return (a.start?.getTime()??Infinity)-(b.start?.getTime()??Infinity);})
+        .map(function(x){return x.p;});
 
-      return sorted.map((p,idx)=>{
+      return sorted.map(function(p,idx){
         const purpose = p.purpose||'unknown';
         const start = getStepStart(p);
         const nextStart = idx<sorted.length-1 ? getStepStart(sorted[idx+1]) : null;
         const queueId = getQueueIdFromParticipant(p);
         const queueName = queueId ? (getQueueName(queueId)||queueId) : null;
-        const name = purpose==='acd' ? (queueName?`Queue: ${queueName}`:'ACD Queue') : getParticipantName(p);
+        const name = purpose==='acd' ? (queueName?'Queue: ' + queueName:'ACD Queue') : getParticipantName(p);
 
         let durMs = 0;
         if(p.userId) durMs = getAgentWindow(p).durationMs||0;
         else if(start && nextStart) durMs = Math.max(0, nextStart - start);
 
         const alertMs = p.userId ? getAlertMsForAgent(p) : null;
-        const alertTime = p.userId ? `${Math.floor((alertMs||0)/1000)}s` : 'N/A';
+        const alertTime = p.userId ? (Math.floor((alertMs||0)/1000) + 's') : 'N/A';
 
-        const transfer = transferInfo.transfers.find(t=>t.step===idx);
+        const transfer = transferInfo.transfers.find(function(t){return t.step===idx;});
 
-        return `
-          <div class="journey-step">
-            <div class="step-header">Step ${idx+1}: ${badge(purpose, name)} ${transfer?`<span style="color:#dc2626;margin-left:8px">🔄 TRANSFERRED</span>`:''}</div>
-            <div class="step-details">
-              ${transfer?`<div class="transfer-info"><strong>Transfer:</strong> ${transfer.type}<br>From: ${transfer.from} → To: ${transfer.to}<br>Time: ${fmt(transfer.time)}</div>`:''}
-              <div class="info-grid">
-                <div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">${getParticipantType(p)}</span></div>
-                <div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">${fmt(start)}</span></div>
-                ${queueName?`<div class="info-item"><span class="info-label">Queue:</span><span class="info-value">${queueName}</span></div>`:''}
-                <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${formatSeconds(durMs)}</span></div>
-                <div class="info-item"><span class="info-label">Alert Time:</span><span class="info-value">${alertTime}</span></div>
-                <div class="info-item"><span class="info-label">Purpose:</span><span class="info-value">${purpose}</span></div>
-                <div class="info-item"><span class="info-label">Sessions:</span><span class="info-value">${(p.sessions&&p.sessions.length)||1}</span></div>
-              </div>
-            </div>
-          </div>
-        `;
+        let stepHtml = '<div class="journey-step">';
+        stepHtml += '<div class="step-header">Step ' + (idx+1) + ': ' + badge(purpose, name) + (transfer?'<span style="color:#dc2626;margin-left:8px">🔄 TRANSFERRED</span>':'') + '</div>';
+        stepHtml += '<div class="step-details">';
+        if(transfer){
+          stepHtml += '<div class="transfer-info"><strong>Transfer:</strong> ' + transfer.type + '<br>From: ' + transfer.from + ' → To: ' + transfer.to + '<br>Time: ' + fmt(transfer.time) + '</div>';
+        }
+        stepHtml += '<div class="info-grid">';
+        stepHtml += '<div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">' + getParticipantType(p) + '</span></div>';
+        stepHtml += '<div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">' + fmt(start) + '</span></div>';
+        if(queueName) stepHtml += '<div class="info-item"><span class="info-label">Queue:</span><span class="info-value">' + queueName + '</span></div>';
+        stepHtml += '<div class="info-item"><span class="info-label">Duration:</span><span class="info-value">' + formatSeconds(durMs) + '</span></div>';
+        stepHtml += '<div class="info-item"><span class="info-label">Alert Time:</span><span class="info-value">' + alertTime + '</span></div>';
+        stepHtml += '<div class="info-item"><span class="info-label">Purpose:</span><span class="info-value">' + purpose + '</span></div>';
+        stepHtml += '<div class="info-item"><span class="info-label">Sessions:</span><span class="info-value">' + ((p.sessions&&p.sessions.length)||1) + '</span></div>';
+        stepHtml += '</div></div></div>';
+        return stepHtml;
       }).join('');
     }
 
