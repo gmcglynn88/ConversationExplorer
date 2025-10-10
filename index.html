@@ -13,7 +13,7 @@
       --card-bg: #FFFFFF;
       --text-color: #2C3E50;
       --text-light: #6C757D;
-      --available-color: #63AB8F; /* use same green for outlines */
+      --available-color: #63AB8F; /* green outline */
       --nearly-color: #ffe0b2;
       --full-color: #ffcdd2;
     }
@@ -30,7 +30,7 @@
     #logo { width: 300px; }
     label { margin-top: 10px; display: block; font-weight: bold; color: var(--text-color); }
     select, input, button { margin-top: 5px; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px; }
-    select, input { width: 100%; max-width: 320px; background: var(--card-bg); }
+    select, input { width: 100%; max-width: 360px; background: var(--card-bg); }
     button { 
       background: var(--primary-color); 
       color: white; 
@@ -43,7 +43,7 @@
     button:disabled { background: var(--text-light); cursor: not-allowed; }
     #statusMessage { margin-top: 20px; color: var(--primary-color); white-space: pre-wrap; font-weight: 500; }
     #errorMessage { margin-top: 10px; color: #dc2626; white-space: pre-wrap; font-weight: 500; }
-    .row { display:flex; gap: 20px; flex-wrap:wrap; align-items:flex-end; margin-bottom: 16px; }
+    .row { display:flex; gap: 24px; flex-wrap:wrap; align-items:flex-end; margin-bottom: 16px; }
     .card { 
       background: var(--card-bg); 
       border: 1px solid var(--border-color); 
@@ -78,18 +78,11 @@
       margin: 8px 0; 
     }
 
-    /* Outline-only styles (no green fill) */
-    .user-info { 
+    /* Outline-only green containers */
+    .user-info, .conversation-header { 
       background: transparent; 
       border: 2px solid var(--available-color); 
-      border-radius: 8px; 
-      padding: 12px; 
-      margin: 12px 0; 
-    }
-    .conversation-header { 
-      background: transparent; 
-      border: 2px solid var(--available-color); 
-      border-radius: 8px; 
+      border-radius: 10px; 
       padding: 16px; 
       margin: 12px 0; 
     }
@@ -129,23 +122,30 @@
       border-radius: 6px; 
       padding: 12px; 
     }
+
+    /* Non-squashy grid: bigger min width & no wrapping */
     .info-grid { 
       display: grid; 
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
-      gap: 12px; 
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); 
+      gap: 14px 18px; 
       margin: 12px 0; 
     }
     .info-item { 
       display: flex; 
       justify-content: space-between; 
+      align-items: center;
+      gap: 16px;
       padding: 8px 0; 
       border-bottom: 1px solid var(--border-color); 
+      white-space: nowrap;
     }
     .info-label { 
       font-weight: 600; 
       color: var(--text-color); 
-      min-width: 140px; 
+      min-width: 180px; 
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .info-value { 
       color: var(--text-color); 
@@ -154,6 +154,7 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      font-variant-numeric: tabular-nums;
     }
 
     .participant-badge { 
@@ -165,16 +166,7 @@
       margin: 2px; 
       border: 1px solid transparent;
     }
-    /* If you also want the customer badge to be outline-only, swap the backgrounds: */
-    .badge-customer { 
-      /* outline-only version: */
-      background: transparent; 
-      border-color: var(--available-color);
-      color: var(--secondary-color);
-      /* filled version (old):
-      background: #c8e6c9; color: var(--secondary-color);
-      */
-    }
+    .badge-customer { background: transparent; border-color: var(--available-color); color: var(--secondary-color); }
     .badge-agent { background: #dbeafe; color: #1e40af; }
     .badge-system { background: var(--nearly-color); color: #92400e; }
     .badge-queue { background: var(--full-color); color: #7c3aed; }
@@ -222,6 +214,7 @@
       border-radius: 4px; 
       font-size: 11px; 
       font-weight: 600; 
+      white-space: nowrap;
     }
   </style>
 </head>
@@ -235,7 +228,7 @@
   <div id="authStatus" class="card" style="display: none;">
     <div style="text-align: center; padding: 20px;">
       <div style="font-size: 18px; color: var(--secondary-color); margin-bottom: 10px;">🔐 Authenticating...</div>
-      <div style="color: var(--text-light);">Please wait while we connect to Genesys Cloud</div>
+      <div style="color: var(--text-light);">Connecting to Genesys Cloud…</div>
     </div>
   </div>
 
@@ -258,7 +251,7 @@
           <label for="fromDate">Date Range</label>
           <div style="display: flex; gap: 8px; align-items: center;">
             <input id="fromDate" type="date" />
-            <span style="color: var(--text-light);">to</span>
+            <span class="muted">to</span>
             <input id="toDate" type="date" />
           </div>
           <div style="margin-top: 8px;">
@@ -340,7 +333,6 @@
       if (!d || d === 'Invalid Date') return 'N/A';
       try { return new Date(d).toLocaleString(); } catch { return 'N/A'; }
     };
-    
     const formatSeconds = (ms) => {
       if (!ms || ms === 0) return '0s';
       const seconds = Math.floor(ms / 1000);
@@ -350,18 +342,11 @@
       if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
       return `${seconds}s`;
     };
-
-    const formatShortSeconds = (ms) => {
-      if (!ms || ms === 0) return '0s';
-      const seconds = Math.floor(ms / 1000);
-      return `${seconds}s`;
-    };
-
+    const formatShortSeconds = (ms) => `${Math.floor((ms || 0) / 1000)}s`;
     const calculateDuration = (startTime, endTime) => {
       if (!startTime || !endTime) return 0;
       try { return new Date(endTime) - new Date(startTime); } catch { return 0; }
     };
-
     function setStatus(msg, isError = false) {
       console.log(isError ? 'ERROR:' : 'STATUS:', msg);
       $('statusMessage').textContent = isError ? '' : (msg || '');
@@ -394,10 +379,8 @@
              `&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
     }
     function initAuth() {
-      console.log('Initializing authentication...');
       showAuthStatus();
       const { token, error, errorDescription } = parseTokenFromHash();
-
       if (error) {
         const errTxt = `Authentication Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`;
         setStatus(errTxt, true);
@@ -407,7 +390,6 @@
         }, 2000);
         return;
       }
-
       if (token) {
         state.token = token;
         history.replaceState(null, '', location.pathname);
@@ -415,7 +397,6 @@
         fetchAllUsers();
         return;
       }
-
       const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
       if (alreadyTried) {
         setStatus('Authentication issue detected. Please check your OAuth client configuration.', true);
@@ -499,7 +480,7 @@
       populateUserSelect(filteredUsers);
     });
 
-    // ===== Date Range Chunking =====
+    // ===== Chunking =====
     function splitDateRangeIntoChunks(startDate, endDate, daysPerChunk = 7) {
       const chunks = [];
       const start = new Date(startDate);
@@ -517,7 +498,6 @@
       }
       return chunks;
     }
-
     function calculateOptimalChunkSize(startDate, endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -530,100 +510,124 @@
     }
 
     // ===== Sessions/Segments-aware helpers =====
-    function getParticipantTimes(participant) {
-      const starts = [];
-      const ends = [];
-      for (const s of (participant.sessions || [])) {
-        if (s.startTime) starts.push(new Date(s.startTime));
-        if (s.endTime)   ends.push(new Date(s.endTime));
-        for (const seg of (s.segments || [])) {
-          if (seg.startTime) starts.push(new Date(seg.startTime));
-          if (seg.endTime)   ends.push(new Date(seg.endTime));
-        }
+    function firstSession(conversation) {
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) return s;
       }
-      const start = starts.length ? new Date(Math.min(...starts)) : null;
-      const end   = ends.length   ? new Date(Math.max(...ends))   : null;
-      return { start, end, durationMs: (start && end) ? (end - start) : 0 };
+      return null;
     }
 
-    function getConversationMediaTypes(conversation) {
-      const types = new Set();
-      for (const p of (conversation.participants || [])) {
-        for (const s of (p.sessions || [])) {
-          if (s.mediaType) types.add(s.mediaType);
-        }
-      }
-      return [...types].join(', ') || 'Unknown';
+    function getMediaType(conversation) {
+      const s = firstSession(conversation);
+      return (s && s.mediaType) || 'Unknown';
+    }
+
+    function getDirection(conversation) {
+      const s = firstSession(conversation);
+      return (s && s.direction) || conversation.originatingDirection || 'Unknown';
     }
 
     function getANI(conversation) {
       for (const p of (conversation.participants || [])) {
         for (const s of (p.sessions || [])) {
           const isVoice = (s.mediaType || '').toLowerCase() === 'voice';
+          if (!isVoice) continue;
+          // Prefer inbound leg ANI
           const dir = (s.direction || conversation.originatingDirection || '').toLowerCase();
-          const isInbound = dir === 'inbound';
-          if (isVoice && isInbound) {
+          if (dir === 'inbound') {
             return s.ani || s.addressFrom || s.otherAddress || s.remote || 'Unknown';
           }
         }
       }
-      return 'Unknown';
+      // fallback: first available
+      const s = firstSession(conversation);
+      return (s && (s.ani || s.addressFrom || s.otherAddress || s.remote)) || 'Unknown';
     }
 
-    function getParticipantAlertMs(participant) {
+    // Step timing logic:
+    // Start Time = earliest event.eventTime; fallback to segment.startTime; fallback to session.startTime
+    function getStepStart(participant) {
+      let times = [];
+      for (const s of (participant.sessions || [])) {
+        // events
+        for (const seg of (s.segments || [])) {
+          for (const ev of (seg.events || [])) {
+            if (ev.eventTime) times.push(new Date(ev.eventTime).getTime());
+          }
+          if (seg.segmentStart) times.push(new Date(seg.segmentStart).getTime());
+        }
+        if (s.startTime) times.push(new Date(s.startTime).getTime());
+      }
+      if (!times.length) return null;
+      return new Date(Math.min(...times));
+    }
+
+    // Agent handled window = min(segmentStart) .. max(segmentEnd) across agent segments
+    function getAgentWindow(participant) {
+      let starts = [], ends = [];
+      for (const s of (participant.sessions || [])) {
+        for (const seg of (s.segments || [])) {
+          if (seg.segmentStart) starts.push(new Date(seg.segmentStart).getTime());
+          if (seg.segmentEnd)   ends.push(new Date(seg.segmentEnd).getTime());
+        }
+      }
+      if (!starts.length || !ends.length) return { durationMs: 0 };
+      return { durationMs: Math.max(...ends) - Math.min(...starts) };
+    }
+
+    function getAlertMsForAgent(participant) {
+      if (!participant.userId) return 0;
       let total = 0;
       for (const s of (participant.sessions || [])) {
         for (const seg of (s.segments || [])) {
           for (const m of (seg.metrics || [])) {
-            if (m.name === 'tAlert' && typeof m.value === 'number') {
-              total += m.value;
-            }
+            if (m.name === 'tAlert' && typeof m.value === 'number') total += m.value;
           }
         }
       }
       return total;
     }
 
-    function analyzeTransfers(conversation) {
-      const transfers = [];
+    // Build chronological "legs" for transfer analysis using step start
+    function buildLegs(conversation) {
       const legs = [];
-
       for (const p of (conversation.participants || [])) {
+        const when = getStepStart(p)?.getTime() ?? Infinity;
+        // Prefer session.queueId if present anywhere
+        let queueId = null;
         for (const s of (p.sessions || [])) {
-          const segStarts = (s.segments || [])
-            .map(x => x?.startTime ? new Date(x.startTime).getTime() : NaN)
-            .filter(n => !Number.isNaN(n))
-            .sort((a,b)=>a-b);
-          const when = segStarts.length ? segStarts[0] : (s.startTime ? new Date(s.startTime).getTime() : 0);
-          legs.push({
-            when,
-            purpose: p.purpose,
-            userId: p.userId || null,
-            queueId: s.queueId || p.queueId || null
-          });
+          queueId = queueId || s.queueId || p.queueId || null;
         }
+        legs.push({
+          when, purpose: p.purpose, userId: p.userId || null, queueId
+        });
       }
+      legs.sort((a,b)=>a.when-b.when);
+      return legs.filter(l => Number.isFinite(l.when));
+    }
 
-      legs.sort((a,b)=>a.when - b.when);
-
+    // Count only agent→queue OR agent→agent transitions
+    function analyzeTransfers(conversation) {
+      const legs = buildLegs(conversation);
+      let count = 0;
+      const transfers = [];
       for (let i = 1; i < legs.length; i++) {
         const prev = legs[i-1];
         const curr = legs[i];
-        const queueChanged = prev.queueId && curr.queueId && prev.queueId !== curr.queueId;
-        const agentChanged = prev.userId && curr.userId && prev.userId !== curr.userId;
-
-        if (queueChanged || agentChanged || (prev.purpose === 'acd' && curr.userId)) {
+        const agentToAgent = prev.userId && curr.userId && prev.userId !== curr.userId;
+        const agentToQueue = prev.userId && curr.queueId && !curr.userId;
+        if (agentToAgent || agentToQueue) {
+          count++;
           transfers.push({
-            step: i, 
+            step: i,
             from: prev.userId ? getParticipantName({ userId: prev.userId, purpose: 'user' }) : (prev.queueId ? 'Queue' : prev.purpose || 'Unknown'),
             to:   curr.userId ? getParticipantName({ userId: curr.userId, purpose: 'user' }) : (curr.queueId ? 'Queue' : curr.purpose || 'Unknown'),
             time: new Date(curr.when).toISOString(),
-            type: curr.userId ? 'To Agent' : 'To Queue'
+            type: agentToAgent ? 'Agent → Agent' : 'Agent → Queue'
           });
         }
       }
-
-      return { transfers, totalTransfers: transfers.length };
+      return { totalTransfers: count, transfers };
     }
 
     // ===== Conversations =====
@@ -647,7 +651,7 @@
           dateChunks = splitDateRangeIntoChunks(fromDate, toDate, chunkSize);
           $('chunkInfo').innerHTML = `
             Large date range detected: <strong>${fromDate} to ${toDate}</strong><br>
-            Auto-splitting into <strong>${dateChunks.length} chunks</strong> of ${chunkSize} days each for better performance.
+            Auto-splitting into <strong>${dateChunks.length} chunks</strong> of ${chunkSize} days each.
           `;
         } else {
           dateChunks = [{ start: fromDate, end: toDate }];
@@ -668,9 +672,9 @@
             state.conversations = state.conversations.concat(chunkConversations);
           } catch (error) {
             console.error(`Error in chunk ${i + 1}:`, error);
-            setStatus(`Warning: Failed to fetch chunk ${i + 1}, continuing with remaining chunks...`, true);
+            setStatus(`Warning: Failed to fetch chunk ${i + 1}, continuing…`, true);
           }
-          if (i < dateChunks.length - 1) await new Promise(r => setTimeout(r, 500));
+          if (i < dateChunks.length - 1) await new Promise(r => setTimeout(r, 400));
         }
 
         updateProgress(100, dateChunks.length, dateChunks.length);
@@ -700,8 +704,6 @@
             value: state.selectedAgent.id
           }]
         }]
-        // If you want stricter interval behaviour, you can add:
-        // "startOfDayIntervalMatching": true
       };
 
       const response = await fetch(`${CONFIG.apiHost}/api/v2/analytics/conversations/details/query`, {
@@ -743,63 +745,43 @@
           <details>
             <summary>
               <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
-              <span style="color: var(--text-light); font-size: 0.9em; margin-left: 8px;">
+              <span class="muted" style="font-size: 0.9em; margin-left: 8px;">
                 (${conv.participants ? conv.participants.length : 0} participants)
               </span>
             </summary>
             ${renderConversationDetails(conv)}
           </details>
-        `).join('');
+        ).join('');
       }
       $('resultsSection').style.display = 'block';
     }
 
     function renderConversationDetails(conversation) {
-      const mediaType = getConversationMediaTypes(conversation);
-      const direction = conversation.originatingDirection || 'Unknown';
+      // Summary box — exact fields you requested
+      const mediaType = getMediaType(conversation);
+      const direction = getDirection(conversation);
       const ani = getANI(conversation);
-      const transferInfo = analyzeTransfers(conversation);
       const totalDuration = calculateDuration(conversation.conversationStart, conversation.conversationEnd);
-      
+      const transferInfo = analyzeTransfers(conversation);
+
       return `
         <div class="conversation-header">
           <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">Media Type(s):</span>
-              <span class="info-value">${mediaType}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Direction:</span>
-              <span class="info-value">${direction}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">ANI (Caller ID):</span>
-              <span class="info-value">${ani}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Total Transfers:</span>
-              <span class="info-value"><span class="transfer-count">${transferInfo.totalTransfers}</span></span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Conversation Start:</span>
-              <span class="info-value">${fmt(conversation.conversationStart)}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Conversation End:</span>
-              <span class="info-value">${fmt(conversation.conversationEnd)}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Total Duration:</span>
-              <span class="info-value">${formatSeconds(totalDuration)}</span>
-            </div>
+            <div class="info-item"><span class="info-label">Media Type:</span><span class="info-value">${mediaType}</span></div>
+            <div class="info-item"><span class="info-label">Customer Number:</span><span class="info-value">${ani}</span></div>
+            <div class="info-item"><span class="info-label">Interaction Direction:</span><span class="info-value">${direction}</span></div>
+            <div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">${fmt(conversation.conversationStart)}</span></div>
+            <div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">${fmt(conversation.conversationEnd)}</span></div>
+            <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${formatSeconds(totalDuration)}</span></div>
+            <div class="info-item"><span class="info-label">Transfers (Agent→Queue/Agent):</span><span class="info-value"><span class="transfer-count">${transferInfo.totalTransfers}</span></span></div>
           </div>
         </div>
-        
+
         <h3 style="color: var(--text-color);">Customer Journey Timeline</h3>
         <div class="journey-timeline">
           ${renderJourneyTimeline(conversation, transferInfo)}
         </div>
-        
+
         <details>
           <summary>Raw Conversation Data</summary>
           <pre>${JSON.stringify(conversation, null, 2)}</pre>
@@ -812,22 +794,35 @@
         return '<p>No participant data available</p>';
       }
 
-      const sortedParticipants = [...conversation.participants].sort((a, b) => {
-        const ta = getParticipantTimes(a).start?.getTime() ?? Infinity;
-        const tb = getParticipantTimes(b).start?.getTime() ?? Infinity;
-        return ta - tb;
-      });
+      // Sort participants by computed step start
+      const sorted = [...conversation.participants]
+        .map(p => ({ p, start: getStepStart(p) }))
+        .sort((a,b) => (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity))
+        .map(x => x.p);
 
-      return sortedParticipants.map((participant, index) => {
+      return sorted.map((participant, index) => {
         const purpose = participant.purpose || 'unknown';
         const participantName = getParticipantName(participant);
-        const { start, end, durationMs } = getParticipantTimes(participant);
-        const duration = formatSeconds(durationMs);
-        const alertMs = getParticipantAlertMs(participant);
-        const alertTime = alertMs ? formatShortSeconds(alertMs) : 'N/A';
+        const start = getStepStart(participant);
+        const nextStart = (index < sorted.length - 1) ? getStepStart(sorted[index + 1]) : null;
 
+        // Duration rules
+        let durationMs = 0;
+        if (participant.userId) {
+          // Agent: segmentStart → segmentEnd window
+          durationMs = getAgentWindow(participant).durationMs || 0;
+        } else {
+          // IVR/ACD/other: until next step start
+          if (start && nextStart) durationMs = Math.max(0, nextStart - start);
+        }
+
+        // Alert time only for agent
+        const alertMs = participant.userId ? getAlertMsForAgent(participant) : 0;
+        const alertTime = participant.userId && alertMs ? formatShortSeconds(alertMs) : 'N/A';
+
+        // Transfer label (if any) for this index
         const transfer = transferInfo.transfers.find(t => t.step === index);
-        
+
         return `
           <div class="journey-step">
             <div class="step-header">
@@ -855,12 +850,10 @@
                   <span class="info-value">${fmt(start)}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">End Time:</span>
-                  <span class="info-value">${fmt(end)}</span>
-                </div>
-                <div class="info-item">
                   <span class="info-label">Duration:</span>
-                  <span class="info-value">${duration}</span>
+                  <span class="info-value">
+                    ${formatSeconds(durationMs)} ${participant.userId ? '' : (start && nextStart ? '' : '<span class="duration-badge">calc: n/a</span>')}
+                  </span>
                 </div>
                 <div class="info-item">
                   <span class="info-label">Alert Time:</span>
@@ -871,19 +864,9 @@
                   <span class="info-value">${purpose}</span>
                 </div>
                 <div class="info-item">
-                  <span class="info-label">State:</span>
-                  <span class="info-value">${participant.state || 'N/A'}</span>
+                  <span class="info-label">Sessions:</span>
+                  <span class="info-value">${(participant.sessions && participant.sessions.length) || 1}</span>
                 </div>
-                ${participant.userId ? `
-                <div class="info-item">
-                  <span class="info-label">User ID:</span>
-                  <span class="info-value" style="font-family: monospace; font-size: 11px;">${participant.userId}</span>
-                </div>` : ''}
-                ${participant.queueId ? `
-                <div class="info-item">
-                  <span class="info-label">Queue ID:</span>
-                  <span class="info-value" style="font-family: monospace; font-size: 11px;">${participant.queueId}</span>
-                </div>` : ''}
               </div>
 
               ${participant.addresses && participant.addresses.length > 0 ? `
@@ -895,11 +878,6 @@
                 </div>
               ` : ''}
 
-              ${participant.sessions && participant.sessions.length > 0 ? `
-                <div style="margin-top: 8px;">
-                  <strong>Sessions:</strong> ${participant.sessions.length}
-                </div>
-              ` : ''}
             </div>
           </div>
         `;
@@ -944,7 +922,6 @@
 
     // ===== Initialize App =====
     (function init() {
-      console.log('Initializing Conversation Explorer...');
       const today = new Date();
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(today.getDate() - 7);
