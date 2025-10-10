@@ -53,7 +53,7 @@
     .transcript-table th{background:var(--primary-color);color:#fff;text-align:left}
     .sentiment-positive{color:#16a34a;font-weight:700}
     .sentiment-negative{color:#dc2626;font-weight:700}
-    .sentiment-neutral{color:#f59e0b;font-weight=700}
+    .sentiment-neutral{color:#f59e0b;font-weight:700}
     .loading{opacity:.6;pointer-events:none}
   </style>
 </head>
@@ -143,7 +143,12 @@
     const fmt = d => { if(!d) return 'N/A'; try{return new Date(d).toLocaleString()}catch{return 'N/A'} };
     const fmtDMY = s => { if(!s||s.length<10) return s||''; const [y,m,d]=s.slice(0,10).split('-'); return `${d}-${m}-${y}`; };
     const formatSeconds = ms => { if(!ms) return '0s'; const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60); if(h) return `${h}h ${m%60}m ${s%60}s`; if(m) return `${m}m ${s%60}s`; return `${s}s`; };
-    const mmss = ms => { const t=Math.max(0,Math.floor((+ms||0)/1000)); const m=Math.floor(t/60), s=t%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); };
+    const mmss = ms => { 
+      const totalSeconds = Math.max(0, Math.floor((+ms||0)/1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+    };
     const calculateDuration = (a,b)=>{ if(!a||!b) return 0; return new Date(b)-new Date(a); };
 
     function showAuthStatus(){ $('authStatus').style.display='block'; $('mainContent').style.display='none'; }
@@ -380,144 +385,180 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === Robust transcript renderer ===
+    // === FIXED transcript renderer ===
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = s => (s||'').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]});
       
-      function huntUtterances(obj, depth=0){
-        if(!obj || depth>6) return null;
-        if(Array.isArray(obj)){
-          if(obj.length && typeof obj[0]==='object'){
-            const u0 = obj[0];
-            const hasAnyText = ('decoratedText' in u0) || ('text' in u0) || ('body' in u0) || ('transcript' in u0) || ('decorated' in u0);
-            const hasAnyTime = ('milliseconds' in u0) || ('offsetMs' in u0) || ('offsetMillis' in u0) || ('timeMs' in u0) || ('startTimeMs' in u0) || ('utteranceTimestampMillis' in u0) || ('time' in u0) || ('timestamp' in u0);
-            const hasSpeaker = ('participantPurpose' in u0) || ('purpose' in u0) || ('participantType' in u0) || ('speakerType' in u0) || ('role' in u0);
-            if (hasAnyText || hasAnyTime || hasSpeaker) return obj;
+      // Debug: log the parsed structure to understand the data format
+      console.log('Transcript data structure:', parsed);
+      
+      function findTranscriptData(obj, depth=0) {
+        if (!obj || depth > 8) return null;
+        
+        // Look for common transcript structures
+        if (Array.isArray(obj)) {
+          // Check if this array contains utterance-like objects
+          if (obj.length > 0 && typeof obj[0] === 'object') {
+            const first = obj[0];
+            // Common Genesys transcript structures
+            const hasUtteranceData = (
+              ('text' in first && 'confidence' in first) ||
+              ('utterance' in first) ||
+              ('transcript' in first) ||
+              ('message' in first && 'text' in first.message) ||
+              ('channel' in first && 'phrases' in first)
+            );
+            if (hasUtteranceData) return obj;
           }
-        } else if (typeof obj==='object') {
-          const preferredKeys = ['utterances','transcript','entries','results','messages','segments','items','data'];
-          for(const k of preferredKeys){ if(obj[k]){ const found = huntUtterances(obj[k], depth+1); if(found) return found; } }
-          for(const k of Object.keys(obj)){ const found = huntUtterances(obj[k], depth+1); if(found) return found; }
+          // Recursively search arrays
+          for (const item of obj) {
+            const found = findTranscriptData(item, depth + 1);
+            if (found) return found;
+          }
+        } else if (typeof obj === 'object') {
+          // Check common transcript property names
+          const transcriptKeys = ['utterances', 'transcripts', 'phrases', 'messages', 'conversation', 'transcript', 'results'];
+          for (const key of transcriptKeys) {
+            if (obj[key]) {
+              const found = findTranscriptData(obj[key], depth + 1);
+              if (found) return found;
+            }
+          }
+          // Recursively search all properties
+          for (const key of Object.keys(obj)) {
+            const found = findTranscriptData(obj[key], depth + 1);
+            if (found) return found;
+          }
         }
         return null;
       }
 
-      function extractMs(u){
-        const keys = ['milliseconds','offsetMs','offsetMillis','timeMs','startTimeMs','utteranceTimestampMillis'];
-        for(const k of keys){ const v = toMs(u[k]); if(!isNaN(v)) return v; }
-        const iso = u.time || u.timestamp || u.eventTime || u.startTime;
-        if(iso){
-          try{
-            const base = new Date(conversation.conversationStart).getTime();
-            const t = new Date(iso).getTime();
-            if(isFinite(base) && isFinite(t)) return Math.max(0, t - base);
-          }catch{}
+      function extractUtterances(transcriptData) {
+        const utterances = [];
+        
+        if (!transcriptData || !Array.isArray(transcriptData)) {
+          return utterances;
         }
-        return 0;
+
+        transcriptData.forEach((item, index) => {
+          // Try different transcript formats
+          let utterance = {
+            text: '',
+            startTime: 0,
+            participant: 'Unknown',
+            sentiment: null,
+            confidence: null
+          };
+
+          // Format 1: Direct utterance properties
+          if (item.text || item.transcript || item.utterance) {
+            utterance.text = item.text || item.transcript || item.utterance || '';
+            utterance.startTime = item.startTime || item.offset || item.timestamp || item.time || 0;
+            utterance.participant = item.participantId || item.speakerId || item.participant || 'Unknown';
+            utterance.sentiment = item.sentiment || item.sentimentScore || null;
+            utterance.confidence = item.confidence || null;
+          }
+          // Format 2: Nested message structure
+          else if (item.message && item.message.text) {
+            utterance.text = item.message.text;
+            utterance.startTime = item.startTime || item.offset || 0;
+            utterance.participant = item.participantId || item.speakerId || 'Unknown';
+            utterance.sentiment = item.sentiment || item.sentimentScore || null;
+          }
+          // Format 3: Channel with phrases
+          else if (item.channel && item.phrases) {
+            item.phrases.forEach(phrase => {
+              if (phrase.text) {
+                utterances.push({
+                  text: phrase.text,
+                  startTime: phrase.offset || utterance.startTime,
+                  participant: utterance.participant,
+                  sentiment: phrase.sentiment || utterance.sentiment,
+                  confidence: phrase.confidence
+                });
+              }
+            });
+            return; // Skip adding the channel item itself
+          }
+
+          // Only add if we found text
+          if (utterance.text && utterance.text.trim()) {
+            utterances.push(utterance);
+          }
+        });
+
+        return utterances.sort((a, b) => a.startTime - b.startTime);
       }
 
-      function toMs(v) { return (typeof v==='number' && isFinite(v)) ? v : NaN; }
-
-      function extractText(u){
-        if (typeof u.decoratedText === 'string') return u.decoratedText;
-        if (typeof u.text === 'string') return u.text;
-        if (typeof u.body === 'string') return u.body;
-        if (typeof u.transcript === 'string') return u.transcript;
-        if (Array.isArray(u.decorated)) return u.decorated.map(function(r){ return (r?.text || ''); }).join('').trim();
-        return '';
-      }
-
-      function extractPurpose(u){
-        const raw = (u.participantPurpose ?? u.purpose ?? u.participantType ?? u.speakerType ?? u.role ?? '').toString().toLowerCase();
-        if(['internal','agent','employee','advisor','associate'].includes(raw)) return 'Internal';
-        if(['external','customer','client','caller','contact','user'].includes(raw)) return 'External';
-        if(raw) return raw.startsWith('int') ? 'Internal' : 'External';
-        return 'External';
-      }
-
-      function extractWho(u, purpose, nameMap, internalNames, externalNames){
-        const pid = u.participantId || u.speakerId || u.participant || u.id;
-        if(pid && nameMap[pid]) return nameMap[pid];
-        return (purpose==='Internal') ? (internalNames[0] || 'Internal') : (externalNames[0] || 'Customer');
-      }
-
-      function extractSentiment(u){
-        if (u.sentiment === null || u.sentiment === undefined) {
-          if (u.sentimentScore !== undefined) return Number(u.sentimentScore);
-          if (u.score !== undefined) return Number(u.score);
-          if (u.sentimentResult && u.sentimentResult.score !== undefined) return Number(u.sentimentResult.score);
-          return null;
+      function getParticipantDetails(participantId, nameMap, internalNames, externalNames) {
+        if (nameMap[participantId]) {
+          return {
+            name: nameMap[participantId],
+            type: internalNames.includes(nameMap[participantId]) ? 'Internal' : 'External'
+          };
         }
-        if (typeof u.sentiment === 'object' && u.sentiment !== null) {
-          if (u.sentiment.score !== undefined) return Number(u.sentiment.score);
-          if (u.sentiment.value !== undefined) return Number(u.sentiment.value);
-          return null;
+        
+        // Fallback logic
+        if (participantId === 'customer' || participantId.includes('customer')) {
+          return { name: externalNames[0] || 'Customer', type: 'External' };
         }
-        return Number(u.sentiment);
+        return { name: internalNames[0] || 'Agent', type: 'Internal' };
       }
 
-      const utterances = parsed ? huntUtterances(parsed) : null;
+      function formatSentiment(score) {
+        if (score === null || score === undefined || isNaN(score)) return '-';
+        const val = Number(score);
+        const fixed = val.toFixed(3);
+        if (val > 0.1) return '<span class="sentiment-positive">👍 ' + fixed + '</span>';
+        if (val < -0.1) return '<span class="sentiment-negative">👎 ' + fixed + '</span>';
+        return '<span class="sentiment-neutral">🟠 ' + fixed + '</span>';
+      }
 
-      if(!utterances || !utterances.length){
-        container.innerHTML = '<div class="muted">Couldn\'t find transcript utterances in the payload. Showing raw JSON.</div><pre>' + escapeHtml(parsed?JSON.stringify(parsed,null,2):rawText||'') + '</pre>';
+      // Find and extract transcript data
+      const transcriptData = findTranscriptData(parsed);
+      const utterances = extractUtterances(transcriptData);
+
+      console.log('Found utterances:', utterances);
+
+      if (!utterances || utterances.length === 0) {
+        container.innerHTML = '<div class="muted">No transcript utterances found in the data.</div>' +
+          '<details><summary>Show Raw Data</summary><pre>' + escapeHtml(JSON.stringify(parsed, null, 2)) + '</pre></details>';
         return;
       }
 
       const nameMap = mapParticipantNames(conversation);
       const { internal, external } = participantsByType(conversation);
 
-      const rows = utterances.map(function(u){
-        const ms = extractMs(u);
-        const purpose = extractPurpose(u);
-        const who = extractWho(u, purpose, nameMap, internal, external);
-        const text = extractText(u);
-        const sentiment = extractSentiment(u);
-        return { ms: ms, rel: mmss(ms), purpose: purpose, who: who, text: text, sentiment: sentiment };
-      }).sort(function(a,b){ return a.ms - b.ms; });
-
-      try{ console.log('[Transcript] sample rows:', rows.slice(0,3)); }catch(e){}
-
-      const start = rows.length ? rows[0].ms : 0;
-      const end = rows.length ? rows[rows.length-1].ms : 0;
-      const dur = mmss(Math.max(0, end - start));
-      const direction = (getDirection(conversation)||'').toString();
-      const media = getConversationMediaTypes(conversation);
-
-      function renderSentimentCell(r){
-        if (r.purpose !== 'External' || r.sentiment === null || r.sentiment === undefined || isNaN(r.sentiment)) return '-';
-        const val = Number(r.sentiment);
-        const fixed = val.toFixed(2);
-        if (val > 0) return '<span class="sentiment-positive">👍 ' + fixed + '</span>';
-        if (val < 0) return '<span class="sentiment-negative">👎 ' + fixed + '</span>';
-        return '<span class="sentiment-neutral">🟠 ' + fixed + '</span>';
-      }
-
+      // Build transcript table
       let html = '<div class="transcript-summary">';
       html += '<div class="t-summary-grid">';
-      html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (media||'Interaction') + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (getConversationMediaTypes(conversation) || 'Interaction') + '</span></div>';
       html += '<div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">' + conversation.conversationId + '</span></div>';
       html += '<div class="t-kv"><span class="k">Transcript Start Time:</span><span>' + fmt(conversation.conversationStart) + '</span></div>';
       html += '<div class="t-kv"><span class="k">Transcript End Time:</span><span>' + fmt(conversation.conversationEnd) + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Transcript Duration:</span><span>' + dur + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Direction:</span><span>' + (direction[0]?direction[0].toUpperCase()+direction.slice(1):'-') + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Internal Participant(s):</span><span>' + (internal.length?internal.map(function(n){ return '<span class="pill">' + n.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>'; }).join(' '):'-') + '</span></div>';
-      html += '<div class="t-kv"><span class="k">External Participant(s):</span><span>' + (external.length?external.map(function(n){ return '<span class="pill">' + n.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>'; }).join(' '):'-') + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Transcript Duration:</span><span>' + mmss(calculateDuration(conversation.conversationStart, conversation.conversationEnd)) + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Direction:</span><span>' + (getDirection(conversation) || 'Unknown') + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Internal Participant(s):</span><span>' + (internal.length ? internal.map(function(n){ return '<span class="pill">' + escapeHtml(n) + '</span>'; }).join(' ') : '-') + '</span></div>';
+      html += '<div class="t-kv"><span class="k">External Participant(s):</span><span>' + (external.length ? external.map(function(n){ return '<span class="pill">' + escapeHtml(n) + '</span>'; }).join(' ') : '-') + '</span></div>';
       html += '</div></div>';
-      
+
       html += '<table class="transcript-table"><thead><tr>';
       html += '<th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th>';
       html += '</tr></thead><tbody>';
-      
-      rows.forEach(function(r){
+
+      utterances.forEach(function(utterance, index) {
+        const participantDetails = getParticipantDetails(utterance.participant, nameMap, internal, external);
+        const timeFormatted = mmss(utterance.startTime);
+        
         html += '<tr>';
-        html += '<td class="mono">' + r.rel + '</td>';
-        html += '<td>' + r.purpose + '</td>';
-        html += '<td>' + escapeHtml(r.who) + '</td>';
-        html += '<td>' + escapeHtml(r.text) + '</td>';
-        html += '<td>' + renderSentimentCell(r) + '</td>';
+        html += '<td class="mono">' + timeFormatted + '</td>';
+        html += '<td>' + participantDetails.type + '</td>';
+        html += '<td>' + escapeHtml(participantDetails.name) + '</td>';
+        html += '<td>' + escapeHtml(utterance.text) + '</td>';
+        html += '<td>' + formatSentiment(utterance.sentiment) + '</td>';
         html += '</tr>';
       });
-      
+
       html += '</tbody></table>';
       container.innerHTML = html;
     }
