@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Interaction Insights</title>
+  <title>Genesys Conversation Explorer</title>
   <style>
     :root {
       --primary-color: #63AB8F;
@@ -13,7 +13,7 @@
       --card-bg: #FFFFFF;
       --text-color: #2C3E50;
       --text-light: #6C757D;
-      --available-color: #63AB8F; /* outline green */
+      --available-color: #63AB8F;
       --nearly-color: #ffe0b2;
       --full-color: #ffcdd2;
     }
@@ -27,6 +27,7 @@
     button { background: var(--primary-color); color: white; border: none; cursor: pointer; font-weight: 600; transition: background 0.2s; }
     button:hover { background: var(--secondary-color); }
     button:disabled { background: var(--text-light); cursor: not-allowed; }
+
     #statusMessage { margin-top: 16px; color: var(--primary-color); white-space: pre-wrap; font-weight: 500; }
     #errorMessage { margin-top: 10px; color: #dc2626; white-space: pre-wrap; font-weight: 500; }
 
@@ -34,10 +35,10 @@
     .muted { color: var(--text-light); }
     .loading { opacity: 0.6; pointer-events: none; }
 
-    /* Top controls layout */
+    /* Controls */
     .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px 24px; align-items: start; }
     .control-group { display: flex; flex-direction: column; gap: 10px; }
-    .inline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; } /* nicer spacing around "to" */
+    .inline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; }
     .inline span { color: var(--text-light); padding: 0 4px; }
     .full-width-btn { margin-top: 16px; width: 100%; padding: 14px 18px; font-size: 16px; }
 
@@ -59,7 +60,6 @@
     .step-header { font-weight: bold; color: var(--secondary-color); margin-bottom: 8px; }
     .step-details { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; }
 
-    /* Non-squashy grid */
     .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px 18px; margin: 12px 0; }
     .info-item { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
     .info-label { font-weight: 600; color: var(--text-color); min-width: 180px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -95,7 +95,7 @@
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
 
-  <h1>Interaction Insights</h1>
+  <h1>Conversation Explorer</h1>
   <button id="signinBtn" style="display:none; margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
   <div id="authStatus" class="card" style="display: none;">
@@ -110,7 +110,6 @@
       <h2 style="margin-top: 0; color: var(--text-color);">Select Agent & Date Range</h2>
 
       <div class="controls">
-        <!-- Agent block -->
         <div class="control-group">
           <div>
             <label for="agentSelect">Select Agent</label>
@@ -126,7 +125,6 @@
           </div>
         </div>
 
-        <!-- Date block -->
         <div class="control-group">
           <div>
             <label for="fromDate">Date Range</label>
@@ -143,7 +141,6 @@
         </div>
       </div>
 
-      <!-- Full-width button across bottom -->
       <button id="fetchBtn" class="full-width-btn">Fetch Conversations</button>
     </div>
 
@@ -180,7 +177,7 @@
       clientId: 'd4529142-7340-4cd8-a9f9-f3a4d25670df',
       redirectUri: 'https://gmcglynn88.github.io/ConversationExplorer/',
       loginHost: 'https://login.mypurecloud.ie',
-      apiHost: 'https://api.mypurecloud.ie' // regional host for all API calls
+      apiHost: 'https://api.mypurecloud.ie'
     };
 
     // ===== App State =====
@@ -189,8 +186,8 @@
       conversations: [],
       users: [],
       selectedAgent: null,
-      queues: {},      // id -> name
-      convIndex: {}    // conversationId -> full conversation
+      queues: {},
+      convIndex: {}
     };
 
     // ===== Helpers =====
@@ -213,17 +210,21 @@
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
       return { token: hashParams.get('access_token'), error: hashParams.get('error'), errorDescription: hashParams.get('error_description') };
     }
-    function buildAuthUrl() { return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`; }
+    function buildAuthUrl() {
+      return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
+    }
     function initAuth() {
       showAuthStatus();
       const { token, error, errorDescription } = parseTokenFromHash();
       if (location.hash) history.replaceState(null, '', location.pathname);
+
       if (error) {
         setStatus(`Authentication Error: ${error}${errorDescription ? ` - ${decodeURIComponent(errorDescription)}` : ''}`, true);
         const btn = $('signinBtn'); btn.style.display = 'inline-block'; btn.onclick = () => window.location.assign(buildAuthUrl());
         return;
       }
       if (token) { state.token = token; showMainContent(); fetchAllUsers(); return; }
+
       const alreadyTried = sessionStorage.getItem('authAttempted') === '1';
       if (!alreadyTried) { sessionStorage.setItem('authAttempted','1'); window.location.assign(buildAuthUrl()); }
       else { setStatus('Not authenticated. Click "Sign in to Genesys Cloud".', true); const btn=$('signinBtn'); btn.style.display='inline-block'; btn.onclick=()=>window.location.assign(buildAuthUrl()); }
@@ -251,7 +252,10 @@
         state.users = allUsers.map(u => ({ id: u.id, name: u.name, email: u.email || '' })).sort((a,b)=>a.name.localeCompare(b.name));
         populateUserSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`); setLoading(false);
-      } catch (e) { setStatus(`Failed to load users: ${e.message}`, true); setLoading(false); $('agentSelect').innerHTML = '<option>Failed to load users</option>'; }
+      } catch (e) {
+        setStatus(`Failed to load users: ${e.message}`, true); setLoading(false);
+        $('agentSelect').innerHTML = '<option>Failed to load users</option>';
+      }
     }
 
     function populateUserSelect(users) {
@@ -273,9 +277,14 @@
 
     // ===== Chunking =====
     function splitDateRangeIntoChunks(startDate, endDate, daysPerChunk = 7) {
-      const chunks = []; const start = new Date(startDate); const end = new Date(endDate); let currentStart = new Date(start);
+      const chunks = [];
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      let currentStart = new Date(start);
       while (currentStart <= end) {
-        let currentEnd = new Date(currentStart); currentEnd.setDate(currentEnd.getDate() + daysPerChunk - 1); if (currentEnd > end) currentEnd = new Date(end);
+        let currentEnd = new Date(currentStart);
+        currentEnd.setDate(currentEnd.getDate() + daysPerChunk - 1);
+        if (currentEnd > end) currentEnd = new Date(end);
         chunks.push({ start: currentStart.toISOString().split('T')[0], end: currentEnd.toISOString().split('T')[0] });
         currentStart.setDate(currentStart.getDate() + daysPerChunk);
       }
@@ -287,67 +296,109 @@
       if (totalDays <= 7) return 7; if (totalDays <= 30) return 7; if (totalDays <= 90) return 5; if (totalDays <= 180) return 3; return 2;
     }
 
-    // ===== Sessions/Segments-aware helpers =====
+    // ===== Sessions/Segments helpers =====
     function firstSession(conversation) {
       for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) return s;
       return null;
     }
     function getMediaType(conversation) { const s = firstSession(conversation); return (s && s.mediaType) || 'Unknown'; }
     function getConversationMediaTypes(conversation) {
-      const types = new Set(); for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) if (s.mediaType) types.add(s.mediaType);
+      const types = new Set();
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) { if (s.mediaType) types.add(s.mediaType); }
+      }
       return [...types].join(', ') || (getMediaType(conversation) || 'Unknown');
     }
-    function getDirection(conversation) { const s = firstSession(conversation); return (s && s.direction) || conversation.originatingDirection || 'Unknown'; }
+    function getDirection(conversation) {
+      const s = firstSession(conversation);
+      return (s && s.direction) || conversation.originatingDirection || 'Unknown';
+    }
     function getANI(conversation) {
-      for (const p of (conversation.participants || [])) for (const s of (p.sessions || [])) {
-        const isVoice = (s.mediaType || '').toLowerCase() === 'voice'; if (!isVoice) continue;
-        const dir = (s.direction || conversation.originatingDirection || '').toLowerCase(); if (dir === 'inbound') return s.ani || s.addressFrom || s.otherAddress || s.remote || 'Unknown';
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) {
+          const isVoice = (s.mediaType || '').toLowerCase() === 'voice';
+          if (!isVoice) continue;
+          const dir = (s.direction || conversation.originatingDirection || '').toLowerCase();
+          if (dir === 'inbound') return s.ani || s.addressFrom || s.otherAddress || s.remote || 'Unknown';
+        }
       }
-      const s = firstSession(conversation); return (s && (s.ani || s.addressFrom || s.otherAddress || s.remote)) || 'Unknown';
+      const s = firstSession(conversation);
+      return (s && (s.ani || s.addressFrom || s.otherAddress || s.remote)) || 'Unknown';
     }
     function getStepStart(participant) {
-      let times = []; for (const s of (participant.sessions || [])) {
+      let times = [];
+      for (const s of (participant.sessions || [])) {
         for (const seg of (s.segments || [])) {
-          for (const ev of (seg.events || [])) { if (ev.eventTime) { const t = new Date(ev.eventTime).getTime(); if (!isNaN(t)) times.push(t); } }
+          for (const ev of (seg.events || [])) {
+            if (ev.eventTime) { const t = new Date(ev.eventTime).getTime(); if (!isNaN(t)) times.push(t); }
+          }
           if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) times.push(t); }
         }
         if (s.startTime) { const t = new Date(s.startTime).getTime(); if (!isNaN(t)) times.push(t); }
       }
-      if (!times.length) return null; return new Date(Math.min(...times));
+      if (!times.length) return null;
+      return new Date(Math.min(...times));
     }
     function getAgentWindow(participant) {
-      let starts = [], ends = []; for (const s of (participant.sessions || [])) for (const seg of (s.segments || [])) {
-        if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) starts.push(t); }
-        if (seg.segmentEnd)   { const t = new Date(seg.segmentEnd).getTime();   if (!isNaN(t)) ends.push(t); }
+      let starts = [], ends = [];
+      for (const s of (participant.sessions || [])) {
+        for (const seg of (s.segments || [])) {
+          if (seg.segmentStart) { const t = new Date(seg.segmentStart).getTime(); if (!isNaN(t)) starts.push(t); }
+          if (seg.segmentEnd) { const t = new Date(seg.segmentEnd).getTime(); if (!isNaN(t)) ends.push(t); }
+        }
       }
       if (!starts.length || !ends.length) return { durationMs: 0 };
       return { durationMs: Math.max(...ends) - Math.min(...starts) };
     }
     function getAlertMsForAgent(participant) {
       if (!participant?.userId) return 0;
-      let totalMs = 0; const addVal = (v) => { if (v == null || isNaN(v)) return; const ms = (v > 120) ? v : v * 1000; totalMs += ms; };
+      let totalMs = 0;
+      const addVal = (v) => { if (v == null || isNaN(v)) return; const ms = (v > 120) ? v : v * 1000; totalMs += ms; };
       for (const s of (participant.sessions || [])) {
         if (Array.isArray(s.metrics)) for (const m of s.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
         for (const seg of (s.segments || [])) {
           if (Array.isArray(seg.metrics)) for (const m of seg.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
-          for (const ev of (seg.events || [])) if (Array.isArray(ev.metrics)) for (const m of ev.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
+          for (const ev of (seg.events || [])) {
+            if (Array.isArray(ev.metrics)) for (const m of ev.metrics) if (m?.name === 'tAlert') addVal(m.value ?? m.durationMs);
+          }
         }
       }
       return totalMs;
     }
 
-    // Legs + queues
-    function getQueueIdFromParticipant(participant) { if (participant.queueId) return participant.queueId; for (const s of (participant.sessions || [])) if (s.queueId) return s.queueId; return null; }
+    // Queue helpers
+    function getQueueIdFromParticipant(participant) {
+      if (participant.queueId) return participant.queueId;
+      for (const s of (participant.sessions || [])) { if (s.queueId) return s.queueId; }
+      return null;
+    }
+    function getQueueName(queueId){ return state.queues[queueId] || null; }
+    async function fetchQueueName(queueId){
+      if (!queueId || state.queues[queueId]) return;
+      try { const q = await api(`/api/v2/routing/queues/${queueId}`); state.queues[queueId] = q?.name || queueId; }
+      catch(e){ console.warn('Queue fetch failed', queueId, e.message); state.queues[queueId] = queueId; }
+    }
+    async function warmQueueCache(conversations){
+      const ids = new Set();
+      for (const c of conversations) { for (const p of (c.participants||[])) { const id = getQueueIdFromParticipant(p); if (id) ids.add(id); } }
+      await Promise.all([...ids].filter(id=>!state.queues[id]).map(id=>fetchQueueName(id)));
+    }
+
+    // Transfers
     function buildLegs(conversation) {
-      const legs = []; for (const p of (conversation.participants || [])) {
-        const when = getStepStart(p)?.getTime() ?? Infinity; let queueId = getQueueIdFromParticipant(p);
+      const legs = [];
+      for (const p of (conversation.participants || [])) {
+        const when = getStepStart(p)?.getTime() ?? Infinity;
+        let queueId = getQueueIdFromParticipant(p);
         legs.push({ when, purpose: p.purpose, userId: p.userId || null, queueId });
       }
-      legs.sort((a,b)=>a.when-b.when); return legs.filter(l => Number.isFinite(l.when));
+      legs.sort((a,b)=>a.when-b.when);
+      return legs.filter(l => Number.isFinite(l.when));
     }
     function analyzeTransfers(conversation) {
       const legs = buildLegs(conversation); let count = 0; const transfers = [];
-      for (let i=1;i<legs.length;i++){ const prev=legs[i-1], curr=legs[i];
+      for (let i=1;i<legs.length;i++){
+        const prev=legs[i-1], curr=legs[i];
         const agentToAgent = prev.userId && curr.userId && prev.userId!==curr.userId;
         const agentToQueue = prev.userId && curr.queueId && !curr.userId;
         if (agentToAgent || agentToQueue) {
@@ -357,21 +408,14 @@
       }
       return { totalTransfers: count, transfers };
     }
-    function renderDurationCell(durationMs, isAgent, start, nextStart) { const main = formatSeconds(durationMs); if (isAgent) return main; if (!start || !nextStart) return main + ' <span class="duration-badge">calc: n/a</span>'; return main; }
-
-    // Queue name cache
-    function getQueueName(queueId){ return state.queues[queueId] || null; }
-    async function fetchQueueName(queueId){
-      if (!queueId || state.queues[queueId]) return;
-      try { const q = await api(`/api/v2/routing/queues/${queueId}`); state.queues[queueId] = q?.name || queueId; }
-      catch(e){ console.warn('Queue fetch failed', queueId, e.message); state.queues[queueId] = queueId; }
-    }
-    async function warmQueueCache(conversations){
-      const ids = new Set(); for (const c of conversations) for (const p of (c.participants||[])) { const id = getQueueIdFromParticipant(p); if (id) ids.add(id); }
-      await Promise.all([...ids].filter(id=>!state.queues[id]).map(id=>fetchQueueName(id)));
+    function renderDurationCell(durationMs, isAgent, start, nextStart) {
+      const main = formatSeconds(durationMs);
+      if (isAgent) return main;
+      if (!start || !nextStart) return main + ' <span class="duration-badge">calc: n/a</span>';
+      return main;
     }
 
-    // ===== Transcript helpers =====
+    // ===== Transcript: sessionId == communicationsId =====
     function mapParticipantNames(conversation){
       const map = {};
       for (const p of (conversation.participants || [])) {
@@ -389,30 +433,23 @@
       }
       return map;
     }
-
-    // IMPORTANT: for Speech & Text Analytics, "communicationsId" = sessionId from details API.
-    function findCommunicationsIdFromDetails(conversation){
-      // Prefer a voice sessionId if available
-      try {
-        for (const p of (conversation.participants||[])) {
-          for (const s of (p.sessions||[])) {
-            if ((s.mediaType||'').toLowerCase()==='voice' && typeof s.sessionId==='string' && s.sessionId) return s.sessionId;
-          }
+    function findCommunicationsIdFromDetails(conversation) {
+      // prefer voice sessionId
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) {
+          if ((s.mediaType || '').toLowerCase()==='voice' && typeof s.sessionId === 'string' && s.sessionId) return s.sessionId;
         }
-      } catch {}
-      // Fallback: first sessionId / communicationId / id we can find
-      try {
-        for (const p of (conversation.participants||[])) {
-          for (const s of (p.sessions||[])) {
-            if (typeof s.sessionId==='string' && s.sessionId) return s.sessionId;
-            if (typeof s.communicationId==='string' && s.communicationId) return s.communicationId;
-            if (typeof s.id==='string' && s.id) return s.id;
-          }
+      }
+      // fallback: first sessionId / communicationId / id
+      for (const p of (conversation.participants || [])) {
+        for (const s of (p.sessions || [])) {
+          if (typeof s.sessionId === 'string' && s.sessionId) return s.sessionId;
+          if (typeof s.communicationId === 'string' && s.communicationId) return s.communicationId;
+          if (typeof s.id === 'string' && s.id) return s.id;
         }
-      } catch {}
+      }
       return null;
     }
-
     async function getTranscriptForConversation(conversationId){
       const btn = document.querySelector(`#btn-transcript-${conversationId}`);
       const statusEl = document.querySelector(`#transcript-status-${conversationId}`);
@@ -422,7 +459,7 @@
       if (!conv) { statusEl.textContent = 'Conversation not found in state.'; return; }
 
       const communicationsId = findCommunicationsIdFromDetails(conv);
-      if (!communicationsId) { statusEl.textContent = 'No sessionId found to use as communicationsId.'; console.debug('DEBUG conversation', conv); return; }
+      if (!communicationsId) { statusEl.textContent = 'No sessionId found to use as communicationsId.'; return; }
 
       try {
         btn.disabled = true; statusEl.textContent = `Requesting transcript URL (sessionId: ${communicationsId})…`;
@@ -436,7 +473,8 @@
           throw new Error(`Transcript URL error: ${urlRes.status} ${urlRes.statusText}${t?` - ${t.slice(0,200)}`:''}`);
         }
 
-        const { url: presigned } = await urlRes.json();
+        const urlJson = await urlRes.json();
+        const presigned = urlJson?.url;
         if (!presigned) throw new Error('Transcript response did not include a URL.');
 
         statusEl.textContent = 'Downloading transcript…';
@@ -444,20 +482,22 @@
         if (!rawRes.ok) throw new Error(`Transcript download failed: ${rawRes.status} ${rawRes.statusText}`);
 
         const text = await rawRes.text();
-        let parsed = null; try { parsed = JSON.parse(text); } catch {}
+        let parsed = null;
+        try { parsed = JSON.parse(text); } catch {}
+
         statusEl.textContent = 'Rendering transcript…';
         renderTranscript(container, parsed, text, conv);
         statusEl.textContent = 'Transcript loaded.';
       } catch (e) {
         console.error(e);
-        statusEl.innerHTML = `⚠️ ${e.message}<br/><span class="muted">If this is a CORS issue, you can open the transcript directly in a new tab from the raw URL.</span>`;
+        statusEl.innerHTML = `⚠️ ${e.message}<br/><span class="muted">If this is a CORS issue, try opening the raw URL in a new tab.</span>`;
       } finally {
         btn.disabled = false;
       }
     }
-
     function renderTranscript(container, parsed, rawText, conversation){
       const nameMap = mapParticipantNames(conversation);
+      const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 
       const huntUtterances = (obj) => {
         if (!obj) return null;
@@ -466,14 +506,14 @@
         } else if (typeof obj === 'object') {
           for (const k of Object.keys(obj)) {
             const v = obj[k];
-            if (Array.isArray(v)) { const maybe = huntUtterances(v); if (maybe) return maybe; }
-            else if (v && typeof v === 'object') { const maybe = huntUtterances(v); if (maybe) return maybe; }
+            if (Array.isArray(v)) { const m = huntUtterances(v); if (m) return m; }
+            else if (v && typeof v === 'object') { const m = huntUtterances(v); if (m) return m; }
           }
         }
         return null;
       };
 
-      let utterances = parsed ? huntUtterances(parsed) : null;
+      const utterances = parsed ? huntUtterances(parsed) : null;
 
       if (utterances && utterances.length) {
         const rows = utterances.map(u => {
@@ -506,8 +546,6 @@
         container.innerHTML = `<div class="muted" style="margin-bottom:6px;">Plain text transcript</div><pre>${escapeHtml(rawText || '')}</pre>`;
       }
     }
-
-    function escapeHtml(s){ return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
 
     // ===== Conversations =====
     async function fetchConversations() {
@@ -634,4 +672,137 @@
 
       return `
         <div class="conversation-header">
-          <div
+          <div class="info-grid">
+            <div class="info-item"><span class="info-label">Media Type:</span><span class="info-value">${mediaType}</span></div>
+            <div class="info-item"><span class="info-label">Customer Number:</span><span class="info-value">${ani}</span></div>
+            <div class="info-item"><span class="info-label">Interaction Direction:</span><span class="info-value">${direction}</span></div>
+            <div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">${fmt(conversation.conversationStart)}</span></div>
+            <div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">${fmt(conversation.conversationEnd)}</span></div>
+            <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${formatSeconds(totalDuration)}</span></div>
+            <div class="info-item"><span class="info-label">Transfers (Agent→Queue/Agent):</span><span class="info-value"><span class="transfer-count">${transferInfo.totalTransfers}</span></span></div>
+          </div>
+
+          <div class="transcript-wrapper">
+            <div class="transcript-actions">
+              <button id="btn-transcript-${conversation.conversationId}" onclick="getTranscriptForConversation('${conversation.conversationId}')">Get Transcript</button>
+              <span id="transcript-status-${conversation.conversationId}" class="transcript-status"></span>
+            </div>
+            <div id="transcript-${conversation.conversationId}"></div>
+          </div>
+        </div>
+
+        <h3 style="color: var(--text-color);">Customer Journey Timeline</h3>
+        <div class="journey-timeline">
+          ${renderJourneyTimeline(conversation, transferInfo)}
+        </div>
+
+        <details>
+          <summary>Raw Conversation Data</summary>
+          <pre>${JSON.stringify(conversation, null, 2)}</pre>
+        </details>
+      `;
+    }
+
+    function renderJourneyTimeline(conversation, transferInfo) {
+      if (!conversation.participants || conversation.participants.length === 0) return '<p>No participant data available</p>';
+
+      const sorted = [...conversation.participants]
+        .map(p => ({ p, start: getStepStart(p) }))
+        .sort((a,b) => (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity))
+        .map(x => x.p);
+
+      return sorted.map((participant, index) => {
+        const purpose = participant.purpose || 'unknown';
+        const start = getStepStart(participant);
+        const nextStart = (index < sorted.length - 1) ? getStepStart(sorted[index + 1]) : null;
+
+        const queueId = getQueueIdFromParticipant(participant);
+        const queueName = queueId ? (getQueueName(queueId) || queueId) : null;
+
+        const participantName = purpose === 'acd'
+          ? (queueName ? `Queue: ${queueName}` : 'ACD Queue')
+          : getParticipantName(participant);
+
+        let durationMs = 0;
+        if (participant.userId) durationMs = getAgentWindow(participant).durationMs || 0;
+        else if (start && nextStart) durationMs = Math.max(0, nextStart - start);
+
+        const alertMs = participant.userId ? getAlertMsForAgent(participant) : null;
+        const alertTime = participant.userId ? formatShortSeconds(alertMs || 0) : 'N/A';
+
+        const transfer = transferInfo.transfers.find(t => t.step === index);
+
+        return `
+          <div class="journey-step">
+            <div class="step-header">
+              Step ${index + 1}: ${getParticipantBadge(purpose, participantName)}
+              ${transfer ? `<span style="color: #dc2626; margin-left: 8px;">🔄 TRANSFERRED</span>` : ''}
+            </div>
+            <div class="step-details">
+              ${transfer ? `
+                <div class="transfer-info">
+                  <strong>Transfer Details:</strong><br>
+                  From: ${transfer.from}<br>
+                  To: ${transfer.to}<br>
+                  Type: ${transfer.type}<br>
+                  Time: ${fmt(transfer.time)}
+                </div>
+              ` : ''}
+
+              <div class="info-grid">
+                <div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">${getParticipantType(participant)}</span></div>
+                <div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">${fmt(start)}</span></div>
+                ${queueName ? `<div class="info-item"><span class="info-label">Queue:</span><span class="info-value">${queueName}</span></div>` : ''}
+                <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${renderDurationCell(durationMs, !!participant.userId, start, nextStart)}</span></div>
+                <div class="info-item"><span class="info-label">Alert Time:</span><span class="info-value">${alertTime}</span></div>
+                <div class="info-item"><span class="info-label">Purpose:</span><span class="info-value">${purpose}</span></div>
+                <div class="info-item"><span class="info-label">Sessions:</span><span class="info-value">${(participant.sessions && participant.sessions.length) || 1}</span></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getParticipantName(participant) {
+      if (participant.purpose === 'customer') return 'Customer';
+      if (participant.userId) {
+        const user = state.users.find(u => u.id === participant.userId);
+        return user ? user.name : `Agent (${participant.userId})`;
+      }
+      if (participant.purpose === 'ivr') return 'IVR System';
+      if (participant.purpose === 'external') return 'External System';
+      if (participant.purpose === 'acd') return 'ACD Queue';
+      return participant.purpose || 'Unknown';
+    }
+    function getParticipantType(participant) {
+      if (participant.purpose === 'customer') return 'Customer';
+      if (participant.userId) return 'Agent';
+      if (participant.purpose === 'acd') return 'Queue';
+      if (participant.purpose === 'ivr') return 'IVR System';
+      if (participant.purpose === 'external') return 'External';
+      return participant.purpose || 'Unknown';
+    }
+    function getParticipantBadge(purpose, name) {
+      const badgeClass = { 'customer': 'badge-customer', 'acd': 'badge-queue', 'user': 'badge-agent', 'ivr': 'badge-ivr', 'external': 'badge-system', 'queue': 'badge-queue' }[purpose] || 'badge-system';
+      return `<span class="participant-badge ${badgeClass}">${name}</span>`;
+    }
+
+    // ===== Event Listeners =====
+    document.getElementById('fetchBtn').addEventListener('click', fetchConversations);
+
+    // expose transcript function for inline onclick
+    window.getTranscriptForConversation = getTranscriptForConversation;
+
+    // ===== Initialize App =====
+    (function init() {
+      const today = new Date();
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(today.getDate() - 7);
+      $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
+      $('toDate').value = today.toISOString().slice(0, 10);
+      initAuth();
+    })();
+  </script>
+</body>
+</html>
