@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Genesys Conversation Explorer</title>
+  <title>Interaction Insights</title>
   <style>
     :root {
       --primary-color: #63AB8F;
@@ -37,7 +37,7 @@
     /* Top controls layout */
     .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px 24px; align-items: start; }
     .control-group { display: flex; flex-direction: column; gap: 10px; }
-    .inline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; } /* nice spacing around "to" */
+    .inline { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; } /* nicer spacing around "to" */
     .inline span { color: var(--text-light); padding: 0 4px; }
     .full-width-btn { margin-top: 16px; width: 100%; padding: 14px 18px; font-size: 16px; }
 
@@ -95,7 +95,7 @@
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
 
-  <h1>Conversation Explorer</h1>
+  <h1>Interaction Insights</h1>
   <button id="signinBtn" style="display:none; margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
   <div id="authStatus" class="card" style="display: none;">
@@ -390,15 +390,26 @@
       return map;
     }
 
-    // IMPORTANT: Speech & Text Analytics expects "communicationsId"; for details API this is the sessionId.
+    // IMPORTANT: for Speech & Text Analytics, "communicationsId" = sessionId from details API.
     function findCommunicationsIdFromDetails(conversation){
-      // Prefer a voice sessionId if available; otherwise first sessionId found
-      for (const p of (conversation.participants||[])) {
-        for (const s of (p.sessions||[])) {
-          if ((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
+      // Prefer a voice sessionId if available
+      try {
+        for (const p of (conversation.participants||[])) {
+          for (const s of (p.sessions||[])) {
+            if ((s.mediaType||'').toLowerCase()==='voice' && typeof s.sessionId==='string' && s.sessionId) return s.sessionId;
+          }
         }
-      }
-      for (const p of (conversation.participants||[])) for (const s of (p.sessions||[])) if (s.sessionId) return s.sessionId;
+      } catch {}
+      // Fallback: first sessionId / communicationId / id we can find
+      try {
+        for (const p of (conversation.participants||[])) {
+          for (const s of (p.sessions||[])) {
+            if (typeof s.sessionId==='string' && s.sessionId) return s.sessionId;
+            if (typeof s.communicationId==='string' && s.communicationId) return s.communicationId;
+            if (typeof s.id==='string' && s.id) return s.id;
+          }
+        }
+      } catch {}
       return null;
     }
 
@@ -411,10 +422,10 @@
       if (!conv) { statusEl.textContent = 'Conversation not found in state.'; return; }
 
       const communicationsId = findCommunicationsIdFromDetails(conv);
-      if (!communicationsId) { statusEl.textContent = 'No sessionId found to use as communicationsId.'; return; }
+      if (!communicationsId) { statusEl.textContent = 'No sessionId found to use as communicationsId.'; console.debug('DEBUG conversation', conv); return; }
 
       try {
-        btn.disabled = true; statusEl.textContent = 'Requesting transcript URL…';
+        btn.disabled = true; statusEl.textContent = `Requesting transcript URL (sessionId: ${communicationsId})…`;
 
         const urlRes = await fetch(`${CONFIG.apiHost}/api/v2/speechandtextanalytics/conversations/${conversationId}/communications/${communicationsId}/transcripturl`, {
           method: 'GET',
@@ -425,18 +436,15 @@
           throw new Error(`Transcript URL error: ${urlRes.status} ${urlRes.statusText}${t?` - ${t.slice(0,200)}`:''}`);
         }
 
-        const urlJson = await urlRes.json();
-        const presigned = urlJson?.url;
+        const { url: presigned } = await urlRes.json();
         if (!presigned) throw new Error('Transcript response did not include a URL.');
 
         statusEl.textContent = 'Downloading transcript…';
         const rawRes = await fetch(presigned);
         if (!rawRes.ok) throw new Error(`Transcript download failed: ${rawRes.status} ${rawRes.statusText}`);
 
-        let text = await rawRes.text();
-        let parsed = null;
-        try { parsed = JSON.parse(text); } catch { /* plain text fallback */ }
-
+        const text = await rawRes.text();
+        let parsed = null; try { parsed = JSON.parse(text); } catch {}
         statusEl.textContent = 'Rendering transcript…';
         renderTranscript(container, parsed, text, conv);
         statusEl.textContent = 'Transcript loaded.';
@@ -626,130 +634,4 @@
 
       return `
         <div class="conversation-header">
-          <div class="info-grid">
-            <div class="info-item"><span class="info-label">Media Type:</span><span class="info-value">${mediaType}</span></div>
-            <div class="info-item"><span class="info-label">Customer Number:</span><span class="info-value">${ani}</span></div>
-            <div class="info-item"><span class="info-label">Interaction Direction:</span><span class="info-value">${direction}</span></div>
-            <div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">${fmt(conversation.conversationStart)}</span></div>
-            <div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">${fmt(conversation.conversationEnd)}</span></div>
-            <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${formatSeconds(totalDuration)}</span></div>
-            <div class="info-item"><span class="info-label">Transfers (Agent→Queue/Agent):</span><span class="info-value"><span class="transfer-count">${transferInfo.totalTransfers}</span></span></div>
-          </div>
-
-          <div class="transcript-wrapper">
-            <div class="transcript-actions">
-              <button id="btn-transcript-${conversation.conversationId}" onclick="getTranscriptForConversation('${conversation.conversationId}')">Get Transcript</button>
-              <span id="transcript-status-${conversation.conversationId}" class="transcript-status"></span>
-            </div>
-            <div id="transcript-${conversation.conversationId}"></div>
-          </div>
-        </div>
-
-        <h3 style="color: var(--text-color);">Customer Journey Timeline</h3>
-        <div class="journey-timeline">
-          ${renderJourneyTimeline(conversation, transferInfo)}
-        </div>
-
-        <details>
-          <summary>Raw Conversation Data</summary>
-          <pre>${JSON.stringify(conversation, null, 2)}</pre>
-        </details>
-      `;
-    }
-
-    function renderJourneyTimeline(conversation, transferInfo) {
-      if (!conversation.participants || conversation.participants.length === 0) return '<p>No participant data available</p>';
-
-      const sorted = [...conversation.participants].map(p => ({ p, start: getStepStart(p) }))
-        .sort((a,b) => (a.start?.getTime() ?? Infinity) - (b.start?.getTime() ?? Infinity))
-        .map(x => x.p);
-
-      return sorted.map((participant, index) => {
-        const purpose = participant.purpose || 'unknown';
-        const start = getStepStart(participant);
-        const nextStart = (index < sorted.length - 1) ? getStepStart(sorted[index + 1]) : null;
-
-        const queueId = getQueueIdFromParticipant(participant);
-        const queueName = queueId ? (getQueueName(queueId) || queueId) : null;
-
-        const participantName = purpose === 'acd' ? (queueName ? `Queue: ${queueName}` : 'ACD Queue') : getParticipantName(participant);
-
-        let durationMs = 0;
-        if (participant.userId) durationMs = getAgentWindow(participant).durationMs || 0;
-        else if (start && nextStart) durationMs = Math.max(0, nextStart - start);
-
-        const alertMs = participant.userId ? getAlertMsForAgent(participant) : null;
-        const alertTime = participant.userId ? formatShortSeconds(alertMs || 0) : 'N/A';
-
-        const transfer = transferInfo.transfers.find(t => t.step === index);
-
-        return `
-          <div class="journey-step">
-            <div class="step-header">
-              Step ${index + 1}: ${getParticipantBadge(purpose, participantName)}
-              ${transfer ? `<span style="color: #dc2626; margin-left: 8px;">🔄 TRANSFERRED</span>` : ''}
-            </div>
-            <div class="step-details">
-              ${transfer ? `
-                <div class="transfer-info">
-                  <strong>Transfer Details:</strong><br>
-                  From: ${transfer.from}<br>
-                  To: ${transfer.to}<br>
-                  Type: ${transfer.type}<br>
-                  Time: ${fmt(transfer.time)}
-                </div>` : ''}
-
-              <div class="info-grid">
-                <div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">${getParticipantType(participant)}</span></div>
-                <div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">${fmt(start)}</span></div>
-                ${queueName ? `<div class="info-item"><span class="info-label">Queue:</span><span class="info-value">${queueName}</span></div>` : ''}
-                <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${renderDurationCell(durationMs, !!participant.userId, start, nextStart)}</span></div>
-                <div class="info-item"><span class="info-label">Alert Time:</span><span class="info-value">${alertTime}</span></div>
-                <div class="info-item"><span class="info-label">Purpose:</span><span class="info-value">${purpose}</span></div>
-                <div class="info-item"><span class="info-label">Sessions:</span><span class="info-value">${(participant.sessions && participant.sessions.length) || 1}</span></div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function getParticipantName(participant) {
-      if (participant.purpose === 'customer') return 'Customer';
-      if (participant.userId) {
-        const user = state.users.find(u => u.id === participant.userId);
-        return user ? user.name : `Agent (${participant.userId})`;
-      }
-      if (participant.purpose === 'ivr') return 'IVR System';
-      if (participant.purpose === 'external') return 'External System';
-      if (participant.purpose === 'acd') return 'ACD Queue';
-      return participant.purpose || 'Unknown';
-    }
-    function getParticipantType(participant) {
-      if (participant.purpose === 'customer') return 'Customer';
-      if (participant.userId) return 'Agent';
-      if (participant.purpose === 'acd') return 'Queue';
-      if (participant.purpose === 'ivr') return 'IVR System';
-      if (participant.purpose === 'external') return 'External';
-      return participant.purpose || 'Unknown';
-    }
-    function getParticipantBadge(purpose, name) {
-      const badgeClass = { 'customer': 'badge-customer', 'acd': 'badge-queue', 'user': 'badge-agent', 'ivr': 'badge-ivr', 'external': 'badge-system', 'queue': 'badge-queue' }[purpose] || 'badge-system';
-      return `<span class="participant-badge ${badgeClass}">${name}</span>`;
-    }
-
-    // ===== Event Listeners =====
-    $('fetchBtn').addEventListener('click', fetchConversations);
-
-    // ===== Initialize App =====
-    (function init() {
-      const today = new Date(); const oneWeekAgo = new Date(); oneWeekAgo.setDate(today.getDate() - 7);
-      $('fromDate').value = oneWeekAgo.toISOString().slice(0, 10);
-      $('toDate').value = today.toISOString().slice(0, 10);
-      initAuth();
-      // expose for onclick
-      window.getTranscriptForConversation = getTranscriptForConversation;
-    })();
-  </script>
-</body>
-</html>
+          <div
