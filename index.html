@@ -1,146 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Genesys Conversation Explorer</title>
   <style>
-    :root {
-      --primary-color: #63AB8F;
-      --secondary-color: #4A8C7D;
-      --border-color: #DEE2E6;
-      --light-bg: #F8F9FA;
-      --card-bg: #FFFFFF;
-      --text-color: #2C3E50;
-      --text-light: #6C757D;
+    :root{
+      --primary-color:#63AB8F; --secondary-color:#4A8C7D; --border-color:#DEE2E6;
+      --light-bg:#F8F9FA; --card-bg:#FFFFFF; --text-color:#2C3E50; --text-light:#6C757D;
+      --pill:#e9f6f0;
     }
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: var(--light-bg);
-      color: var(--text-color);
-      margin: 20px;
-      padding: 20px;
-      max-width: 1200px;
-    }
-    #logo-container { text-align: center; margin-bottom: 20px; }
-    #logo { width: 300px; }
-    h1 { color: var(--text-color); }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 24px;
-      margin-top: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .controls {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 20px 24px;
-      align-items: start;
-    }
-    label { font-weight: 600; color: var(--text-color); margin-bottom: 6px; display: block; }
-    select, input, button {
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 10px;
-      font-size: 14px;
-      background: var(--card-bg);
-    }
-    button {
-      background: var(--primary-color);
-      color: white;
-      border: none;
-      cursor: pointer;
-      transition: background 0.2s;
-      font-weight: 600;
-    }
-    button:hover { background: var(--secondary-color); }
-    .inline {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 12px;
-    }
-    .inline span { color: var(--text-light); text-align: center; }
-    .full-width-btn { width: 100%; padding: 14px; margin-top: 12px; font-size: 16px; }
-    .user-info {
-      border: 2px solid var(--primary-color);
-      border-radius: 10px;
-      padding: 10px 16px;
-      background: transparent;
-    }
-    details {
-      background: var(--light-bg);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 16px;
-      margin: 12px 0;
-    }
-    details summary {
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 16px;
-      color: var(--text-color);
-    }
-    .journey-timeline { margin-top: 10px; padding-left: 16px; border-left: 3px solid var(--primary-color); }
-    .journey-step { margin-bottom: 20px; position: relative; }
-    .journey-step:before {
-      content: '';
-      position: absolute;
-      left: -26px;
-      top: 0;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: var(--primary-color);
-    }
-    .step-header { font-weight: bold; color: var(--secondary-color); margin-bottom: 8px; }
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 12px;
-      margin: 12px 0;
-    }
-    .info-item { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding: 4px 0; }
-    .info-label { font-weight: 600; color: var(--text-color); }
-    .info-value { color: var(--text-color); text-align: right; }
-    .transcript-summary {
-      border: 2px solid var(--primary-color);
-      border-radius: 10px;
-      padding: 16px;
-      margin: 12px 0 24px;
-      background: #ffffff;
-    }
-    .t-summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 8px 16px;
-      margin-bottom: 16px;
-    }
-    .t-kv { display: flex; justify-content: space-between; gap: 12px; }
-    .t-kv .k { font-weight: 600; }
-    .transcript-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-    }
-    .transcript-table th {
-      background: var(--primary-color);
-      color: #fff;
-      padding: 8px;
-      font-weight: 600;
-      text-align: left;
-    }
-    .transcript-table td {
-      border-bottom: 1px solid var(--border-color);
-      padding: 8px;
-      vertical-align: top;
-    }
-    .transcript-table tr:nth-child(even) { background: #f9f9f9; }
-    .sentiment-positive { color: #22c55e; font-weight: bold; }
-    .sentiment-negative { color: #ef4444; font-weight: bold; }
-    .sentiment-neutral { color: var(--text-light); }
+    body{font-family:'Segoe UI',Arial,sans-serif;margin:20px;padding:20px;max-width:1200px;background:var(--light-bg);color:var(--text-color)}
+    #logo-container{text-align:center;margin-bottom:20px} #logo{width:300px}
+    h1{margin:0 0 16px}
+    .card{background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;margin-top:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+    label{display:block;font-weight:600;margin-bottom:6px}
+    select,input,button{padding:10px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);font-size:14px}
+    button{background:var(--primary-color);color:#fff;font-weight:600;cursor:pointer;transition:background .2s}
+    button:hover{background:var(--secondary-color)} button:disabled{background:var(--text-light);cursor:not-allowed}
+    .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px 24px;align-items:start}
+    .inline{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center} .inline span{color:var(--text-light)}
+    .full-width-btn{width:100%;padding:14px 18px;font-size:16px;margin-top:12px}
+    .muted{color:var(--text-light)} .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
+    .user-info,.conversation-header,.transcript-summary{background:transparent;border:2px solid var(--primary-color);border-radius:10px;padding:16px;margin:12px 0}
+    details{background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:16px;margin:12px 0}
+    details>summary{cursor:pointer;font-weight:600}
+    pre{background:#1f2937;color:#f3f4f6;padding:16px;border-radius:6px;overflow:auto;font-size:12px}
+    .stats{display:flex;gap:16px;margin:16px 0}
+    .stat-card{flex:1;border:1px solid var(--border-color);border-radius:8px;padding:16px;text-align:center;background:var(--card-bg)}
+    .stat-number{font-size:22px;color:var(--primary-color);font-weight:700}
+    .journey-timeline{margin:20px 0 8px;padding-left:20px;border-left:3px solid var(--primary-color)}
+    .journey-step{margin-bottom:18px;position:relative}
+    .journey-step:before{content:'';position:absolute;left:-26px;top:0;width:16px;height:16px;border-radius:50%;background:var(--primary-color)}
+    .step-header{font-weight:700;color:var(--secondary-color);margin-bottom:8px}
+    .step-details{background:var(--card-bg);border:1px solid var(--border-color);border-radius:6px;padding:12px}
+    .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+    .info-item{display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding:6px 0}
+    .info-label{font-weight:600;min-width:150px}
+    .participant-badge{display:inline-block;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600;margin:2px;border:1px solid var(--border-color);background:#fff}
+    .badge-customer{border-color:#a7e3c6;color:#1f7255}
+    .badge-agent{background:#dbeafe;color:#1e40af}
+    .badge-queue{background:#fde7ff;color:#7c3aed}
+    .transfer-info{background:#fff7ed;border:1px solid var(--border-color);border-radius:6px;padding:8px;margin:8px 0}
+    .transfer-count{background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:6px;font-weight:700}
+    .progress-bar{width:100%;height:8px;background:var(--border-color);border-radius:4px;overflow:hidden;margin:10px 0}
+    .progress-fill{height:100%;background:var(--primary-color);transition:width .3s}
+    .t-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 16px}
+    .t-kv{display:flex;gap:10px;justify-content:space-between}.t-kv .k{font-weight:700}
+    .pill{display:inline-block;background:var(--pill);border:1px solid var(--border-color);border-radius:999px;padding:2px 8px;font-size:12px;margin-right:6px}
+    .transcript-table{width:100%;border-collapse:collapse;margin-top:10px}
+    .transcript-table th,.transcript-table td{border-bottom:1px solid var(--border-color);padding:8px 10px;vertical-align:top}
+    .transcript-table th{background:var(--primary-color);color:#fff;text-align:left}
+    .sentiment-positive{color:#16a34a;font-weight:700}
+    .sentiment-negative{color:#dc2626;font-weight:700}
+    .sentiment-neutral{color:var(--text-light)}
+    .loading{opacity:.6;pointer-events:none}
   </style>
 </head>
 <body>
@@ -148,37 +62,71 @@
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
   <h1>Conversation Explorer</h1>
+  <button id="signinBtn" style="display:none;margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
-  <div id="mainContent" class="card">
-    <div class="controls">
-      <div>
-        <label for="agentSelect">Select Agent</label>
-        <select id="agentSelect"><option>Loading users...</option></select>
-        <input id="agentFilter" type="text" placeholder="Filter users by name"/>
-        <div class="user-info" id="selectedAgentInfo" style="display:none;">
-          <strong>Selected Agent:</strong> <span id="selectedAgentName">None</span>
+  <div id="authStatus" class="card" style="display:none;">
+    <div style="text-align:center;padding:20px;">
+      <div style="font-size:18px;color:var(--secondary-color);margin-bottom:8px;">🔐 Authenticating…</div>
+      <div class="muted">Connecting to Genesys Cloud</div>
+    </div>
+  </div>
+
+  <div id="mainContent" style="display:none;">
+    <div class="card">
+      <h2 style="margin:0 0 12px;">Select Agent & Date Range</h2>
+      <div class="controls">
+        <div>
+          <label for="agentSelect">Select Agent</label>
+          <select id="agentSelect"><option>Loading users…</option></select>
+          <input id="agentFilter" type="text" placeholder="Filter users by name" style="margin-top:8px"/>
+          <div class="user-info" id="selectedAgentInfo" style="display:none;">
+            <strong>Selected Agent:</strong> <span id="selectedAgentName">None</span>
+          </div>
+        </div>
+        <div>
+          <label>Date Range</label>
+          <div class="inline">
+            <input id="fromDate" type="date"/>
+            <span>to</span>
+            <input id="toDate" type="date"/>
+          </div>
+          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+            <input id="autoChunk" type="checkbox" checked/> Auto-split large date ranges (recommended)
+          </label>
         </div>
       </div>
-      <div>
-        <label>Date Range</label>
-        <div class="inline">
-          <input id="fromDate" type="date" />
-          <span>to</span>
-          <input id="toDate" type="date" />
+      <button id="fetchBtn" class="full-width-btn">Fetch Conversations</button>
+    </div>
+
+    <div id="statusMessage" class="muted" style="margin-top:10px;"></div>
+    <div id="errorMessage" style="color:#dc2626;margin-top:6px;"></div>
+
+    <div id="progressSection" style="display:none;">
+      <div class="card">
+        <h3 style="margin:0 0 8px;">Fetching Conversations</h3>
+        <div class="muted" id="chunkInfo">Processing date range in smaller chunks…</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px" class="muted">
+          <span id="progressText">0%</span><span id="chunkText">Chunk 0/0</span>
         </div>
-        <label style="margin-top: 8px;">
-          <input type="checkbox" id="autoChunk" checked /> Auto-split large date ranges
-        </label>
       </div>
     </div>
-    <button id="fetchBtn" class="full-width-btn">Fetch Conversations</button>
 
     <div id="resultsSection" style="display:none;">
-      <div id="results"></div>
+      <div class="card">
+        <h2 style="margin:0 0 12px;">Conversation Results</h2>
+        <div class="stats">
+          <div class="stat-card"><div class="stat-number" id="totalConversations">0</div><div class="stat-label">Total Conversations</div></div>
+          <div class="stat-card"><div class="stat-number" id="dateRange">-</div><div class="stat-label">Date Range</div></div>
+          <div class="stat-card"><div class="stat-number" id="selectedAgent">-</div><div class="stat-label">Selected Agent</div></div>
+        </div>
+        <div id="results"></div>
+      </div>
     </div>
   </div>
 
   <script>
+    // ===== Config (Ireland) =====
     const CONFIG = {
       clientId: 'd4529142-7340-4cd8-a9f9-f3a4d25670df',
       redirectUri: 'https://gmcglynn88.github.io/ConversationExplorer/',
@@ -186,110 +134,474 @@
       apiHost: 'https://api.mypurecloud.ie'
     };
 
-    const state = { token: null, selectedAgent: null, convIndex: {} };
-    const $ = (id) => document.getElementById(id);
+    // ===== State =====
+    const state = { token:null, users:[], queues:{}, conversations:[], selectedAgent:null, convIndex:{} };
 
-    window.onload = () => {
-      $('agentSelect').innerHTML = '<option value="1">Gerard McGlynn</option>';
-      $('fromDate').value = '2025-09-01';
-      $('toDate').value = '2025-09-05';
-      $('fetchBtn').onclick = showDemoConversation;
-      state.token = 'demo';
-    };
+    // ===== Utils =====
+    const $ = id => document.getElementById(id);
+    const setStatus = (msg,err=false)=>{ $('statusMessage').textContent = err?'':(msg||''); $('errorMessage').textContent = err?(msg||''):''; };
+    const fmt = d => { if(!d) return 'N/A'; try{return new Date(d).toLocaleString()}catch{return 'N/A'} };
+    const fmtDMY = s => { if(!s||s.length<10) return s||''; const [y,m,d]=s.slice(0,10).split('-'); return `${d}-${m}-${y}`; };
+    const formatSeconds = ms => { if(!ms) return '0s'; const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60); if(h) return `${h}h ${m%60}m ${s%60}s`; if(m) return `${m}m ${s%60}s`; return `${s}s`; };
+    const mmss = ms => { const t=Math.max(0,Math.floor((+ms||0)/1000)); const m=Math.floor(t/60), s=t%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); };
+    const calculateDuration = (a,b)=>{ if(!a||!b) return 0; return new Date(b)-new Date(a); };
 
-    function showDemoConversation() {
-      $('resultsSection').style.display = 'block';
-      const conversation = {
-        conversationId: 'abc-123',
-        conversationStart: '2025-09-23T12:02:00Z',
-        conversationEnd: '2025-09-23T12:09:00Z',
-        participants: [
-          { purpose: 'customer', sessions: [{ sessionId: 'sess-456', mediaType: 'voice' }] },
-          { purpose: 'user', userId: '1', name: 'Gerard McGlynn' }
-        ]
+    function showAuthStatus(){ $('authStatus').style.display='block'; $('mainContent').style.display='none'; }
+    function showMain(){ $('authStatus').style.display='none'; $('mainContent').style.display='block'; }
+    function setLoading(v){ $('mainContent').classList.toggle('loading', !!v); }
+    function updateProgress(p,cur,total){ $('progressFill').style.width = `${p}%`; $('progressText').textContent = `${Math.round(p)}%`; $('chunkText').textContent = `Chunk ${cur}/${total}`; }
+    function showProgress(){ $('progressSection').style.display='block'; $('resultsSection').style.display='none'; }
+    function hideProgress(){ $('progressSection').style.display='none'; }
+
+    // ===== Auth (Implicit) =====
+    function parseTokenFromHash(){
+      const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+      return { token: params.get('access_token'), error: params.get('error'), errorDescription: params.get('error_description') };
+    }
+    function authUrl(){
+      return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
+    }
+    function initAuth(){
+      showAuthStatus();
+      const {token,error,errorDescription} = parseTokenFromHash();
+      if(location.hash) history.replaceState(null,'',location.pathname);
+      if(error){
+        setStatus(`Authentication Error: ${error}${errorDescription?` - ${decodeURIComponent(errorDescription)}`:''}`, true);
+        const b=$('signinBtn'); b.style.display='inline-block'; b.onclick=()=>location.assign(authUrl()); return;
+      }
+      if(token){ state.token=token; showMain(); fetchAllUsers(); return; }
+      const tried = sessionStorage.getItem('authAttempted')==='1';
+      if(!tried){ sessionStorage.setItem('authAttempted','1'); location.assign(authUrl()); }
+      else{ setStatus('Not authenticated. Click "Sign in to Genesys Cloud".', true); const b=$('signinBtn'); b.style.display='inline-block'; b.onclick=()=>location.assign(authUrl()); }
+    }
+
+    // ===== API helper =====
+    async function api(path){
+      if(!state.token) throw new Error('Not authenticated');
+      const res = await fetch(`${CONFIG.apiHost}${path}`, { headers:{Authorization:`Bearer ${state.token}`} });
+      if(res.status===401||res.status===403) throw new Error(`Authentication error (${res.status}). Please refresh.`);
+      if(!res.ok){ const t = await res.text().catch(()=> ''); throw new Error(`API Error: ${res.status} ${res.statusText}${t?` - ${t.slice(0,200)}`:''}`); }
+      return res.json();
+    }
+
+    // ===== Users =====
+    async function fetchAllUsers(){
+      try{
+        setStatus('Loading users…'); setLoading(true);
+        let all=[], page=1, size=100;
+        while(true){
+          const data = await api(`/api/v2/users?pageSize=${size}&pageNumber=${page}`);
+          const ents = data?.entities||[]; all = all.concat(ents);
+          if(!data?.nextUri || ents.length<size) break; page++;
+        }
+        state.users = all.map(u=>({id:u.id,name:u.name||'',email:u.email||''})).sort((a,b)=>a.name.localeCompare(b.name));
+        populateUserSelect(state.users);
+        setStatus(`Loaded ${state.users.length} users`); setLoading(false);
+      }catch(e){ setStatus(`Failed to load users: ${e.message}`, true); setLoading(false); $('agentSelect').innerHTML='<option>Failed to load users</option>'; }
+    }
+    function populateUserSelect(users){
+      const sel=$('agentSelect');
+      sel.innerHTML = '<option value="">Select an agent…</option>' + users.map(u=>`<option value="${u.id}">${u.name||'(Unnamed)'}</option>`).join('');
+      sel.onchange=()=>{
+        const u = users.find(x=>x.id===sel.value);
+        state.selectedAgent=u||null;
+        if(u){ $('selectedAgentName').textContent=u.name||'(Unnamed)'; $('selectedAgentInfo').style.display='block'; }
+        else{ $('selectedAgentInfo').style.display='none'; }
       };
+    }
+    $('agentFilter').addEventListener('input', function(){
+      const q = this.value.trim().toLowerCase();
+      populateUserSelect(q ? state.users.filter(u=>(u.name||'').toLowerCase().includes(q)) : state.users);
+    });
 
-      $('results').innerHTML = `
-        <details open>
-          <summary><strong>${conversation.conversationId}</strong> - ${new Date(conversation.conversationStart).toLocaleString()} (3 participants)</summary>
-          <div class="journey-timeline">
-            <div class="journey-step">
-              <div class="step-header">Step 1: <span class="info-label">Customer Joined</span></div>
-              <div class="info-grid">
-                <div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">Customer</span></div>
-                <div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">${new Date(conversation.conversationStart).toLocaleString()}</span></div>
-              </div>
-            </div>
-          </div>
-          <div class="transcript-wrapper" id="transcript-wrapper-${conversation.conversationId}">
-            <button onclick="getTranscriptForConversation('${conversation.conversationId}', 'sess-456')" style="margin-top:12px;">Get Transcript</button>
-            <div id="transcript-${conversation.conversationId}"></div>
-          </div>
-        </details>
-      `;
+    // ===== Chunking =====
+    function chunks(start,end,days){
+      const out=[]; const s=new Date(start), e=new Date(end); let cur=new Date(s);
+      while(cur<=e){ let ce=new Date(cur); ce.setDate(ce.getDate()+days-1); if(ce>e) ce=new Date(e);
+        out.push({start:cur.toISOString().slice(0,10), end:ce.toISOString().slice(0,10)}); cur.setDate(cur.getDate()+days);
+      } return out;
+    }
+    function optimalDays(start,end){
+      const s=new Date(start), e=new Date(end), total=Math.ceil((e-s)/(1000*60*60*24))+1;
+      if(total<=7) return 7; if(total<=30) return 7; if(total<=90) return 5; if(total<=180) return 3; return 2;
     }
 
-    async function getTranscriptForConversation(conversationId, sessionId) {
-      const el = document.querySelector(`#transcript-${conversationId}`);
-      el.innerHTML = '<div class="muted">Fetching transcript...</div>';
-
-      // Demo fake transcript data
-      const transcript = [
-        { milliseconds: 7000, participantPurpose: 'Internal', decoratedText: "Thank you for calling, how can I help?", sentiment: 0.8 },
-        { milliseconds: 29000, participantPurpose: 'External', decoratedText: "Hi, I need help with my account.", sentiment: -0.2 },
-        { milliseconds: 60000, participantPurpose: 'Internal', decoratedText: "Sure, can you verify your details?", sentiment: 0.4 },
-        { milliseconds: 90000, participantPurpose: 'External', decoratedText: "Yes, address is 27 Green Fill Lane.", sentiment: 0.1 },
-        { milliseconds: 120000, participantPurpose: 'Internal', decoratedText: "Great, how can I assist today?", sentiment: 0.9 }
-      ];
-
-      renderTranscript(el, transcript, JSON.stringify(transcript, null, 2), { conversationId, conversationStart: '2025-09-23T12:02:00Z', conversationEnd: '2025-09-23T12:09:00Z' });
+    // ===== Queue helpers =====
+    function getQueueIdFromParticipant(p){ if(p.queueId) return p.queueId; for(const s of (p.sessions||[])) if(s.queueId) return s.queueId; return null; }
+    function getQueueName(id){ return state.queues[id]||null; }
+    async function fetchQueueName(id){ if(!id||state.queues[id]) return; try{ const q=await api(`/api/v2/routing/queues/${id}`); state.queues[id]=q?.name||id; }catch{ state.queues[id]=id; } }
+    async function warmQueueCache(convs){
+      const set=new Set(); for(const c of convs) for(const p of (c.participants||[])){ const id=getQueueIdFromParticipant(p); if(id) set.add(id); }
+      await Promise.all([...set].filter(id=>!state.queues[id]).map(fetchQueueName));
     }
+
+    // ===== Conversation helpers =====
+    function firstSession(c){ for(const p of (c.participants||[])) for(const s of (p.sessions||[])) return s; return null; }
+    function getMediaType(c){ return (firstSession(c)?.mediaType)||'Unknown'; }
+    function getDirection(c){ return firstSession(c)?.direction || c.originatingDirection || 'Unknown'; }
+    function getConversationMediaTypes(c){ const t=new Set(); for(const p of (c.participants||[])) for(const s of (p.sessions||[])) if(s.mediaType) t.add(s.mediaType); return [...t].join(', ')||getMediaType(c); }
+    function getANI(c){
+      for(const p of (c.participants||[])) for(const s of (p.sessions||[])){
+        if((s.mediaType||'').toLowerCase()!=='voice') continue;
+        const dir=(s.direction||c.originatingDirection||'').toLowerCase();
+        if(dir==='inbound') return s.ani||s.addressFrom||s.otherAddress||s.remote||'Unknown';
+      }
+      const s=firstSession(c); return s?.ani||s?.addressFrom||s?.otherAddress||s?.remote||'Unknown';
+    }
+    function getStepStart(p){
+      let t=[]; for(const s of (p.sessions||[])){
+        if(s.startTime){ const v=+new Date(s.startTime); if(!isNaN(v)) t.push(v); }
+        for(const seg of (s.segments||[])){
+          if(seg.segmentStart){ const v=+new Date(seg.segmentStart); if(!isNaN(v)) t.push(v); }
+          for(const ev of (seg.events||[])) if(ev.eventTime){ const v=+new Date(ev.eventTime); if(!isNaN(v)) t.push(v); }
+        }
+      }
+      return t.length? new Date(Math.min(...t)) : null;
+    }
+    function getAgentWindow(p){
+      let s=[],e=[]; for(const ss of (p.sessions||[])){
+        for(const seg of (ss.segments||[])){
+          if(seg.segmentStart){ const v=+new Date(seg.segmentStart); if(!isNaN(v)) s.push(v); }
+          if(seg.segmentEnd){ const v=+new Date(seg.segmentEnd); if(!isNaN(v)) e.push(v); }
+        }
+      }
+      if(!s.length||!e.length) return {durationMs:0}; return {durationMs: Math.max(...e)-Math.min(...s)};
+    }
+    function getAlertMsForAgent(p){
+      if(!p?.userId) return 0; let total=0; const add=v=>{ if(v==null||isNaN(v))return; const ms=(v>120)?v:v*1000; total+=ms; };
+      for(const s of (p.sessions||[])){
+        if(Array.isArray(s.metrics)) for(const m of s.metrics) if(m?.name==='tAlert') add(m.value??m.durationMs);
+        for(const seg of (s.segments||[])){
+          if(Array.isArray(seg.metrics)) for(const m of seg.metrics) if(m?.name==='tAlert') add(m.value??m.durationMs);
+          for(const ev of (seg.events||[])) if(Array.isArray(ev.metrics)) for(const m of ev.metrics) if(m?.name==='tAlert') add(m.value??m.durationMs);
+        }
+      }
+      return total;
+    }
+    function buildLegs(c){
+      const legs=[]; for(const p of (c.participants||[])){
+        const when=getStepStart(p)?.getTime()??Infinity; legs.push({when,purpose:p.purpose,userId:p.userId||null,queueId:getQueueIdFromParticipant(p)||null});
+      }
+      legs.sort((a,b)=>a.when-b.when); return legs.filter(l=>Number.isFinite(l.when));
+    }
+    function analyzeTransfers(c){
+      const legs=buildLegs(c), transfers=[]; let count=0;
+      for(let i=1;i<legs.length;i++){ const prev=legs[i-1], cur=legs[i];
+        const a2a = prev.userId && cur.userId && prev.userId!==cur.userId;
+        const a2q = prev.userId && cur.queueId && !cur.userId;
+        if(a2a||a2q){ count++; transfers.push({step:i,from: prev.userId?'Agent':(prev.queueId?'Queue':(prev.purpose||'Unknown')), to: cur.userId?'Agent':(cur.queueId?'Queue':(cur.purpose||'Unknown')), time:new Date(cur.when).toISOString(), type:a2a?'Agent → Agent':'Agent → Queue'}); }
+      }
+      return {totalTransfers:count, transfers};
+    }
+    function getParticipantName(p){
+      if(p.purpose==='customer') return 'Customer';
+      if(p.userId){ const u=state.users.find(x=>x.id===p.userId); return u?u.name:`Agent (${p.userId})`; }
+      if(p.purpose==='acd') return 'ACD Queue';
+      if(p.purpose==='ivr') return 'IVR System';
+      if(p.purpose==='external') return 'External System';
+      return p.purpose||'Unknown';
+    }
+    function getParticipantType(p){
+      if(p.purpose==='customer') return 'Customer';
+      if(p.userId) return 'Agent';
+      if(p.purpose==='acd') return 'Queue';
+      if(p.purpose==='ivr') return 'IVR System';
+      if(p.purpose==='external') return 'External';
+      return p.purpose||'Unknown';
+    }
+    function badge(purpose,name){
+      const cls = {'customer':'badge-customer','user':'badge-agent','acd':'badge-queue','ivr':'badge-ivr','external':'badge-system','queue':'badge-queue'}[purpose]||'badge-system';
+      return `<span class="participant-badge ${cls}">${name}</span>`;
+    }
+
+    // ===== Transcript helpers =====
+    function mapParticipantNames(conv){
+      const map={};
+      for(const p of (conv.participants||[])){
+        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); map[p.participantId||p.userId] = u?u.name:`Agent (${p.userId})`; }
+        else if(p.purpose==='customer'){ map[p.participantId||'customer']='Customer'; }
+        else if(p.purpose==='acd'){ const qid=getQueueIdFromParticipant(p); map[p.participantId||qid||'acd']=qid?(getQueueName(qid)||'Queue'):'Queue'; }
+      } return map;
+    }
+    function participantsByType(conv){
+      const internal=new Set(), external=new Set();
+      for(const p of (conv.participants||[])){
+        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); internal.add(u?u.name:`Agent (${p.userId})`); }
+        else if(p.purpose==='customer'){ external.add(p.participantName||'Customer'); }
+      } return {internal:[...internal], external:[...external]};
+    }
+    function findCommunicationsIdFromDetails(conv){
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.sessionId) return s.sessionId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.communicationId) return s.communicationId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.id) return s.id;
+      return null;
+    }
+
+    async function getTranscriptForConversation(conversationId){
+      const statusEl = document.querySelector(`#transcript-status-${conversationId}`);
+      const container = document.querySelector(`#transcript-${conversationId}`);
+      const btn = document.querySelector(`#btn-transcript-${conversationId}`);
+      if(!state.token){ alert('Not authenticated'); return; }
+      const conv = state.convIndex[conversationId]; if(!conv){ statusEl.textContent='Conversation not found in state.'; return; }
+
+      const commId = findCommunicationsIdFromDetails(conv);
+      if(!commId){ statusEl.textContent='No sessionId found to use as communicationsId.'; return; }
+
+      try{
+        btn.disabled=true; statusEl.textContent=`Requesting transcript URL…`;
+        const urlRes = await fetch(`${CONFIG.apiHost}/api/v2/speechandtextanalytics/conversations/${conversationId}/communications/${commId}/transcripturl`, {headers:{Authorization:`Bearer ${state.token}`}});
+        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error(`Transcript URL error: ${urlRes.status} ${urlRes.statusText}${t?` - ${t.slice(0,200)}`:''}`); }
+        const {url:presigned} = await urlRes.json(); if(!presigned) throw new Error('No URL in transcript response.');
+        statusEl.textContent='Downloading transcript…';
+        const raw = await fetch(presigned); if(!raw.ok) throw new Error(`Transcript download failed: ${raw.status} ${raw.statusText}`);
+        const text = await raw.text(); let parsed=null; try{ parsed=JSON.parse(text);}catch{}
+        statusEl.textContent='Rendering transcript…';
+        renderTranscript(container, parsed, text, conv);
+        statusEl.textContent='Transcript loaded.';
+      }catch(e){
+        console.error(e); statusEl.innerHTML=`⚠️ ${e.message}<br><span class="muted">If this is a CORS issue, try opening the raw URL in a new tab.</span>`;
+      }finally{ btn.disabled=false; }
+    }
+    window.getTranscriptForConversation = getTranscriptForConversation;
 
     function renderTranscript(container, parsed, rawText, conversation){
-      const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-      const mmss = (ms)=>{ const t=Math.max(0,Math.floor((+ms||0)/1000)); const m=Math.floor(t/60), s=t%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); };
-      const rows = (parsed || []).map(u => ({
-        ms: Number(u.milliseconds)||0,
-        rel: mmss(u.milliseconds),
-        purpose: (u.participantPurpose||'').toLowerCase()==='internal'?'Internal':'External',
-        who: (u.participantPurpose||'').toLowerCase()==='internal'?'Agent':'Customer',
-        text: (u.decoratedText||'').toString(),
-        sentiment: (u.sentiment!==undefined&&u.sentiment!==null)?u.sentiment:null
-      }));
-      if(!rows.length){ container.innerHTML=`<pre>${escapeHtml(rawText||'')}</pre>`; return;}
-      const startMs=Math.min(...rows.map(r=>r.ms)), endMs=Math.max(...rows.map(r=>r.ms)), duration=mmss(endMs-startMs);
-      container.innerHTML=`
+      const escapeHtml = s => (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+      // Find array of entries with our required fields
+      function findArray(obj){
+        if(!obj) return null;
+        if(Array.isArray(obj)){
+          if(obj.length && (obj[0]?.decoratedText!==undefined || obj[0]?.milliseconds!==undefined || obj[0]?.participantPurpose!==undefined)) return obj;
+        }else if(typeof obj==='object'){
+          for(const k of Object.keys(obj)){ const val=findArray(obj[k]); if(val) return val; }
+        }
+        return null;
+      }
+      const arr = parsed ? findArray(parsed) : null;
+
+      if(!arr||!arr.length){
+        container.innerHTML = `<div class="muted">Unrecognised transcript format. Showing JSON.</div><pre>${escapeHtml(parsed?JSON.stringify(parsed,null,2):rawText||'')}</pre>`;
+        return;
+      }
+
+      const nameMap = mapParticipantNames(conversation);
+      const { internal, external } = participantsByType(conversation);
+
+      const rows = arr.map(u=>{
+        const ms = Number(u.milliseconds)||0;
+        const pp = (u.participantPurpose||'').toString().toLowerCase();
+        const purpose = pp==='internal'?'Internal':'External';
+        let who = purpose==='Internal' ? (internal[0]||'Internal') : (external[0]||'External');
+        if(u.participantId && nameMap[u.participantId]) who = nameMap[u.participantId];
+        return { ms, rel:mmss(ms), purpose, who, text:(u.decoratedText||'').toString(), sentiment:(u.sentiment??null) };
+      });
+
+      const start = Math.min(...rows.map(r=>r.ms)), end = Math.max(...rows.map(r=>r.ms)), dur=mmss(end-start);
+      const direction = (getDirection(conversation)||'').toString();
+      const media = getConversationMediaTypes(conversation);
+
+      container.innerHTML = `
         <div class="transcript-summary">
           <div class="t-summary-grid">
-            <div class="t-kv"><span class="k">Interaction Type:</span><span>Call</span></div>
+            <div class="t-kv"><span class="k">Interaction Type:</span><span>${media||'Interaction'}</span></div>
             <div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">${conversation.conversationId}</span></div>
-            <div class="t-kv"><span class="k">Transcript Start Time:</span><span>${new Date(conversation.conversationStart).toLocaleString()}</span></div>
-            <div class="t-kv"><span class="k">Transcript End Time:</span><span>${new Date(conversation.conversationEnd).toLocaleString()}</span></div>
-            <div class="t-kv"><span class="k">Transcript Duration:</span><span>${duration}</span></div>
-            <div class="t-kv"><span class="k">Direction:</span><span>Inbound</span></div>
-            <div class="t-kv"><span class="k">Internal Participant(s):</span><span><span class="pill">Gerard McGlynn</span></span></div>
-            <div class="t-kv"><span class="k">External Participant(s):</span><span><span class="pill">Mobile Number, United Kingdom</span></span></div>
-          </div>
-          <div class="t-section"><h4>Interaction Summary</h4>
-            <div class="muted">Summary or insights from the transcript appear here.</div>
+            <div class="t-kv"><span class="k">Transcript Start Time:</span><span>${fmt(conversation.conversationStart)}</span></div>
+            <div class="t-kv"><span class="k">Transcript End Time:</span><span>${fmt(conversation.conversationEnd)}</span></div>
+            <div class="t-kv"><span class="k">Transcript Duration:</span><span>${dur}</span></div>
+            <div class="t-kv"><span class="k">Direction:</span><span>${direction[0]?direction[0].toUpperCase()+direction.slice(1):'-'}</span></div>
+            <div class="t-kv"><span class="k">Internal Participant(s):</span><span>${internal.length?internal.map(n=>`<span class="pill">${escapeHtml(n)}</span>`).join(' '):'-'}</span></div>
+            <div class="t-kv"><span class="k">External Participant(s):</span><span>${external.length?external.map(n=>`<span class="pill">${escapeHtml(n)}</span>`).join(' '):'-'}</span></div>
           </div>
         </div>
         <table class="transcript-table">
-          <thead><tr><th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th></tr></thead>
+          <thead><tr>
+            <th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th>
+          </tr></thead>
           <tbody>
             ${rows.map(r=>`
               <tr>
                 <td class="mono">${r.rel}</td>
                 <td>${r.purpose}</td>
-                <td>${r.who}</td>
+                <td>${escapeHtml(r.who)}</td>
                 <td>${escapeHtml(r.text)}</td>
                 <td class="${r.sentiment>0?'sentiment-positive':(r.sentiment<0?'sentiment-negative':'sentiment-neutral')}">
-                  ${r.sentiment===null?'-':r.sentiment.toFixed(2)}
+                  ${r.sentiment===null?'-':(typeof r.sentiment==='number'?r.sentiment.toFixed(2):escapeHtml(String(r.sentiment)))}
                 </td>
               </tr>`).join('')}
           </tbody>
-        </table>`;
+        </table>
+      `;
     }
+
+    // ===== Fetch conversations =====
+    async function fetchConversations(){
+      try{
+        if(!state.selectedAgent){ setStatus('Please select an agent first', true); return; }
+        const from=$('fromDate').value, to=$('toDate').value||from;
+        if(!from){ setStatus('Please select a start date', true); return; }
+
+        setStatus('Fetching conversations…'); setLoading(true); $('resultsSection').style.display='none';
+
+        const auto=$('autoChunk').checked;
+        const days = auto? optimalDays(from,to) : (new Date(to)-new Date(from) >= 0 ? (Math.ceil((new Date(to)-new Date(from))/(1000*60*60*24))+1) : 1);
+        const dateChunks = auto? chunks(from,to,days) : [{start:from,end:to}];
+
+        $('chunkInfo').innerHTML = auto
+          ? `Large range: <strong>${fmtDMY(from)} to ${fmtDMY(to)}</strong><br>Auto-splitting into <strong>${dateChunks.length} chunks</strong> of ${days} days.`
+          : `Processing range: <strong>${fmtDMY(from)} to ${fmtDMY(to)}</strong>`;
+
+        showProgress();
+        state.conversations=[]; state.convIndex={};
+
+        for(let i=0;i<dateChunks.length;i++){
+          const ch=dateChunks[i]; updateProgress((i/dateChunks.length)*100, i+1, dateChunks.length);
+          setStatus(`Fetching chunk ${i+1}/${dateChunks.length}: ${ch.start} → ${ch.end}`);
+          try{
+            const body = {
+              interval: `${ch.start}T00:00:00/${ch.end}T23:59:59`,
+              order:'asc', orderBy:'conversationStart',
+              segmentFilters:[{type:'and',predicates:[{type:'dimension',dimension:'userId',operator:'matches',value: state.selectedAgent.id }]}]
+            };
+            const res = await fetch(`${CONFIG.apiHost}/api/v2/analytics/conversations/details/query`, {
+              method:'POST', headers:{Authorization:`Bearer ${state.token}`,'Content-Type':'application/json'}, body:JSON.stringify(body)
+            });
+            if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error(`Details error: ${res.status} ${res.statusText}${t?` - ${t.slice(0,200)}`:''}`); }
+            const data = await res.json(); const convs = data.conversations||[];
+            for(const c of convs) state.convIndex[c.conversationId]=c;
+            state.conversations = state.conversations.concat(convs);
+          }catch(e){ console.error(e); setStatus(`Warning: failed chunk ${i+1}, continuing…`, true); }
+          if(i<dateChunks.length-1) await new Promise(r=>setTimeout(r,400));
+        }
+
+        await warmQueueCache(state.conversations);
+
+        updateProgress(100, dateChunks.length, dateChunks.length);
+        renderResults(state.conversations, from, to);
+        setStatus(`Found ${state.conversations.length} conversations for the selected period`);
+        setLoading(false); hideProgress();
+      }catch(e){ setStatus(`Error fetching conversations: ${e.message}`, true); setLoading(false); hideProgress(); }
+    }
+
+    function renderResults(conversations, from, to){
+      const results=$('results');
+      $('dateRange').textContent = `${fmtDMY(from)} to ${fmtDMY(to||from)}`;
+      $('selectedAgent').textContent = state.selectedAgent?.name||'-';
+      $('totalConversations').textContent = conversations.length;
+
+      if(!conversations.length){
+        results.innerHTML = `<div class="muted" style="text-align:center;padding:40px">
+          <div style="font-size:48px;margin-bottom:12px">📭</div>
+          <div>No conversations found for ${state.selectedAgent?.name||'the selected agent'}.</div></div>`;
+        $('resultsSection').style.display='block'; return;
+      }
+
+      results.innerHTML = conversations.map(conv=>{
+        const participants = conv.participants ? conv.participants.length : 0;
+        const media = getConversationMediaTypes(conv);
+        const dir = getDirection(conv);
+        return `
+          <details>
+            <summary>
+              <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
+              <span class="muted" style="margin-left:8px;font-size:.9em">(${participants} participants) • Media: ${media} • Dir: ${dir}</span>
+            </summary>
+            ${renderConversationDetails(conv)}
+          </details>
+        `;
+      }).join('');
+
+      $('resultsSection').style.display='block';
+    }
+
+    function renderConversationDetails(conv){
+      const mediaType = getMediaType(conv);
+      const direction = getDirection(conv);
+      const ani = getANI(conv);
+      const totalDur = calculateDuration(conv.conversationStart, conv.conversationEnd);
+      const transfers = analyzeTransfers(conv);
+
+      return `
+        <div class="conversation-header">
+          <div class="info-grid">
+            <div class="info-item"><span class="info-label">Media Type:</span><span class="info-value">${mediaType}</span></div>
+            <div class="info-item"><span class="info-label">Customer Number:</span><span class="info-value">${ani}</span></div>
+            <div class="info-item"><span class="info-label">Interaction Direction:</span><span class="info-value">${direction}</span></div>
+            <div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">${fmt(conv.conversationStart)}</span></div>
+            <div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">${fmt(conv.conversationEnd)}</span></div>
+            <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${formatSeconds(totalDur)}</span></div>
+            <div class="info-item"><span class="info-label">Transfers (Agent→Queue/Agent):</span><span class="info-value"><span class="transfer-count">${transfers.totalTransfers}</span></span></div>
+          </div>
+
+          <div class="transcript-actions" style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <button id="btn-transcript-${conv.conversationId}" onclick="getTranscriptForConversation('${conv.conversationId}')">Get Transcript</button>
+            <span id="transcript-status-${conv.conversationId}" class="muted"></span>
+          </div>
+          <div id="transcript-${conv.conversationId}" style="margin-top:10px;"></div>
+        </div>
+
+        <h3 style="margin:14px 0 6px;">Customer Journey Timeline</h3>
+        <div class="journey-timeline">
+          ${renderJourneyTimeline(conv, transfers)}
+        </div>
+
+        <details>
+          <summary>Raw Conversation Data</summary>
+          <pre>${JSON.stringify(conv, null, 2)}</pre>
+        </details>
+      `;
+    }
+
+    function renderJourneyTimeline(conv, transferInfo){
+      if(!conv.participants || !conv.participants.length) return '<p class="muted">No participant data available</p>';
+      const sorted = [...conv.participants].map(p=>({p,start:getStepStart(p)}))
+        .sort((a,b)=>(a.start?.getTime()??Infinity)-(b.start?.getTime()??Infinity))
+        .map(x=>x.p);
+
+      return sorted.map((p,idx)=>{
+        const purpose = p.purpose||'unknown';
+        const start = getStepStart(p);
+        const nextStart = idx<sorted.length-1 ? getStepStart(sorted[idx+1]) : null;
+        const queueId = getQueueIdFromParticipant(p);
+        const queueName = queueId ? (getQueueName(queueId)||queueId) : null;
+        const name = purpose==='acd' ? (queueName?`Queue: ${queueName}`:'ACD Queue') : getParticipantName(p);
+
+        let durMs = 0;
+        if(p.userId) durMs = getAgentWindow(p).durationMs||0;
+        else if(start && nextStart) durMs = Math.max(0, nextStart - start);
+
+        const alertMs = p.userId ? getAlertMsForAgent(p) : null;
+        const alertTime = p.userId ? `${Math.floor((alertMs||0)/1000)}s` : 'N/A';
+
+        const transfer = transferInfo.transfers.find(t=>t.step===idx);
+
+        return `
+          <div class="journey-step">
+            <div class="step-header">Step ${idx+1}: ${badge(purpose, name)} ${transfer?`<span style="color:#dc2626;margin-left:8px">🔄 TRANSFERRED</span>`:''}</div>
+            <div class="step-details">
+              ${transfer?`<div class="transfer-info"><strong>Transfer:</strong> ${transfer.type}<br>From: ${transfer.from} → To: ${transfer.to}<br>Time: ${fmt(transfer.time)}</div>`:''}
+              <div class="info-grid">
+                <div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">${getParticipantType(p)}</span></div>
+                <div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">${fmt(start)}</span></div>
+                ${queueName?`<div class="info-item"><span class="info-label">Queue:</span><span class="info-value">${queueName}</span></div>`:''}
+                <div class="info-item"><span class="info-label">Duration:</span><span class="info-value">${formatSeconds(durMs)}</span></div>
+                <div class="info-item"><span class="info-label">Alert Time:</span><span class="info-value">${alertTime}</span></div>
+                <div class="info-item"><span class="info-label">Purpose:</span><span class="info-value">${purpose}</span></div>
+                <div class="info-item"><span class="info-label">Sessions:</span><span class="info-value">${(p.sessions&&p.sessions.length)||1}</span></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ===== Events & Init =====
+    $('fetchBtn').addEventListener('click', fetchConversations);
+    (function init(){
+      const today=new Date(); const weekAgo=new Date(); weekAgo.setDate(today.getDate()-7);
+      $('fromDate').value = weekAgo.toISOString().slice(0,10);
+      $('toDate').value = today.toISOString().slice(0,10);
+      initAuth();
+    })();
   </script>
 </body>
 </html>
