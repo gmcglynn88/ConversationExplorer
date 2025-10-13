@@ -421,7 +421,7 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === UPDATED transcript renderer with sentiment, empathy, and confidence ===
+    // === FIXED transcript renderer with analytics sentiment and empathy ===
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = s => (s||'').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]});
       
@@ -440,6 +440,22 @@
       
       console.log('All phrases found:', allPhrases);
 
+      // Extract sentiment and empathy from analytics
+      let sentimentAnalytics = [];
+      let empathyAnalytics = [];
+      
+      if (parsed && parsed.analytics) {
+        if (parsed.analytics.sentiment && Array.isArray(parsed.analytics.sentiment)) {
+          sentimentAnalytics = parsed.analytics.sentiment;
+        }
+        if (parsed.analytics.empathy && Array.isArray(parsed.analytics.empathy)) {
+          empathyAnalytics = parsed.analytics.empathy;
+        }
+      }
+      
+      console.log('Sentiment analytics:', sentimentAnalytics);
+      console.log('Empathy analytics:', empathyAnalytics);
+
       if (!allPhrases || allPhrases.length === 0) {
         container.innerHTML = '<div class="muted">No transcript phrases found.</div>' +
           '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(JSON.stringify(parsed, null, 2)) + '</pre></details>';
@@ -449,11 +465,25 @@
       // Process phrases to extract the data we need
       const processedPhrases = allPhrases
         .map(phrase => {
-          // Extract sentiment score
-          let sentimentScore = phrase.sentiment;
+          // Find matching sentiment for this phrase
+          let sentimentScore = null;
+          const matchingSentiment = sentimentAnalytics.find(s => 
+            Math.abs(s.startTimeMs - phrase.startTimeMs) < 1000 && // Match by timestamp
+            s.participant === phrase.participantPurpose // Match by participant type
+          );
+          if (matchingSentiment) {
+            sentimentScore = matchingSentiment.sentiment;
+          }
           
-          // Extract empathy score
-          let empathyScore = phrase.empathy;
+          // Find matching empathy for this phrase
+          let empathyScore = null;
+          const matchingEmpathy = empathyAnalytics.find(e => 
+            Math.abs(e.startTimeMs - phrase.startTimeMs) < 1000 && // Match by timestamp
+            e.participant === phrase.participantPurpose // Match by participant type
+          );
+          if (matchingEmpathy) {
+            empathyScore = matchingEmpathy.empathy;
+          }
           
           // Extract confidence score
           let confidenceScore = phrase.confidence;
@@ -598,19 +628,23 @@
 
       html += '</tbody></table>';
       
-      // Add debug info if no scores are found
-      const phrasesWithScores = processedPhrases.filter(p => 
-        p.sentiment !== null || p.empathy !== null || p.confidence !== null
-      );
+      // Add debug information
+      const customerPhrases = processedPhrases.filter(p => p.participantPurpose === 'external');
+      const agentPhrases = processedPhrases.filter(p => p.participantPurpose === 'internal');
       
-      if (processedPhrases.length > 0 && phrasesWithScores.length === 0) {
-        html += '<div class="muted" style="margin-top:16px;padding:12px;background:#f8f9fa;border-radius:6px;">';
-        html += '<strong>Note:</strong> No sentiment, empathy, or confidence data found in transcript. ';
-        html += 'The transcript structure may not include these scores. ';
-        html += '<details style="margin-top:8px;"><summary>Debug Info</summary>';
-        html += '<pre>' + escapeHtml(JSON.stringify(parsed, null, 2)).substring(0, 2000) + '</pre>';
-        html += '</details></div>';
-      }
+      const customerPhrasesWithSentiment = customerPhrases.filter(p => p.sentiment !== null && p.sentiment !== undefined);
+      const agentPhrasesWithEmpathy = agentPhrases.filter(p => p.empathy !== null && p.empathy !== undefined);
+      const phrasesWithConfidence = processedPhrases.filter(p => p.confidence !== null && p.confidence !== undefined);
+      
+      html += '<div class="muted" style="margin-top:16px;padding:12px;background:#f8f9fa;border-radius:6px;">';
+      html += '<strong>Analytics Summary:</strong><br>';
+      html += 'Total phrases: ' + processedPhrases.length + '<br>';
+      html += 'Customer phrases: ' + customerPhrases.length + ' (with sentiment: ' + customerPhrasesWithSentiment.length + ')<br>';
+      html += 'Agent phrases: ' + agentPhrases.length + ' (with empathy: ' + agentPhrasesWithEmpathy.length + ')<br>';
+      html += 'Phrases with confidence: ' + phrasesWithConfidence.length + '<br>';
+      html += 'Sentiment analytics found: ' + sentimentAnalytics.length + '<br>';
+      html += 'Empathy analytics found: ' + empathyAnalytics.length + '<br>';
+      html += '</div>';
       
       container.innerHTML = html;
     }
