@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Genesys Conversation Explorer</title>
+  <title>Interaction Insights - By IPI</title>
   <style>
     :root{
       --primary-color:#63AB8F; --secondary-color:#4A8C7D; --border-color:#DEE2E6;
       --light-bg:#F8F9FA; --card-bg:#FFFFFF; --text-color:#2C3E50; --text-light:#6C757D;
       --pill:#e9f6f0;
     }
-    body{font-family:'Segoe UI',Arial,sans-serif;margin:20px;padding:20px;max-width:1200px;background:var(--light-bg);color:var(--text-color)}
+    /* Aptos first, then sensible fallbacks */
+    body{font-family:"Aptos","Segoe UI",Arial,sans-serif;margin:20px;padding:20px;max-width:1200px;background:var(--light-bg);color:var(--text-color)}
     #logo-container{text-align:center;margin-bottom:20px} #logo{width:300px}
     h1{margin:0 0 16px}
     .card{background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;margin-top:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
@@ -55,6 +56,7 @@
     .sentiment-negative{color:#dc2626;font-weight:700}
     .sentiment-neutral{color:#f59e0b;font-weight:700}
     .empathy-positive{color:#16a34a;font-weight:700}
+    .empathy-negative{color:#dc2626;font-weight:700} /* Unhelpful = red */
     .confidence-high{color:#16a34a;font-weight:700}
     .confidence-medium{color:#f59e0b;font-weight:700}
     .confidence-low{color:#dc2626;font-weight:700}
@@ -66,7 +68,7 @@
   <div id="logo-container">
     <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/ExternalWorkCreation/main/Consultinglogo.png" alt="Company Logo">
   </div>
-  <h1>Conversation Explorer</h1>
+  <h1>Interaction Insights - By IPI</h1>
   <button id="signinBtn" style="display:none;margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
   <div id="authStatus" class="card" style="display:none;">
@@ -150,7 +152,6 @@
     const formatSeconds = ms => { if(!ms) return '0s'; const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60); if(h) return `${h}h ${m%60}m ${s%60}s`; if(m) return `${m}m ${s%60}s`; return `${s}s`; };
     const mmss = ms => { const totalSeconds = Math.max(0, Math.floor((+ms||0)/1000)); const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0'); };
     const calculateDuration = (a,b)=>{ if(!a||!b) return 0; return new Date(b)-new Date(a); };
-
     function showMain(){ $('authStatus').style.display='none'; $('mainContent').style.display='block'; }
     function setLoading(v){ $('mainContent').classList.toggle('loading', !!v); }
     function updateProgress(p,cur,total){ $('progressFill').style.width = `${p}%`; $('progressText').textContent = `${Math.round(p)}%`; $('chunkText').textContent = `Chunk ${cur}/${total}`; }
@@ -171,7 +172,7 @@
       });
     }
 
-    // ===== Auth (Implicit) =====
+    // ===== Auth (Implicit) — auto-redirect once per tab if no token =====
     function parseTokenFromHash(){
       const params = new URLSearchParams(location.hash.replace(/^#/, ''));
       return { token: params.get('access_token'), error: params.get('error'), errorDescription: params.get('error_description') };
@@ -180,15 +181,27 @@
       return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
     }
     function initAuth(){
-      const {token} = parseTokenFromHash();
+      const {token, error} = parseTokenFromHash();
       if(location.hash) history.replaceState(null,'',location.pathname);
+
       if(token){
+        sessionStorage.removeItem('gc_auto_auth_attempted');
         state.token = token; showMain(); setupDateLimits(); fetchAllUsers();
-      } else {
-        $('signinBtn').style.display = 'inline-block';
-        $('signinBtn').onclick = () => location.assign(authUrl());
-        $('authStatus').style.display = 'none';
+        return;
       }
+
+      // If we don't have a token yet: try auto sign-in once per tab
+      const attempted = sessionStorage.getItem('gc_auto_auth_attempted');
+      if(!attempted && !error){
+        sessionStorage.setItem('gc_auto_auth_attempted','1');
+        location.assign(authUrl());
+        return;
+      }
+
+      // Fallback button if auto redirect didn't complete (or user denied)
+      $('signinBtn').style.display = 'inline-block';
+      $('signinBtn').onclick = () => { sessionStorage.setItem('gc_auto_auth_attempted','1'); location.assign(authUrl()); };
+      $('authStatus').style.display = 'none';
     }
 
     // ===== API helper =====
@@ -346,7 +359,6 @@
       const d=+new Date(x); return isNaN(d)?null:d;
     }
 
-    // 👉 merge analytics from ALL transcripts (and top-level if present)
     function extractSignals(parsed){
       const out=[]; const buckets=[];
       if(parsed?.analytics) buckets.push(parsed.analytics);
@@ -355,29 +367,15 @@
       }
       for(const a of buckets){
         if(!a) continue;
-        // Sentiment
         if(Array.isArray(a.sentiment)){
           for(const s of a.sentiment){
-            out.push({
-              kind:'sentiment',
-              role:normaliseRole(s.participant||s.participantPurpose),
-              startTimeMs:coerceMs(s.startTimeMs),
-              endTimeMs:(s.duration?.milliseconds!=null)?(coerceMs(s.startTimeMs)+Number(s.duration.milliseconds)):coerceMs(s.endTimeMs),
-              value:labelToScore(s.sentiment??s.score??s.value??s.level)
-            });
+            out.push({kind:'sentiment',role:normaliseRole(s.participant||s.participantPurpose),startTimeMs:coerceMs(s.startTimeMs),endTimeMs:(s.duration?.milliseconds!=null)?(coerceMs(s.startTimeMs)+Number(s.duration.milliseconds)):coerceMs(s.endTimeMs),value:labelToScore(s.sentiment??s.score??s.value??s.level)});
           }
         }
-        // Empathy
         if(Array.isArray(a.empathy)){
           for(const e of a.empathy){
             const v=e.empathy??e.score??e.value;
-            out.push({
-              kind:'empathy',
-              role:normaliseRole(e.participant||e.participantPurpose),
-              startTimeMs:coerceMs(e.startTimeMs),
-              endTimeMs:(e.duration?.milliseconds!=null)?(coerceMs(e.startTimeMs)+Number(e.duration.milliseconds)):coerceMs(e.endTimeMs),
-              value:(typeof v==='number')?v:labelToScore(v)
-            });
+            out.push({kind:'empathy',role:normaliseRole(e.participant||e.participantPurpose),startTimeMs:coerceMs(e.startTimeMs),endTimeMs:(e.duration?.milliseconds!=null)?(coerceMs(e.startTimeMs)+Number(e.duration.milliseconds)):coerceMs(e.endTimeMs),value:(typeof v==='number')?v:labelToScore(v)});
           }
         }
       }
@@ -415,10 +413,9 @@
       }).filter(p=>p.decoratedText && p.startTimeMs!=null).sort((a,b)=>a.startTimeMs-b.startTimeMs);
     }
 
-    // === Numeric → Label thresholds ===
-    const SENTIMENT_POS = 0.15;   // > +0.15 = Positive
-    const SENTIMENT_NEG = -0.15;  // < -0.15 = Negative
-    const EMPATHY_GOOD  = 0.20;   // > +0.20 = Empathetic (else Unhelpful)
+    const SENTIMENT_POS = 0.15;
+    const SENTIMENT_NEG = -0.15;
+    const EMPATHY_GOOD  = 0.20;
 
     function sentimentToLabel(v){
       if (v == null || isNaN(v)) return {label:'-', css:'sentiment-neutral'};
@@ -430,7 +427,7 @@
       if (v == null || isNaN(v)) return {label:'-', css:''};
       return (v > EMPATHY_GOOD)
         ? {label:'Empathetic', css:'empathy-positive'}
-        : {label:'Unhelpful',  css:''};
+        : {label:'Unhelpful',  css:'empathy-negative'}; // now red
     }
 
     // ===== Transcript fetch & render =====
@@ -445,7 +442,7 @@
       try{
         btn.disabled=true; statusEl.textContent='Requesting transcript URL…';
         const urlRes = await fetch(CONFIG.apiHost + '/api/v2/speechandtextanalytics/conversations/' + conversationId + '/communications/' + commId + '/transcripturl', {headers:{Authorization:'Bearer ' + state.token}});
-        if(!urlRes.ok){ const t=await res.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); }
+        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); }
         const {url:presigned} = await urlRes.json(); if(!presigned) throw new Error('No URL in transcript response.');
         statusEl.textContent='Downloading transcript…';
         const raw = await fetch(presigned); if(!raw.ok) throw new Error('Transcript download failed: ' + raw.status + ' ' + raw.statusText);
@@ -459,7 +456,6 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === Anchor sentiment/empathy ONLY to the nearest phrase (±1.5s)
     const SIGNAL_ANCHOR_TOL_MS = 1500;
 
     function renderTranscript(container, parsed, rawText, conversation){
@@ -473,7 +469,6 @@
         return;
       }
 
-      // start with a clean slate per phrase
       const enriched = phrases.map(p=>({
         ...p,
         sentiment: (p.sentimentDirect!=null)?Number(p.sentimentDirect):null,
@@ -493,13 +488,11 @@
             if(d<=SIGNAL_ANCHOR_TOL_MS && d<bestDelta){ bestDelta=d; bestIdx=i; }
           }
           if(bestIdx>=0){
-            // only assign if not already set (phrase-level value wins)
             if(enriched[bestIdx][field]==null) enriched[bestIdx][field]=s.value;
           }
         }
       }
 
-      // anchor analytics to *one* phrase per signal
       assignNearest(sentiments,'external','sentiment');
       assignNearest(empathies,'internal','empathy');
 
@@ -540,9 +533,9 @@
       let html = '<div class="transcript-summary">';
       html += '<div class="t-summary-grid">';
       html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (getConversationMediaTypes(conversation) || 'Voice') + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">' + conversation.conversationId + '</span></div>';
       html += '<div class="t-kv"><span class="k">Conversation Start:</span><span>' + fmt(conversation.conversationStart) + '</span></div>';
       html += '<div class="t-kv"><span class="k">Conversation End:</span><span>' + fmt(conversation.conversationEnd) + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">' + conversation.conversationId + '</span></div>';
       html += '<div class="t-kv"><span class="k">Duration:</span><span>' + formatSeconds(calculateDuration(conversation.conversationStart, conversation.conversationEnd)) + '</span></div>';
       html += '<div class="t-kv"><span class="k">Direction:</span><span>' + (getDirection(conversation) || 'Unknown') + '</span></div>';
       html += '</div></div>';
@@ -562,32 +555,19 @@
         const rel = absolute ? (p.startTimeMs - convStart) : p.startTimeMs;
         const timeFormatted = mmss(Math.max(0, rel));
         const participantType = p.participantPurpose==='internal' ? 'Internal' : 'External';
-        html += '<tr>';
-        html += '<td class="mono" style="font-weight:bold;">'+timeFormatted+'</td>';
-        html += '<td>'+participantType+'</td>';
-        html += '<td>'+escapeHtml(displayName(p))+'</td>';
-        html += '<td>'+escapeHtml(p.decoratedText)+'</td>';
-        html += '<td>'+sentimentCell(p)+'</td>';
-        html += '<td>'+empathyCell(p)+'</td>';
-        html += '<td>'+confidenceCell(p)+'</td>';
-        html += '</tr>';
+        let row = '<tr>';
+        row += '<td class="mono" style="font-weight:bold;">'+timeFormatted+'</td>';
+        row += '<td>'+participantType+'</td>';
+        row += '<td>'+escapeHtml(displayName(p))+'</td>';
+        row += '<td>'+escapeHtml(p.decoratedText)+'</td>';
+        row += '<td>'+sentimentCell(p)+'</td>';
+        row += '<td>'+empathyCell(p)+'</td>';
+        row += '<td>'+confidenceCell(p)+'</td>';
+        row += '</tr>';
+        html += row;
       });
 
       html += '</tbody></table>';
-
-      const customerPhrases = enriched.filter(p=>p.participantPurpose==='external');
-      const agentPhrases = enriched.filter(p=>p.participantPurpose==='internal');
-      const customerWithSent = customerPhrases.filter(p=>p.sentiment!=null);
-      const agentWithEmp = agentPhrases.filter(p=>p.empathy!=null);
-      const withConf = enriched.filter(p=>p.confidence!=null);
-
-      html += '<div class="muted" style="margin-top:16px;padding:12px;background:#f8f9fa;border-radius:6px;">';
-      html += '<strong>Analytics Summary:</strong><br>';
-      html += 'Total phrases: ' + enriched.length + '<br>';
-      html += 'Customer phrases with sentiment: ' + customerWithSent.length + '<br>';
-      html += 'Agent phrases with empathy: ' + agentWithEmp.length + '<br>';
-      html += 'Phrases with confidence: ' + withConf.length + '<br>';
-      html += '</div>';
 
       container.innerHTML = html;
     }
