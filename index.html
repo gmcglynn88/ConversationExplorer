@@ -413,11 +413,27 @@
       // Process phrases to extract the data we need
       const processedPhrases = allPhrases
         .map(phrase => {
+          // Extract sentiment score - handle different possible structures
+          let sentimentScore = null;
+          
+          // Try to get sentiment from phrase.sentiment directly
+          if (phrase.sentiment !== undefined && phrase.sentiment !== null) {
+            sentimentScore = phrase.sentiment;
+          }
+          // Try to get sentiment from phrase.sentimentScore
+          else if (phrase.sentimentScore !== undefined && phrase.sentimentScore !== null) {
+            sentimentScore = phrase.sentimentScore;
+          }
+          // Try to get sentiment from nested objects
+          else if (phrase.sentiment && typeof phrase.sentiment === 'object') {
+            sentimentScore = phrase.sentiment.score || phrase.sentiment.value || null;
+          }
+          
           return {
             participantPurpose: phrase.participantPurpose || 'external',
             decoratedText: phrase.decoratedText || phrase.text || '',
             startTimeMs: phrase.startTimeMs || 0,
-            sentiment: phrase.sentiment,
+            sentiment: sentimentScore,
             confidence: phrase.confidence,
             participantId: phrase.participantId,
             userIds: phrase.userIds || [],
@@ -427,12 +443,12 @@
         .filter(p => p.decoratedText && p.decoratedText.trim()) // Remove empty phrases
         .sort((a, b) => a.startTimeMs - b.startTimeMs); // Sort by timestamp
 
-      console.log('Processed phrases:', processedPhrases);
+      console.log('Processed phrases with sentiment:', processedPhrases);
 
       const nameMap = mapParticipantNames(conversation);
       const { internal, external } = participantsByType(conversation);
 
-      // Function to format sentiment - ONLY for external participants
+      // Function to format sentiment - ONLY for external participants (customers)
       function formatSentiment(phrase) {
         // Only show sentiment for external participants (customers)
         if (phrase.participantPurpose !== 'external') {
