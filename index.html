@@ -358,41 +358,81 @@
       }
       return best;
     }
+
+    // 👉 NEW: merge analytics from ALL transcripts (and top-level if present)
     function extractSignals(parsed){
-      const out=[]; const a=parsed?.analytics||{};
-      if(Array.isArray(a.sentiment)){
-        for(const s of a.sentiment){
-          out.push({kind:'sentiment',role:normaliseRole(s.participant||s.participantPurpose),startTimeMs:coerceMs(s.startTimeMs),endTimeMs:coerceMs(s.endTimeMs),value:labelToScore(s.sentiment??s.score??s.value??s.level)});
+      const out=[];
+      const buckets = [];
+
+      if (parsed && parsed.analytics) buckets.push(parsed.analytics);
+      if (Array.isArray(parsed?.transcripts)) {
+        for (const tr of parsed.transcripts) {
+          if (tr && tr.analytics) buckets.push(tr.analytics);
         }
       }
-      if(Array.isArray(a.empathy)){
-        for(const e of a.empathy){
-          const v=e.empathy??e.score??e.value;
-          out.push({kind:'empathy',role:normaliseRole(e.participant||e.participantPurpose),startTimeMs:coerceMs(e.startTimeMs),endTimeMs:coerceMs(e.endTimeMs),value:(typeof v==='number')?v:labelToScore(v)});
+
+      for (const a of buckets) {
+        if (!a) continue;
+
+        // Sentiment
+        if (Array.isArray(a.sentiment)) {
+          for (const s of a.sentiment) {
+            out.push({
+              kind:'sentiment',
+              role: normaliseRole(s.participant||s.participantPurpose),
+              startTimeMs: coerceMs(s.startTimeMs),
+              endTimeMs: (s.duration && s.duration.milliseconds!=null)
+                          ? (coerceMs(s.startTimeMs) + Number(s.duration.milliseconds))
+                          : coerceMs(s.endTimeMs),
+              value: labelToScore(s.sentiment??s.score??s.value??s.level)
+            });
+          }
         }
-      }
-      if(Array.isArray(a.members)){
-        for(const m of a.members){
-          const role=normaliseRole(m.participantPurpose||m.role||m.participant);
-          for(const seg of (m.segments||m.analyticsSegments||[])){
-            const ss=coerceMs(seg.startTimeMs??seg.start??seg.segmentStart);
-            const se=coerceMs(seg.endTimeMs??seg.end??seg.segmentEnd);
-            if(seg.sentiment!=null || seg.sentimentScore!=null || seg.score!=null){
-              out.push({kind:'sentiment',role,startTimeMs:ss,endTimeMs:se,value:labelToScore(seg.sentiment??seg.sentimentScore??seg.score)});
-            }
-            if(seg.empathy!=null || seg.empathyScore!=null || seg.scoreEmpathy!=null){
-              const v=seg.empathy??seg.empathyScore??seg.scoreEmpathy;
-              out.push({kind:'empathy',role,startTimeMs:ss,endTimeMs:se,value:(typeof v==='number')?v:labelToScore(v)});
+
+        // Empathy
+        if (Array.isArray(a.empathy)) {
+          for (const e of a.empathy) {
+            const v=e.empathy??e.score??e.value;
+            out.push({
+              kind:'empathy',
+              role: normaliseRole(e.participant||e.participantPurpose),
+              startTimeMs: coerceMs(e.startTimeMs),
+              endTimeMs: (e.duration && e.duration.milliseconds!=null)
+                          ? (coerceMs(e.startTimeMs) + Number(e.duration.milliseconds))
+                          : coerceMs(e.endTimeMs),
+              value: (typeof v==='number')?v:labelToScore(v)
+            });
+          }
+        }
+
+        // (Optional extras)
+        if (Array.isArray(a.members)) {
+          for (const m of a.members) {
+            const role=normaliseRole(m.participantPurpose||m.role||m.participant);
+            for (const seg of (m.segments||m.analyticsSegments||[])) {
+              const ss=coerceMs(seg.startTimeMs??seg.start??seg.segmentStart);
+              const se=coerceMs(seg.endTimeMs??seg.end??seg.segmentEnd);
+              if(seg.sentiment!=null || seg.sentimentScore!=null || seg.score!=null){
+                out.push({kind:'sentiment',role,startTimeMs:ss,endTimeMs:se,value:labelToScore(seg.sentiment??seg.sentimentScore??seg.score)});
+              }
+              if(seg.empathy!=null || seg.empathyScore!=null || seg.scoreEmpathy!=null){
+                const v=seg.empathy??seg.empathyScore??seg.scoreEmpathy;
+                out.push({kind:'empathy',role,startTimeMs:ss,endTimeMs:se,value:(typeof v==='number')?v:labelToScore(v)});
+              }
             }
           }
         }
       }
+
       return out.filter(s=>s.role && (s.startTimeMs!=null));
     }
+
     function processPhrases(parsed){
       let phrases=[];
       if (parsed && Array.isArray(parsed.transcripts)){
-        parsed.transcripts.forEach(tr=>{ if(Array.isArray(tr.phrases)) phrases=phrases.concat(tr.phrases); if(tr.analytics && !parsed.analytics) parsed.analytics = tr.analytics; });
+        parsed.transcripts.forEach(tr=>{
+          if(Array.isArray(tr.phrases)) phrases=phrases.concat(tr.phrases);
+        });
       }
       if(Array.isArray(parsed?.phrases)) phrases=phrases.concat(parsed.phrases);
       return phrases.map(ph=>{
@@ -405,7 +445,18 @@
                  :(typeof ph.asrConfidence==='number')?ph.asrConfidence:null;
         const directSent=ph.sentimentScore??ph.sentiment??ph.analytics?.sentiment??null;
         const directEmp =ph.empathyScore??ph.empathy??ph.analytics?.empathy??null;
-        return { participantPurpose: role||'external', decoratedText: text, startTimeMs: start ?? 0, endTimeMs: end ?? ((start ?? 0)+3000), sentimentDirect: labelToScore(directSent), empathyDirect: (typeof directEmp==='number')?directEmp:labelToScore(directEmp), confidence: (typeof conf==='number'?conf:null), participantId: ph.participantId, userIds: ph.userIds||[], externalContactIds: ph.externalContactIds||[] };
+        return {
+          participantPurpose: role||'external',
+          decoratedText: text,
+          startTimeMs: start ?? 0,
+          endTimeMs: end ?? ((start ?? 0)+3000),
+          sentimentDirect: labelToScore(directSent),
+          empathyDirect: (typeof directEmp==='number')?directEmp:labelToScore(directEmp),
+          confidence: (typeof conf==='number'?conf:null),
+          participantId: ph.participantId,
+          userIds: ph.userIds||[],
+          externalContactIds: ph.externalContactIds||[]
+        };
       }).filter(p=>p.decoratedText && p.startTimeMs!=null).sort((a,b)=>a.startTimeMs-b.startTimeMs);
     }
 
@@ -532,8 +583,8 @@
       html += '<th>Participant Type</th>';
       html += '<th>Participant</th>';
       html += '<th>Participant Text</th>';
-      html += '<th>Sentiment<br><span class="muted mono">(label • score)</span></th>';
-      html += '<th>Empathy<br><span class="muted mono">(label • score)</span></th>';
+      html += '<th>Sentiment</th>';
+      html += '<th>Empathy</th>';
       html += '<th>Confidence</th>';
       html += '</tr></thead><tbody>';
 
