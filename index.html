@@ -54,6 +54,10 @@
     .sentiment-positive{color:#16a34a;font-weight:700}
     .sentiment-negative{color:#dc2626;font-weight:700}
     .sentiment-neutral{color:#f59e0b;font-weight:700}
+    .empathy-positive{color:#16a34a;font-weight:700}
+    .confidence-high{color:#16a34a;font-weight:700}
+    .confidence-medium{color:#f59e0b;font-weight:700}
+    .confidence-low{color:#dc2626;font-weight:700}
     .loading{opacity:.6;pointer-events:none}
     .future-date{color:#ccc;cursor:not-allowed}
   </style>
@@ -417,7 +421,7 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === UPDATED transcript renderer with proper sentiment handling ===
+    // === UPDATED transcript renderer with sentiment, empathy, and confidence ===
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = s => (s||'').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]});
       
@@ -445,28 +449,22 @@
       // Process phrases to extract the data we need
       const processedPhrases = allPhrases
         .map(phrase => {
-          // Extract sentiment score - handle different possible structures
-          let sentimentScore = null;
+          // Extract sentiment score
+          let sentimentScore = phrase.sentiment;
           
-          // Try to get sentiment from phrase.sentiment directly
-          if (phrase.sentiment !== undefined && phrase.sentiment !== null) {
-            sentimentScore = phrase.sentiment;
-          }
-          // Try to get sentiment from phrase.sentimentScore
-          else if (phrase.sentimentScore !== undefined && phrase.sentimentScore !== null) {
-            sentimentScore = phrase.sentimentScore;
-          }
-          // Try to get sentiment from nested objects
-          else if (phrase.sentiment && typeof phrase.sentiment === 'object') {
-            sentimentScore = phrase.sentiment.score || phrase.sentiment.value || null;
-          }
+          // Extract empathy score
+          let empathyScore = phrase.empathy;
+          
+          // Extract confidence score
+          let confidenceScore = phrase.confidence;
           
           return {
             participantPurpose: phrase.participantPurpose || 'external',
             decoratedText: phrase.decoratedText || phrase.text || '',
             startTimeMs: phrase.startTimeMs || 0,
             sentiment: sentimentScore,
-            confidence: phrase.confidence,
+            empathy: empathyScore,
+            confidence: confidenceScore,
             participantId: phrase.participantId,
             userIds: phrase.userIds || [],
             externalContactIds: phrase.externalContactIds || []
@@ -475,7 +473,7 @@
         .filter(p => p.decoratedText && p.decoratedText.trim()) // Remove empty phrases
         .sort((a, b) => a.startTimeMs - b.startTimeMs); // Sort by timestamp
 
-      console.log('Processed phrases with sentiment:', processedPhrases);
+      console.log('Processed phrases with scores:', processedPhrases);
 
       const nameMap = mapParticipantNames(conversation);
       const { internal, external } = participantsByType(conversation);
@@ -495,6 +493,34 @@
         if (val > 0.1) return '<span class="sentiment-positive">' + fixed + '</span>';
         if (val < -0.1) return '<span class="sentiment-negative">' + fixed + '</span>';
         return '<span class="sentiment-neutral">' + fixed + '</span>';
+      }
+
+      // Function to format empathy - ONLY for internal participants (agents)
+      function formatEmpathy(phrase) {
+        // Only show empathy for internal participants (agents)
+        if (phrase.participantPurpose !== 'internal') {
+          return '-';
+        }
+        
+        const score = phrase.empathy;
+        if (score === null || score === undefined || isNaN(score)) return '-';
+        
+        const val = Number(score);
+        const fixed = val.toFixed(3);
+        if (val > 0.1) return '<span class="empathy-positive">' + fixed + '</span>';
+        return fixed;
+      }
+
+      // Function to format confidence - for ALL participants
+      function formatConfidence(phrase) {
+        const score = phrase.confidence;
+        if (score === null || score === undefined || isNaN(score)) return '-';
+        
+        const val = Number(score);
+        const fixed = val.toFixed(3);
+        if (val >= 0.8) return '<span class="confidence-high">' + fixed + '</span>';
+        if (val >= 0.6) return '<span class="confidence-medium">' + fixed + '</span>';
+        return '<span class="confidence-low">' + fixed + '</span>';
       }
 
       // Function to get participant display name
@@ -524,7 +550,7 @@
       // Calculate relative timestamps (from conversation start)
       const conversationStartTime = new Date(conversation.conversationStart).getTime();
       
-      // Build the transcript HTML with PROPER table structure
+      // Build the transcript HTML with ALL columns
       let html = '<div class="transcript-summary">';
       html += '<div class="t-summary-grid">';
       html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (getConversationMediaTypes(conversation) || 'Voice') + '</span></div>';
@@ -537,17 +563,19 @@
       html += '<div class="t-kv"><span class="k">External Participant(s):</span><span>' + (external.length ? external.map(function(n){ return '<span class="pill">' + escapeHtml(n) + '</span>'; }).join(' ') : '-') + '</span></div>';
       html += '</div></div>';
 
-      // FIXED: Proper table structure with all columns
+      // Table with all columns: Time, Participant Type, Participant, Text, Sentiment, Empathy, Confidence
       html += '<table class="transcript-table"><thead><tr>';
       html += '<th>Time (MM:SS)</th>';
       html += '<th>Participant Type</th>';
       html += '<th>Participant</th>';
       html += '<th>Participant Text</th>';
       html += '<th>Sentiment</th>';
+      html += '<th>Empathy</th>';
+      html += '<th>Confidence</th>';
       html += '</tr></thead><tbody>';
 
       if (processedPhrases.length === 0) {
-        html += '<tr><td colspan="5" class="muted" style="text-align:center;">No transcript content found</td></tr>';
+        html += '<tr><td colspan="7" class="muted" style="text-align:center;">No transcript content found</td></tr>';
       } else {
         processedPhrases.forEach(function(phrase) {
           // Calculate relative time from conversation start
@@ -562,20 +590,23 @@
           html += '<td>' + escapeHtml(participantName) + '</td>';
           html += '<td>' + escapeHtml(phrase.decoratedText) + '</td>';
           html += '<td>' + formatSentiment(phrase) + '</td>';
+          html += '<td>' + formatEmpathy(phrase) + '</td>';
+          html += '<td>' + formatConfidence(phrase) + '</td>';
           html += '</tr>';
         });
       }
 
       html += '</tbody></table>';
       
-      // Add debug info if no sentiment is found for customers
-      const customerPhrases = processedPhrases.filter(p => p.participantPurpose === 'external');
-      const customerPhrasesWithSentiment = customerPhrases.filter(p => p.sentiment !== null && p.sentiment !== undefined);
+      // Add debug info if no scores are found
+      const phrasesWithScores = processedPhrases.filter(p => 
+        p.sentiment !== null || p.empathy !== null || p.confidence !== null
+      );
       
-      if (customerPhrases.length > 0 && customerPhrasesWithSentiment.length === 0) {
+      if (processedPhrases.length > 0 && phrasesWithScores.length === 0) {
         html += '<div class="muted" style="margin-top:16px;padding:12px;background:#f8f9fa;border-radius:6px;">';
-        html += '<strong>Note:</strong> No sentiment data found in transcript for customer phrases. ';
-        html += 'The transcript structure may not include sentiment scores. ';
+        html += '<strong>Note:</strong> No sentiment, empathy, or confidence data found in transcript. ';
+        html += 'The transcript structure may not include these scores. ';
         html += '<details style="margin-top:8px;"><summary>Debug Info</summary>';
         html += '<pre>' + escapeHtml(JSON.stringify(parsed, null, 2)).substring(0, 2000) + '</pre>';
         html += '</details></div>';
