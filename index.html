@@ -465,22 +465,30 @@
       // Process phrases to extract the data we need
       const processedPhrases = allPhrases
         .map(phrase => {
-          // Find matching sentiment for this phrase
+          // Find matching sentiment for this phrase - FIXED MATCHING LOGIC
           let sentimentScore = null;
-          const matchingSentiment = sentimentAnalytics.find(s => 
-            Math.abs(s.startTimeMs - phrase.startTimeMs) < 1000 && // Match by timestamp
-            s.participant === phrase.participantPurpose // Match by participant type
-          );
+          const matchingSentiment = sentimentAnalytics.find(s => {
+            // Use phraseIndex for exact matching if available
+            if (s.phraseIndex !== undefined && phrase.phraseIndex !== undefined) {
+              return s.phraseIndex === phrase.phraseIndex;
+            }
+            // Fallback to timestamp matching with larger tolerance
+            return Math.abs((s.startTimeMs || 0) - (phrase.startTimeMs || 0)) < 2000;
+          });
           if (matchingSentiment) {
             sentimentScore = matchingSentiment.sentiment;
           }
           
-          // Find matching empathy for this phrase
+          // Find matching empathy for this phrase - FIXED MATCHING LOGIC
           let empathyScore = null;
-          const matchingEmpathy = empathyAnalytics.find(e => 
-            Math.abs(e.startTimeMs - phrase.startTimeMs) < 1000 && // Match by timestamp
-            e.participant === phrase.participantPurpose // Match by participant type
-          );
+          const matchingEmpathy = empathyAnalytics.find(e => {
+            // Use phraseIndex for exact matching if available
+            if (e.phraseIndex !== undefined && phrase.phraseIndex !== undefined) {
+              return e.phraseIndex === phrase.phraseIndex;
+            }
+            // Fallback to timestamp matching with larger tolerance
+            return Math.abs((e.startTimeMs || 0) - (phrase.startTimeMs || 0)) < 2000;
+          });
           if (matchingEmpathy) {
             empathyScore = matchingEmpathy.empathy;
           }
@@ -497,7 +505,8 @@
             confidence: confidenceScore,
             participantId: phrase.participantId,
             userIds: phrase.userIds || [],
-            externalContactIds: phrase.externalContactIds || []
+            externalContactIds: phrase.externalContactIds || [],
+            phraseIndex: phrase.phraseIndex // Keep for debugging
           };
         })
         .filter(p => p.decoratedText && p.decoratedText.trim()) // Remove empty phrases
