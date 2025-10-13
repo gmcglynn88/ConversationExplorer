@@ -448,7 +448,7 @@
         renderTranscript(container, parsed, text, conv);
         statusEl.textContent='Transcript loaded.';
       }catch(e){
-        console.error(e); statusEl.innerHTML='⚠️ ' + e.message + '<br><span class="muted">If this is a CORS issue, try opening the raw URL in a new tab.</span>';
+        console.error(e); statusEl.innerHTML='⚠️ ' + e.message + '<span class="muted"> — If this is a CORS issue, try opening the raw URL in a new tab.</span>';
       }finally{ btn.disabled=false; }
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
@@ -470,13 +470,13 @@
       const enriched = phrases.map(p=>{
         let sentiment = p.sentimentDirect;
         let empathy   = p.empathyDirect;
-        if(sentiment==null && p.participantPurpose==='external'){
-          const match = pickOverlapSignal(p, sentiments.filter(s=>normaliseRole(s.role)===p.participantPurpose));
-          if(match && match.value!=null) sentiment = match.value;
+        if (sentiment == null && p.participantPurpose === 'external') {
+          const match = pickOverlapSignal(p, sentiments.filter(s => normaliseRole(s.role) === p.participantPurpose));
+          if (match && match.value != null) sentiment = match.value;
         }
-        if(empathy==null && p.participantPurpose==='internal'){
-          const match = pickOverlapSignal(p, empathies.filter(s=>normaliseRole(s.role)===p.participantPurpose));
-          ifmatch && match.value!=null) empathy = match.value;
+        if (empathy == null && p.participantPurpose === 'internal') {
+          const match = pickOverlapSignal(p, empathies.filter(s => normaliseRole(s.role) === p.participantPurpose));
+          if (match && match.value != null) empathy = match.value;
         }
         return {...p, sentiment, empathy};
       });
@@ -515,7 +515,6 @@
         return external[0] || 'Customer';
       }
 
-      // Relative time: if phrase start is absolute epoch, convert to relative via convo start
       const convStart = new Date(conversation.conversationStart).getTime();
 
       let html = '<div class="transcript-summary">';
