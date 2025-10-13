@@ -151,7 +151,6 @@
     const mmss = ms => { const totalSeconds = Math.max(0, Math.floor((+ms||0)/1000)); const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0'); };
     const calculateDuration = (a,b)=>{ if(!a||!b) return 0; return new Date(b)-new Date(a); };
 
-    function showAuthStatus(){ $('authStatus').style.display='block'; $('mainContent').style.display='none'; }
     function showMain(){ $('authStatus').style.display='none'; $('mainContent').style.display='block'; }
     function setLoading(v){ $('mainContent').classList.toggle('loading', !!v); }
     function updateProgress(p,cur,total){ $('progressFill').style.width = `${p}%`; $('progressText').textContent = `${Math.round(p)}%`; $('chunkText').textContent = `Chunk ${cur}/${total}`; }
@@ -161,8 +160,7 @@
     // ===== Date Range Limiting =====
     function setupDateLimits() {
       const today = new Date().toISOString().split('T')[0];
-      $('fromDate').max = today;
-      $('toDate').max = today;
+      $('fromDate').max = today; $('toDate').max = today;
       $('fromDate').addEventListener('change', function() {
         if (this.value > today) this.value = today;
         if ($('toDate').value && this.value > $('toDate').value) $('toDate').value = this.value;
@@ -347,92 +345,49 @@
       const n=Number(x); if(!isNaN(n)) return n;
       const d=+new Date(x); return isNaN(d)?null:d;
     }
-    function pickOverlapSignal(phrase, signals){
-      const ps=phrase.startTimeMs, pe=(phrase.endTimeMs ?? ps+3000);
-      let best=null, bestOverlap=-1, bestStartDelta=1e18;
-      for(const sig of signals){
-        const ss=sig.startTimeMs ?? 0, se=sig.endTimeMs ?? (ss+3000);
-        const overlap=Math.max(0, Math.min(pe,se)-Math.max(ps,ss));
-        const startDelta=Math.abs((sig.startTimeMs ?? ss)-ps);
-        if(overlap>bestOverlap || (overlap===bestOverlap && startDelta<bestStartDelta)){ best=sig; bestOverlap=overlap; bestStartDelta=startDelta; }
-      }
-      return best;
-    }
 
-    // 👉 NEW: merge analytics from ALL transcripts (and top-level if present)
+    // 👉 merge analytics from ALL transcripts (and top-level if present)
     function extractSignals(parsed){
-      const out=[];
-      const buckets = [];
-
-      if (parsed && parsed.analytics) buckets.push(parsed.analytics);
-      if (Array.isArray(parsed?.transcripts)) {
-        for (const tr of parsed.transcripts) {
-          if (tr && tr.analytics) buckets.push(tr.analytics);
-        }
+      const out=[]; const buckets=[];
+      if(parsed?.analytics) buckets.push(parsed.analytics);
+      if(Array.isArray(parsed?.transcripts)){
+        for(const tr of parsed.transcripts){ if(tr?.analytics) buckets.push(tr.analytics); }
       }
-
-      for (const a of buckets) {
-        if (!a) continue;
-
+      for(const a of buckets){
+        if(!a) continue;
         // Sentiment
-        if (Array.isArray(a.sentiment)) {
-          for (const s of a.sentiment) {
+        if(Array.isArray(a.sentiment)){
+          for(const s of a.sentiment){
             out.push({
               kind:'sentiment',
-              role: normaliseRole(s.participant||s.participantPurpose),
-              startTimeMs: coerceMs(s.startTimeMs),
-              endTimeMs: (s.duration && s.duration.milliseconds!=null)
-                          ? (coerceMs(s.startTimeMs) + Number(s.duration.milliseconds))
-                          : coerceMs(s.endTimeMs),
-              value: labelToScore(s.sentiment??s.score??s.value??s.level)
+              role:normaliseRole(s.participant||s.participantPurpose),
+              startTimeMs:coerceMs(s.startTimeMs),
+              endTimeMs:(s.duration?.milliseconds!=null)?(coerceMs(s.startTimeMs)+Number(s.duration.milliseconds)):coerceMs(s.endTimeMs),
+              value:labelToScore(s.sentiment??s.score??s.value??s.level)
             });
           }
         }
-
         // Empathy
-        if (Array.isArray(a.empathy)) {
-          for (const e of a.empathy) {
+        if(Array.isArray(a.empathy)){
+          for(const e of a.empathy){
             const v=e.empathy??e.score??e.value;
             out.push({
               kind:'empathy',
-              role: normaliseRole(e.participant||e.participantPurpose),
-              startTimeMs: coerceMs(e.startTimeMs),
-              endTimeMs: (e.duration && e.duration.milliseconds!=null)
-                          ? (coerceMs(e.startTimeMs) + Number(e.duration.milliseconds))
-                          : coerceMs(e.endTimeMs),
-              value: (typeof v==='number')?v:labelToScore(v)
+              role:normaliseRole(e.participant||e.participantPurpose),
+              startTimeMs:coerceMs(e.startTimeMs),
+              endTimeMs:(e.duration?.milliseconds!=null)?(coerceMs(e.startTimeMs)+Number(e.duration.milliseconds)):coerceMs(e.endTimeMs),
+              value:(typeof v==='number')?v:labelToScore(v)
             });
           }
         }
-
-        // (Optional extras)
-        if (Array.isArray(a.members)) {
-          for (const m of a.members) {
-            const role=normaliseRole(m.participantPurpose||m.role||m.participant);
-            for (const seg of (m.segments||m.analyticsSegments||[])) {
-              const ss=coerceMs(seg.startTimeMs??seg.start??seg.segmentStart);
-              const se=coerceMs(seg.endTimeMs??seg.end??seg.segmentEnd);
-              if(seg.sentiment!=null || seg.sentimentScore!=null || seg.score!=null){
-                out.push({kind:'sentiment',role,startTimeMs:ss,endTimeMs:se,value:labelToScore(seg.sentiment??seg.sentimentScore??seg.score)});
-              }
-              if(seg.empathy!=null || seg.empathyScore!=null || seg.scoreEmpathy!=null){
-                const v=seg.empathy??seg.empathyScore??seg.scoreEmpathy;
-                out.push({kind:'empathy',role,startTimeMs:ss,endTimeMs:se,value:(typeof v==='number')?v:labelToScore(v)});
-              }
-            }
-          }
-        }
       }
-
-      return out.filter(s=>s.role && (s.startTimeMs!=null));
+      return out.filter(s=>s.role && s.startTimeMs!=null);
     }
 
     function processPhrases(parsed){
       let phrases=[];
-      if (parsed && Array.isArray(parsed.transcripts)){
-        parsed.transcripts.forEach(tr=>{
-          if(Array.isArray(tr.phrases)) phrases=phrases.concat(tr.phrases);
-        });
+      if(Array.isArray(parsed?.transcripts)){
+        parsed.transcripts.forEach(tr=>{ if(Array.isArray(tr.phrases)) phrases=phrases.concat(tr.phrases); });
       }
       if(Array.isArray(parsed?.phrases)) phrases=phrases.concat(parsed.phrases);
       return phrases.map(ph=>{
@@ -490,7 +445,7 @@
       try{
         btn.disabled=true; statusEl.textContent='Requesting transcript URL…';
         const urlRes = await fetch(CONFIG.apiHost + '/api/v2/speechandtextanalytics/conversations/' + conversationId + '/communications/' + commId + '/transcripturl', {headers:{Authorization:'Bearer ' + state.token}});
-        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); }
+        if(!urlRes.ok){ const t=await res.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); }
         const {url:presigned} = await urlRes.json(); if(!presigned) throw new Error('No URL in transcript response.');
         statusEl.textContent='Downloading transcript…';
         const raw = await fetch(presigned); if(!raw.ok) throw new Error('Transcript download failed: ' + raw.status + ' ' + raw.statusText);
@@ -504,6 +459,9 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
+    // === Anchor sentiment/empathy ONLY to the nearest phrase (±1.5s)
+    const SIGNAL_ANCHOR_TOL_MS = 1500;
+
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = s => (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 
@@ -515,37 +473,48 @@
         return;
       }
 
-      const sentiments = signals.filter(s=>s.kind==='sentiment');
-      const empathies  = signals.filter(s=>s.kind==='empathy');
+      // start with a clean slate per phrase
+      const enriched = phrases.map(p=>({
+        ...p,
+        sentiment: (p.sentimentDirect!=null)?Number(p.sentimentDirect):null,
+        empathy:   (p.empathyDirect!=null)?Number(p.empathyDirect):null
+      }));
 
-      const enriched = phrases.map(p=>{
-        let sentiment = p.sentimentDirect;
-        let empathy   = p.empathyDirect;
-        if (sentiment == null && p.participantPurpose === 'external') {
-          const match = pickOverlapSignal(p, sentiments.filter(s => normaliseRole(s.role) === p.participantPurpose));
-          if (match && match.value != null) sentiment = match.value;
+      const sentiments = signals.filter(s=>s.kind==='sentiment' && s.role==='external');
+      const empathies  = signals.filter(s=>s.kind==='empathy'  && s.role==='internal');
+
+      function assignNearest(signalsArr, role, field){
+        for(const s of signalsArr){
+          let bestIdx=-1, bestDelta=Infinity;
+          for(let i=0;i<enriched.length;i++){
+            const p=enriched[i];
+            if(p.participantPurpose!==role) continue;
+            const d=Math.abs((p.startTimeMs??0) - (s.startTimeMs??0));
+            if(d<=SIGNAL_ANCHOR_TOL_MS && d<bestDelta){ bestDelta=d; bestIdx=i; }
+          }
+          if(bestIdx>=0){
+            // only assign if not already set (phrase-level value wins)
+            if(enriched[bestIdx][field]==null) enriched[bestIdx][field]=s.value;
+          }
         }
-        if (empathy == null && p.participantPurpose === 'internal') {
-          const match = pickOverlapSignal(p, empathies.filter(s => normaliseRole(s.role) === p.participantPurpose));
-          if (match && match.value != null) empathy = match.value;
-        }
-        return {...p, sentiment, empathy};
-      });
+      }
+
+      // anchor analytics to *one* phrase per signal
+      assignNearest(sentiments,'external','sentiment');
+      assignNearest(empathies,'internal','empathy');
 
       const nameMap = mapParticipantNames(conversation);
       const { internal, external } = participantsByType(conversation);
 
       function sentimentCell(p){
-        if(p.participantPurpose!=='external') return '-';
-        const v = (p.sentiment!=null) ? Number(p.sentiment) : null;
-        const {label, css} = sentimentToLabel(v);
-        return (v==null) ? '-' : `<span class="${css}">${label}</span><br><span class="muted mono">${v.toFixed(3)}</span>`;
+        if(p.participantPurpose!=='external' || p.sentiment==null) return '-';
+        const {label, css} = sentimentToLabel(Number(p.sentiment));
+        return `<span class="${css}">${label}</span>`;
       }
       function empathyCell(p){
-        if(p.participantPurpose!=='internal') return '-';
-        const v = (p.empathy!=null) ? Number(p.empathy) : null;
-        const {label, css} = empathyToLabel(v);
-        return (v==null) ? '-' : `<span class="${css}">${label}</span><br><span class="muted mono">${v.toFixed(3)}</span>`;
+        if(p.participantPurpose!=='internal' || p.empathy==null) return '-';
+        const {label, css} = empathyToLabel(Number(p.empathy));
+        return `<span class="${css}">${label}</span>`;
       }
       function confidenceCell(p){
         const v = (p.confidence!=null) ? Number(p.confidence) : null;
@@ -615,13 +584,11 @@
       html += '<div class="muted" style="margin-top:16px;padding:12px;background:#f8f9fa;border-radius:6px;">';
       html += '<strong>Analytics Summary:</strong><br>';
       html += 'Total phrases: ' + enriched.length + '<br>';
-      html += 'Customer phrases: ' + customerPhrases.length + ' (with sentiment: ' + customerWithSent.length + ')<br>';
-      html += 'Agent phrases: ' + agentPhrases.length + ' (with empathy: ' + agentWithEmp.length + ')<br>';
+      html += 'Customer phrases with sentiment: ' + customerWithSent.length + '<br>';
+      html += 'Agent phrases with empathy: ' + agentWithEmp.length + '<br>';
       html += 'Phrases with confidence: ' + withConf.length + '<br>';
-      html += 'Signals found – sentiment: ' + sentiments.length + ', empathy: ' + empathies.length + '<br>';
       html += '</div>';
 
-      html += '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(JSON.stringify(parsed, null, 2)) + '</pre></details>';
       container.innerHTML = html;
     }
 
