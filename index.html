@@ -28,7 +28,7 @@
     pre{background:#1f2937;color:#f3f4f6;padding:16px;border-radius:6px;overflow:auto;font-size:12px}
     .stats{display:flex;gap:16px;margin:16px 0}
     .stat-card{flex:1;border:1px solid var(--border-color);border-radius:8px;padding:16px;text-align:center;background:var(--card-bg)}
-    .stat-number{font-size:22px;color:var(--primary-color);font-weight:700}
+    .stat-number{font-size:22px;color:#63AB8F;font-weight:700}
     .journey-timeline{margin:20px 0 8px;padding-left:20px;border-left:3px solid var(--primary-color)}
     .journey-step{margin-bottom:18px;position:relative}
     .journey-step:before{content:'';position:absolute;left:-26px;top:0;width:16px;height:16px;border-radius:50%;background:var(--primary-color)}
@@ -182,7 +182,7 @@
       return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
     }
     function initAuth(){
-      const {token,error} = parseTokenFromHash();
+      const {token} = parseTokenFromHash();
       if(location.hash) history.replaceState(null,'',location.pathname);
       if(token){
         state.token = token; showMain(); setupDateLimits(); fetchAllUsers();
@@ -327,7 +327,7 @@
       return '<span class="participant-badge ' + cls + '">' + name + '</span>';
     }
 
-    // ===== Transcript helpers (patched for analytics) =====
+    // ===== Transcript helpers (robust + numeric→label) =====
     function normaliseRole(v){
       const s=(v||'').toString().toLowerCase();
       if(['internal','agent','user'].includes(s)) return 'internal';
@@ -409,6 +409,25 @@
       }).filter(p=>p.decoratedText && p.startTimeMs!=null).sort((a,b)=>a.startTimeMs-b.startTimeMs);
     }
 
+    // === Numeric → Label thresholds ===
+    const SENTIMENT_POS = 0.15;   // > +0.15 = Positive
+    const SENTIMENT_NEG = -0.15;  // < -0.15 = Negative
+    const EMPATHY_GOOD  = 0.20;   // > +0.20 = Empathetic (else Unhelpful)
+
+    function sentimentToLabel(v){
+      if (v == null || isNaN(v)) return {label:'-', css:'sentiment-neutral'};
+      if (v > SENTIMENT_POS)     return {label:'Positive', css:'sentiment-positive'};
+      if (v < SENTIMENT_NEG)     return {label:'Negative', css:'sentiment-negative'};
+      return {label:'Neutral', css:'sentiment-neutral'};
+    }
+    function empathyToLabel(v){
+      if (v == null || isNaN(v)) return {label:'-', css:''};
+      return (v > EMPATHY_GOOD)
+        ? {label:'Empathetic', css:'empathy-positive'}
+        : {label:'Unhelpful',  css:''};
+    }
+
+    // ===== Transcript fetch & render =====
     async function getTranscriptForConversation(conversationId){
       const statusEl = document.querySelector('#transcript-status-' + conversationId);
       const container = document.querySelector('#transcript-' + conversationId);
@@ -434,9 +453,9 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === Renderer (uses overlap+role matching) ===
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = s => (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+
       const phrases = processPhrases(parsed);
       const signals = extractSignals(parsed);
       if (!phrases.length){
@@ -444,8 +463,10 @@
           '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(typeof rawText==='string'?rawText:JSON.stringify(parsed,null,2)) + '</pre></details>';
         return;
       }
+
       const sentiments = signals.filter(s=>s.kind==='sentiment');
       const empathies  = signals.filter(s=>s.kind==='empathy');
+
       const enriched = phrases.map(p=>{
         let sentiment = p.sentimentDirect;
         let empathy   = p.empathyDirect;
@@ -455,7 +476,7 @@
         }
         if(empathy==null && p.participantPurpose==='internal'){
           const match = pickOverlapSignal(p, empathies.filter(s=>normaliseRole(s.role)===p.participantPurpose));
-          if(match && match.value!=null) empathy = match.value;
+          ifmatch && match.value!=null) empathy = match.value;
         }
         return {...p, sentiment, empathy};
       });
@@ -465,25 +486,23 @@
 
       function sentimentCell(p){
         if(p.participantPurpose!=='external') return '-';
-        if(p.sentiment==null || isNaN(p.sentiment)) return '-';
-        const v=+p.sentiment, fixed=v.toFixed(3);
-        if(v>0.1) return '<span class="sentiment-positive">'+fixed+'</span>';
-        if(v<-0.1) return '<span class="sentiment-negative">'+fixed+'</span>';
-        return '<span class="sentiment-neutral">'+fixed+'</span>';
+        const v = (p.sentiment!=null) ? Number(p.sentiment) : null;
+        const {label, css} = sentimentToLabel(v);
+        return (v==null) ? '-' : `<span class="${css}">${label}</span><br><span class="muted mono">${v.toFixed(3)}</span>`;
       }
       function empathyCell(p){
         if(p.participantPurpose!=='internal') return '-';
-        if(p.empathy==null || isNaN(p.empathy)) return '-';
-        const v=+p.empathy, fixed=v.toFixed(3);
-        if(v>0.1) return '<span class="empathy-positive">'+fixed+'</span>';
-        return fixed;
+        const v = (p.empathy!=null) ? Number(p.empathy) : null;
+        const {label, css} = empathyToLabel(v);
+        return (v==null) ? '-' : `<span class="${css}">${label}</span><br><span class="muted mono">${v.toFixed(3)}</span>`;
       }
       function confidenceCell(p){
-        if(p.confidence==null || isNaN(p.confidence)) return '-';
-        const v=+p.confidence, fixed=v.toFixed(3);
-        if(v>=0.8) return '<span class="confidence-high">'+fixed+'</span>';
-        if(v>=0.6) return '<span class="confidence-medium">'+fixed+'</span>';
-        return '<span class="confidence-low">'+fixed+'</span>';
+        const v = (p.confidence!=null) ? Number(p.confidence) : null;
+        if(v==null || isNaN(v)) return '-';
+        const fixed=v.toFixed(3);
+        if(v>=0.8) return `<span class="confidence-high">${fixed}</span>`;
+        if(v>=0.6) return `<span class="confidence-medium">${fixed}</span>`;
+        return `<span class="confidence-low">${fixed}</span>`;
       }
       function displayName(p){
         if(p.participantPurpose==='internal'){
@@ -496,6 +515,7 @@
         return external[0] || 'Customer';
       }
 
+      // Relative time: if phrase start is absolute epoch, convert to relative via convo start
       const convStart = new Date(conversation.conversationStart).getTime();
 
       let html = '<div class="transcript-summary">';
@@ -509,7 +529,13 @@
       html += '</div></div>';
 
       html += '<table class="transcript-table"><thead><tr>';
-      html += '<th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Participant Text</th><th>Sentiment</th><th>Empathy</th><th>Confidence</th>';
+      html += '<th>Time (MM:SS)</th>';
+      html += '<th>Participant Type</th>';
+      html += '<th>Participant</th>';
+      html += '<th>Participant Text</th>';
+      html += '<th>Sentiment<br><span class="muted mono">(label • score)</span></th>';
+      html += '<th>Empathy<br><span class="muted mono">(label • score)</span></th>';
+      html += '<th>Confidence</th>';
       html += '</tr></thead><tbody>';
 
       enriched.forEach(p=>{
@@ -549,6 +575,21 @@
       container.innerHTML = html;
     }
 
+    function mapParticipantNames(conv){
+      const map={};
+      for(const p of (conv.participants||[])){
+        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); map[p.participantId||p.userId] = u?u.name:`Agent (${p.userId})`; }
+        else if(p.purpose==='customer'){ map[p.participantId||'customer']='Customer'; }
+        else if(p.purpose==='acd'){ const qid=getQueueIdFromParticipant(p); map[p.participantId||qid||'acd']=qid?(getQueueName(qid)||'Queue'):'Queue'; }
+      } return map;
+    }
+    function participantsByType(conv){
+      const internal=new Set(), external=new Set();
+      for(const p of (conv.participants||[])){
+        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); internal.add(u?u.name:`Agent (${p.userId})`); }
+        else if(p.purpose==='customer'){ external.add(p.participantName||'Customer'); }
+      } return {internal:[...internal], external:[...external]};
+    }
     function findCommunicationsIdFromDetails(conv){
       for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
       for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.sessionId) return s.sessionId;
