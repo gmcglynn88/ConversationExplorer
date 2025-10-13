@@ -55,6 +55,7 @@
     .sentiment-negative{color:#dc2626;font-weight:700}
     .sentiment-neutral{color:#f59e0b;font-weight:700}
     .loading{opacity:.6;pointer-events:none}
+    .future-date{color:#ccc;cursor:not-allowed}
   </style>
 </head>
 <body>
@@ -158,6 +159,36 @@
     function showProgress(){ $('progressSection').style.display='block'; $('resultsSection').style.display='none'; }
     function hideProgress(){ $('progressSection').style.display='none'; }
 
+    // ===== Date Range Limiting =====
+    function setupDateLimits() {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Set max attribute to today for both date inputs
+      $('fromDate').max = today;
+      $('toDate').max = today;
+      
+      // Add event listeners to prevent future dates
+      $('fromDate').addEventListener('change', function() {
+        if (this.value > today) {
+          this.value = today;
+        }
+        // Ensure toDate is not before fromDate
+        if ($('toDate').value && this.value > $('toDate').value) {
+          $('toDate').value = this.value;
+        }
+      });
+      
+      $('toDate').addEventListener('change', function() {
+        if (this.value > today) {
+          this.value = today;
+        }
+        // Ensure fromDate is not after toDate
+        if ($('fromDate').value && this.value < $('fromDate').value) {
+          $('fromDate').value = this.value;
+        }
+      });
+    }
+
     // ===== Auth (Implicit) =====
     function parseTokenFromHash(){
       const params = new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -183,6 +214,7 @@
         console.log('Authentication successful');
         state.token = token;
         showMain();
+        setupDateLimits(); // Initialize date limits
         fetchAllUsers();
       } else {
         console.log('No token found, showing signin option');
@@ -385,7 +417,7 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === FIXED transcript renderer - SPECIFIC FOR THE PHRASES STRUCTURE ===
+    // === UPDATED transcript renderer with proper sentiment handling ===
     function renderTranscript(container, parsed, rawText, conversation){
       const escapeHtml = s => (s||'').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]});
       
@@ -492,7 +524,7 @@
       // Calculate relative timestamps (from conversation start)
       const conversationStartTime = new Date(conversation.conversationStart).getTime();
       
-      // Build the transcript HTML
+      // Build the transcript HTML with PROPER table structure
       let html = '<div class="transcript-summary">';
       html += '<div class="t-summary-grid">';
       html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (getConversationMediaTypes(conversation) || 'Voice') + '</span></div>';
@@ -505,8 +537,13 @@
       html += '<div class="t-kv"><span class="k">External Participant(s):</span><span>' + (external.length ? external.map(function(n){ return '<span class="pill">' + escapeHtml(n) + '</span>'; }).join(' ') : '-') + '</span></div>';
       html += '</div></div>';
 
+      // FIXED: Proper table structure with all columns
       html += '<table class="transcript-table"><thead><tr>';
-      html += '<th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Text</th><th>Sentiment</th>';
+      html += '<th>Time (MM:SS)</th>';
+      html += '<th>Participant Type</th>';
+      html += '<th>Participant</th>';
+      html += '<th>Participant Text</th>';
+      html += '<th>Sentiment</th>';
       html += '</tr></thead><tbody>';
 
       if (processedPhrases.length === 0) {
@@ -530,6 +567,20 @@
       }
 
       html += '</tbody></table>';
+      
+      // Add debug info if no sentiment is found for customers
+      const customerPhrases = processedPhrases.filter(p => p.participantPurpose === 'external');
+      const customerPhrasesWithSentiment = customerPhrases.filter(p => p.sentiment !== null && p.sentiment !== undefined);
+      
+      if (customerPhrases.length > 0 && customerPhrasesWithSentiment.length === 0) {
+        html += '<div class="muted" style="margin-top:16px;padding:12px;background:#f8f9fa;border-radius:6px;">';
+        html += '<strong>Note:</strong> No sentiment data found in transcript for customer phrases. ';
+        html += 'The transcript structure may not include sentiment scores. ';
+        html += '<details style="margin-top:8px;"><summary>Debug Info</summary>';
+        html += '<pre>' + escapeHtml(JSON.stringify(parsed, null, 2)).substring(0, 2000) + '</pre>';
+        html += '</details></div>';
+      }
+      
       container.innerHTML = html;
     }
 
@@ -539,6 +590,13 @@
         if(!state.selectedAgent){ setStatus('Please select an agent first', true); return; }
         const from=$('fromDate').value, to=$('toDate').value||from;
         if(!from){ setStatus('Please select a start date', true); return; }
+
+        // Validate dates are not in future
+        const today = new Date().toISOString().split('T')[0];
+        if(from > today || to > today) {
+          setStatus('Date range cannot be in the future', true);
+          return;
+        }
 
         setStatus('Fetching conversations…'); setLoading(true); $('resultsSection').style.display='none';
 
