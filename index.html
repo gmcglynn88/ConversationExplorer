@@ -148,12 +148,7 @@
     const fmt = d => { if(!d) return 'N/A'; try{return new Date(d).toLocaleString()}catch{return 'N/A'} };
     const fmtDMY = s => { if(!s||s.length<10) return s||''; const [y,m,d]=s.slice(0,10).split('-'); return `${d}-${m}-${y}`; };
     const formatSeconds = ms => { if(!ms) return '0s'; const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60); if(h) return `${h}h ${m%60}m ${s%60}s`; if(m) return `${m}m ${s%60}s`; return `${s}s`; };
-    const mmss = ms => { 
-      const totalSeconds = Math.max(0, Math.floor((+ms||0)/1000));
-      const minutes = Math.floor(totalSeconds / 60);
-      const seconds = totalSeconds % 60;
-      return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
-    };
+    const mmss = ms => { const totalSeconds = Math.max(0, Math.floor((+ms||0)/1000)); const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0'); };
     const calculateDuration = (a,b)=>{ if(!a||!b) return 0; return new Date(b)-new Date(a); };
 
     function showAuthStatus(){ $('authStatus').style.display='block'; $('mainContent').style.display='none'; }
@@ -166,30 +161,15 @@
     // ===== Date Range Limiting =====
     function setupDateLimits() {
       const today = new Date().toISOString().split('T')[0];
-      
-      // Set max attribute to today for both date inputs
       $('fromDate').max = today;
       $('toDate').max = today;
-      
-      // Add event listeners to prevent future dates
       $('fromDate').addEventListener('change', function() {
-        if (this.value > today) {
-          this.value = today;
-        }
-        // Ensure toDate is not before fromDate
-        if ($('toDate').value && this.value > $('toDate').value) {
-          $('toDate').value = this.value;
-        }
+        if (this.value > today) this.value = today;
+        if ($('toDate').value && this.value > $('toDate').value) $('toDate').value = this.value;
       });
-      
       $('toDate').addEventListener('change', function() {
-        if (this.value > today) {
-          this.value = today;
-        }
-        // Ensure fromDate is not after toDate
-        if ($('fromDate').value && this.value < $('fromDate').value) {
-          $('fromDate').value = this.value;
-        }
+        if (this.value > today) this.value = today;
+        if ($('fromDate').value && this.value < $('fromDate').value) $('fromDate').value = this.value;
       });
     }
 
@@ -201,32 +181,14 @@
     function authUrl(){
       return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
     }
-    
     function initAuth(){
-      console.log('Initializing auth...');
-      
-      const {token,error,errorDescription} = parseTokenFromHash();
-      console.log('Token present:', !!token);
-      console.log('Error:', error);
-      
-      if(location.hash) {
-        console.log('Clearing hash from URL');
-        history.replaceState(null,'',location.pathname);
-      }
-      
+      const {token,error} = parseTokenFromHash();
+      if(location.hash) history.replaceState(null,'',location.pathname);
       if(token){
-        console.log('Authentication successful');
-        state.token = token;
-        showMain();
-        setupDateLimits(); // Initialize date limits
-        fetchAllUsers();
+        state.token = token; showMain(); setupDateLimits(); fetchAllUsers();
       } else {
-        console.log('No token found, showing signin option');
         $('signinBtn').style.display = 'inline-block';
-        $('signinBtn').onclick = () => {
-          console.log('Initiating OAuth flow');
-          location.assign(authUrl());
-        };
+        $('signinBtn').onclick = () => location.assign(authUrl());
         $('authStatus').style.display = 'none';
       }
     }
@@ -258,12 +220,7 @@
     function populateUserSelect(users){
       const sel=$('agentSelect');
       sel.innerHTML = '<option value="">Select an agent…</option>' + users.map(u=>`<option value="${u.id}">${u.name||'(Unnamed)'}</option>`).join('');
-      sel.onchange=()=>{
-        const u = users.find(x=>x.id===sel.value);
-        state.selectedAgent=u||null;
-        if(u){ $('selectedAgentName').textContent=u.name||'(Unnamed)'; $('selectedAgentInfo').style.display='block'; }
-        else{ $('selectedAgentInfo').style.display='none'; }
-      };
+      sel.onchange=()=>{ const u = users.find(x=>x.id===sel.value); state.selectedAgent=u||null; if(u){ $('selectedAgentName').textContent=u.name||'(Unnamed)'; $('selectedAgentInfo').style.display='block'; } else { $('selectedAgentInfo').style.display='none'; } };
     }
     $('agentFilter').addEventListener('input', function(){
       const q = this.value.trim().toLowerCase();
@@ -370,28 +327,86 @@
       return '<span class="participant-badge ' + cls + '">' + name + '</span>';
     }
 
-    // ===== Transcript helpers =====
-    function mapParticipantNames(conv){
-      const map={};
-      for(const p of (conv.participants||[])){
-        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); map[p.participantId||p.userId] = u?u.name:`Agent (${p.userId})`; }
-        else if(p.purpose==='customer'){ map[p.participantId||'customer']='Customer'; }
-        else if(p.purpose==='acd'){ const qid=getQueueIdFromParticipant(p); map[p.participantId||qid||'acd']=qid?(getQueueName(qid)||'Queue'):'Queue'; }
-      } return map;
+    // ===== Transcript helpers (patched for analytics) =====
+    function normaliseRole(v){
+      const s=(v||'').toString().toLowerCase();
+      if(['internal','agent','user'].includes(s)) return 'internal';
+      if(['external','customer','participant','caller','callee'].includes(s)) return 'external';
+      return s||'external';
     }
-    function participantsByType(conv){
-      const internal=new Set(), external=new Set();
-      for(const p of (conv.participants||[])){
-        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); internal.add(u?u.name:`Agent (${p.userId})`); }
-        else if(p.purpose==='customer'){ external.add(p.participantName||'Customer'); }
-      } return {internal:[...internal], external:[...external]};
+    function labelToScore(v){
+      if(v==null) return null;
+      if(typeof v==='number') return v;
+      const s=v.toString().toUpperCase();
+      if(s.includes('POS')) return 0.6;
+      if(s.includes('NEG')) return -0.6;
+      if(s.includes('NEU')) return 0;
+      const n=parseFloat(v); return isNaN(n)?null:n;
     }
-    function findCommunicationsIdFromDetails(conv){
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.sessionId) return s.sessionId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.communicationId) return s.communicationId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.id) return s.id;
-      return null;
+    function coerceMs(x){
+      const n=Number(x); if(!isNaN(n)) return n;
+      const d=+new Date(x); return isNaN(d)?null:d;
+    }
+    function pickOverlapSignal(phrase, signals){
+      const ps=phrase.startTimeMs, pe=(phrase.endTimeMs ?? ps+3000);
+      let best=null, bestOverlap=-1, bestStartDelta=1e18;
+      for(const sig of signals){
+        const ss=sig.startTimeMs ?? 0, se=sig.endTimeMs ?? (ss+3000);
+        const overlap=Math.max(0, Math.min(pe,se)-Math.max(ps,ss));
+        const startDelta=Math.abs((sig.startTimeMs ?? ss)-ps);
+        if(overlap>bestOverlap || (overlap===bestOverlap && startDelta<bestStartDelta)){ best=sig; bestOverlap=overlap; bestStartDelta=startDelta; }
+      }
+      return best;
+    }
+    function extractSignals(parsed){
+      const out=[]; const a=parsed?.analytics||{};
+      if(Array.isArray(a.sentiment)){
+        for(const s of a.sentiment){
+          out.push({kind:'sentiment',role:normaliseRole(s.participant||s.participantPurpose),startTimeMs:coerceMs(s.startTimeMs),endTimeMs:coerceMs(s.endTimeMs),value:labelToScore(s.sentiment??s.score??s.value??s.level)});
+        }
+      }
+      if(Array.isArray(a.empathy)){
+        for(const e of a.empathy){
+          const v=e.empathy??e.score??e.value;
+          out.push({kind:'empathy',role:normaliseRole(e.participant||e.participantPurpose),startTimeMs:coerceMs(e.startTimeMs),endTimeMs:coerceMs(e.endTimeMs),value:(typeof v==='number')?v:labelToScore(v)});
+        }
+      }
+      if(Array.isArray(a.members)){
+        for(const m of a.members){
+          const role=normaliseRole(m.participantPurpose||m.role||m.participant);
+          for(const seg of (m.segments||m.analyticsSegments||[])){
+            const ss=coerceMs(seg.startTimeMs??seg.start??seg.segmentStart);
+            const se=coerceMs(seg.endTimeMs??seg.end??seg.segmentEnd);
+            if(seg.sentiment!=null || seg.sentimentScore!=null || seg.score!=null){
+              out.push({kind:'sentiment',role,startTimeMs:ss,endTimeMs:se,value:labelToScore(seg.sentiment??seg.sentimentScore??seg.score)});
+            }
+            if(seg.empathy!=null || seg.empathyScore!=null || seg.scoreEmpathy!=null){
+              const v=seg.empathy??seg.empathyScore??seg.scoreEmpathy;
+              out.push({kind:'empathy',role,startTimeMs:ss,endTimeMs:se,value:(typeof v==='number')?v:labelToScore(v)});
+            }
+          }
+        }
+      }
+      return out.filter(s=>s.role && (s.startTimeMs!=null));
+    }
+    function processPhrases(parsed){
+      let phrases=[];
+      if (parsed && Array.isArray(parsed.transcripts)){
+        parsed.transcripts.forEach(tr=>{ if(Array.isArray(tr.phrases)) phrases=phrases.concat(tr.phrases); if(tr.analytics && !parsed.analytics) parsed.analytics = tr.analytics; });
+      }
+      if(Array.isArray(parsed?.phrases)) phrases=phrases.concat(parsed.phrases);
+      return phrases.map(ph=>{
+        const start=coerceMs(ph.startTimeMs??ph.startTime??ph.offsetMs??ph.offset);
+        const end=coerceMs(ph.endTimeMs??ph.endTime??(start!=null?start+3000:null));
+        const role=normaliseRole(ph.participantPurpose??ph.participant??ph.role);
+        const text=ph.decoratedText??ph.text??ph.transcript??'';
+        const conf=(typeof ph.confidence==='number')?ph.confidence
+                 :(typeof ph.confidenceScore==='number')?ph.confidenceScore
+                 :(typeof ph.asrConfidence==='number')?ph.asrConfidence:null;
+        const directSent=ph.sentimentScore??ph.sentiment??ph.analytics?.sentiment??null;
+        const directEmp =ph.empathyScore??ph.empathy??ph.analytics?.empathy??null;
+        return { participantPurpose: role||'external', decoratedText: text, startTimeMs: start ?? 0, endTimeMs: end ?? ((start ?? 0)+3000), sentimentDirect: labelToScore(directSent), empathyDirect: (typeof directEmp==='number')?directEmp:labelToScore(directEmp), confidence: (typeof conf==='number'?conf:null), participantId: ph.participantId, userIds: ph.userIds||[], externalContactIds: ph.externalContactIds||[] };
+      }).filter(p=>p.decoratedText && p.startTimeMs!=null).sort((a,b)=>a.startTimeMs-b.startTimeMs);
     }
 
     async function getTranscriptForConversation(conversationId){
@@ -400,14 +415,12 @@
       const btn = document.querySelector('#btn-transcript-' + conversationId);
       if(!state.token){ alert('Not authenticated'); return; }
       const conv = state.convIndex[conversationId]; if(!conv){ statusEl.textContent='Conversation not found in state.'; return; }
-
       const commId = findCommunicationsIdFromDetails(conv);
       if(!commId){ statusEl.textContent='No sessionId found to use as communicationsId.'; return; }
-
       try{
         btn.disabled=true; statusEl.textContent='Requesting transcript URL…';
         const urlRes = await fetch(CONFIG.apiHost + '/api/v2/speechandtextanalytics/conversations/' + conversationId + '/communications/' + commId + '/transcripturl', {headers:{Authorization:'Bearer ' + state.token}});
-        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + res.statusText + (t?' - ' + t.slice(0,200):'')); }
+        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); }
         const {url:presigned} = await urlRes.json(); if(!presigned) throw new Error('No URL in transcript response.');
         statusEl.textContent='Downloading transcript…';
         const raw = await fetch(presigned); if(!raw.ok) throw new Error('Transcript download failed: ' + raw.status + ' ' + raw.statusText);
@@ -421,175 +434,70 @@
     }
     window.getTranscriptForConversation = getTranscriptForConversation;
 
-    // === FIXED transcript renderer with analytics sentiment and empathy ===
+    // === Renderer (uses overlap+role matching) ===
     function renderTranscript(container, parsed, rawText, conversation){
-      const escapeHtml = s => (s||'').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]});
-      
-      console.log('Transcript data structure:', parsed);
-      
-      // Extract all phrases from all transcripts
-      let allPhrases = [];
-      
-      if (parsed && Array.isArray(parsed.transcripts)) {
-        parsed.transcripts.forEach(transcript => {
-          if (transcript.phrases && Array.isArray(transcript.phrases)) {
-            allPhrases = allPhrases.concat(transcript.phrases);
-          }
-        });
-      }
-      
-      console.log('All phrases found:', allPhrases);
-
-      // Extract sentiment and empathy from analytics
-      let sentimentAnalytics = [];
-      let empathyAnalytics = [];
-      
-      if (parsed && parsed.analytics) {
-        if (parsed.analytics.sentiment && Array.isArray(parsed.analytics.sentiment)) {
-          sentimentAnalytics = parsed.analytics.sentiment;
-        }
-        if (parsed.analytics.empathy && Array.isArray(parsed.analytics.empathy)) {
-          empathyAnalytics = parsed.analytics.empathy;
-        }
-      }
-      
-      console.log('Sentiment analytics:', sentimentAnalytics);
-      console.log('Empathy analytics:', empathyAnalytics);
-
-      if (!allPhrases || allPhrases.length === 0) {
+      const escapeHtml = s => (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+      const phrases = processPhrases(parsed);
+      const signals = extractSignals(parsed);
+      if (!phrases.length){
         container.innerHTML = '<div class="muted">No transcript phrases found.</div>' +
-          '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(JSON.stringify(parsed, null, 2)) + '</pre></details>';
+          '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(typeof rawText==='string'?rawText:JSON.stringify(parsed,null,2)) + '</pre></details>';
         return;
       }
-
-      // Process phrases to extract the data we need
-      const processedPhrases = allPhrases
-        .map(phrase => {
-          // Find matching sentiment for this phrase - FIXED MATCHING LOGIC
-          let sentimentScore = null;
-          const matchingSentiment = sentimentAnalytics.find(s => {
-            // Use phraseIndex for exact matching if available
-            if (s.phraseIndex !== undefined && phrase.phraseIndex !== undefined) {
-              return s.phraseIndex === phrase.phraseIndex;
-            }
-            // Fallback to timestamp matching with larger tolerance
-            return Math.abs((s.startTimeMs || 0) - (phrase.startTimeMs || 0)) < 2000;
-          });
-          if (matchingSentiment) {
-            sentimentScore = matchingSentiment.sentiment;
-          }
-          
-          // Find matching empathy for this phrase - FIXED MATCHING LOGIC
-          let empathyScore = null;
-          const matchingEmpathy = empathyAnalytics.find(e => {
-            // Use phraseIndex for exact matching if available
-            if (e.phraseIndex !== undefined && phrase.phraseIndex !== undefined) {
-              return e.phraseIndex === phrase.phraseIndex;
-            }
-            // Fallback to timestamp matching with larger tolerance
-            return Math.abs((e.startTimeMs || 0) - (phrase.startTimeMs || 0)) < 2000;
-          });
-          if (matchingEmpathy) {
-            empathyScore = matchingEmpathy.empathy;
-          }
-          
-          // Extract confidence score
-          let confidenceScore = phrase.confidence;
-          
-          return {
-            participantPurpose: phrase.participantPurpose || 'external',
-            decoratedText: phrase.decoratedText || phrase.text || '',
-            startTimeMs: phrase.startTimeMs || 0,
-            sentiment: sentimentScore,
-            empathy: empathyScore,
-            confidence: confidenceScore,
-            participantId: phrase.participantId,
-            userIds: phrase.userIds || [],
-            externalContactIds: phrase.externalContactIds || [],
-            phraseIndex: phrase.phraseIndex // Keep for debugging
-          };
-        })
-        .filter(p => p.decoratedText && p.decoratedText.trim()) // Remove empty phrases
-        .sort((a, b) => a.startTimeMs - b.startTimeMs); // Sort by timestamp
-
-      console.log('Processed phrases with scores:', processedPhrases);
+      const sentiments = signals.filter(s=>s.kind==='sentiment');
+      const empathies  = signals.filter(s=>s.kind==='empathy');
+      const enriched = phrases.map(p=>{
+        let sentiment = p.sentimentDirect;
+        let empathy   = p.empathyDirect;
+        if(sentiment==null && p.participantPurpose==='external'){
+          const match = pickOverlapSignal(p, sentiments.filter(s=>normaliseRole(s.role)===p.participantPurpose));
+          if(match && match.value!=null) sentiment = match.value;
+        }
+        if(empathy==null && p.participantPurpose==='internal'){
+          const match = pickOverlapSignal(p, empathies.filter(s=>normaliseRole(s.role)===p.participantPurpose));
+          if(match && match.value!=null) empathy = match.value;
+        }
+        return {...p, sentiment, empathy};
+      });
 
       const nameMap = mapParticipantNames(conversation);
       const { internal, external } = participantsByType(conversation);
 
-      // Function to format sentiment - ONLY for external participants (customers)
-      function formatSentiment(phrase) {
-        // Only show sentiment for external participants (customers)
-        if (phrase.participantPurpose !== 'external') {
-          return '-';
-        }
-        
-        const score = phrase.sentiment;
-        if (score === null || score === undefined || isNaN(score)) return '-';
-        
-        const val = Number(score);
-        const fixed = val.toFixed(3);
-        if (val > 0.1) return '<span class="sentiment-positive">' + fixed + '</span>';
-        if (val < -0.1) return '<span class="sentiment-negative">' + fixed + '</span>';
-        return '<span class="sentiment-neutral">' + fixed + '</span>';
+      function sentimentCell(p){
+        if(p.participantPurpose!=='external') return '-';
+        if(p.sentiment==null || isNaN(p.sentiment)) return '-';
+        const v=+p.sentiment, fixed=v.toFixed(3);
+        if(v>0.1) return '<span class="sentiment-positive">'+fixed+'</span>';
+        if(v<-0.1) return '<span class="sentiment-negative">'+fixed+'</span>';
+        return '<span class="sentiment-neutral">'+fixed+'</span>';
       }
-
-      // Function to format empathy - ONLY for internal participants (agents)
-      function formatEmpathy(phrase) {
-        // Only show empathy for internal participants (agents)
-        if (phrase.participantPurpose !== 'internal') {
-          return '-';
-        }
-        
-        const score = phrase.empathy;
-        if (score === null || score === undefined || isNaN(score)) return '-';
-        
-        const val = Number(score);
-        const fixed = val.toFixed(3);
-        if (val > 0.1) return '<span class="empathy-positive">' + fixed + '</span>';
+      function empathyCell(p){
+        if(p.participantPurpose!=='internal') return '-';
+        if(p.empathy==null || isNaN(p.empathy)) return '-';
+        const v=+p.empathy, fixed=v.toFixed(3);
+        if(v>0.1) return '<span class="empathy-positive">'+fixed+'</span>';
         return fixed;
       }
-
-      // Function to format confidence - for ALL participants
-      function formatConfidence(phrase) {
-        const score = phrase.confidence;
-        if (score === null || score === undefined || isNaN(score)) return '-';
-        
-        const val = Number(score);
-        const fixed = val.toFixed(3);
-        if (val >= 0.8) return '<span class="confidence-high">' + fixed + '</span>';
-        if (val >= 0.6) return '<span class="confidence-medium">' + fixed + '</span>';
-        return '<span class="confidence-low">' + fixed + '</span>';
+      function confidenceCell(p){
+        if(p.confidence==null || isNaN(p.confidence)) return '-';
+        const v=+p.confidence, fixed=v.toFixed(3);
+        if(v>=0.8) return '<span class="confidence-high">'+fixed+'</span>';
+        if(v>=0.6) return '<span class="confidence-medium">'+fixed+'</span>';
+        return '<span class="confidence-low">'+fixed+'</span>';
       }
-
-      // Function to get participant display name
-      function getParticipantDisplay(phrase) {
-        const purpose = phrase.participantPurpose;
-        
-        if (purpose === 'internal') {
-          // For internal participants, try to find the agent name from userIds
-          if (phrase.userIds && phrase.userIds.length > 0) {
-            const userId = phrase.userIds[0];
-            if (nameMap[userId]) {
-              return nameMap[userId];
-            }
-            // Try to find user in state.users
-            const user = state.users.find(u => u.id === userId);
-            if (user) {
-              return user.name;
-            }
+      function displayName(p){
+        if(p.participantPurpose==='internal'){
+          if(p.userIds && p.userIds.length){
+            const id=p.userIds[0];
+            return nameMap[id] || (state.users.find(u=>u.id===id)?.name) || internal[0] || 'Agent';
           }
           return internal[0] || 'Agent';
-        } else {
-          // For external participants
-          return external[0] || 'Customer';
         }
+        return external[0] || 'Customer';
       }
 
-      // Calculate relative timestamps (from conversation start)
-      const conversationStartTime = new Date(conversation.conversationStart).getTime();
-      
-      // Build the transcript HTML with ALL columns
+      const convStart = new Date(conversation.conversationStart).getTime();
+
       let html = '<div class="transcript-summary">';
       html += '<div class="t-summary-grid">';
       html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (getConversationMediaTypes(conversation) || 'Voice') + '</span></div>';
@@ -598,64 +506,55 @@
       html += '<div class="t-kv"><span class="k">Conversation End:</span><span>' + fmt(conversation.conversationEnd) + '</span></div>';
       html += '<div class="t-kv"><span class="k">Duration:</span><span>' + formatSeconds(calculateDuration(conversation.conversationStart, conversation.conversationEnd)) + '</span></div>';
       html += '<div class="t-kv"><span class="k">Direction:</span><span>' + (getDirection(conversation) || 'Unknown') + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Internal Participant(s):</span><span>' + (internal.length ? internal.map(function(n){ return '<span class="pill">' + escapeHtml(n) + '</span>'; }).join(' ') : '-') + '</span></div>';
-      html += '<div class="t-kv"><span class="k">External Participant(s):</span><span>' + (external.length ? external.map(function(n){ return '<span class="pill">' + escapeHtml(n) + '</span>'; }).join(' ') : '-') + '</span></div>';
       html += '</div></div>';
 
-      // Table with all columns: Time, Participant Type, Participant, Text, Sentiment, Empathy, Confidence
       html += '<table class="transcript-table"><thead><tr>';
-      html += '<th>Time (MM:SS)</th>';
-      html += '<th>Participant Type</th>';
-      html += '<th>Participant</th>';
-      html += '<th>Participant Text</th>';
-      html += '<th>Sentiment</th>';
-      html += '<th>Empathy</th>';
-      html += '<th>Confidence</th>';
+      html += '<th>Time (MM:SS)</th><th>Participant Type</th><th>Participant</th><th>Participant Text</th><th>Sentiment</th><th>Empathy</th><th>Confidence</th>';
       html += '</tr></thead><tbody>';
 
-      if (processedPhrases.length === 0) {
-        html += '<tr><td colspan="7" class="muted" style="text-align:center;">No transcript content found</td></tr>';
-      } else {
-        processedPhrases.forEach(function(phrase) {
-          // Calculate relative time from conversation start
-          const relativeTimeMs = phrase.startTimeMs - conversationStartTime;
-          const timeFormatted = mmss(relativeTimeMs);
-          const participantType = phrase.participantPurpose === 'internal' ? 'Internal' : 'External';
-          const participantName = getParticipantDisplay(phrase);
-          
-          html += '<tr>';
-          html += '<td class="mono" style="font-weight:bold;">' + timeFormatted + '</td>';
-          html += '<td>' + participantType + '</td>';
-          html += '<td>' + escapeHtml(participantName) + '</td>';
-          html += '<td>' + escapeHtml(phrase.decoratedText) + '</td>';
-          html += '<td>' + formatSentiment(phrase) + '</td>';
-          html += '<td>' + formatEmpathy(phrase) + '</td>';
-          html += '<td>' + formatConfidence(phrase) + '</td>';
-          html += '</tr>';
-        });
-      }
+      enriched.forEach(p=>{
+        const absolute = p.startTimeMs>1e12;
+        const rel = absolute ? (p.startTimeMs - convStart) : p.startTimeMs;
+        const timeFormatted = mmss(Math.max(0, rel));
+        const participantType = p.participantPurpose==='internal' ? 'Internal' : 'External';
+        html += '<tr>';
+        html += '<td class="mono" style="font-weight:bold;">'+timeFormatted+'</td>';
+        html += '<td>'+participantType+'</td>';
+        html += '<td>'+escapeHtml(displayName(p))+'</td>';
+        html += '<td>'+escapeHtml(p.decoratedText)+'</td>';
+        html += '<td>'+sentimentCell(p)+'</td>';
+        html += '<td>'+empathyCell(p)+'</td>';
+        html += '<td>'+confidenceCell(p)+'</td>';
+        html += '</tr>';
+      });
 
       html += '</tbody></table>';
-      
-      // Add debug information
-      const customerPhrases = processedPhrases.filter(p => p.participantPurpose === 'external');
-      const agentPhrases = processedPhrases.filter(p => p.participantPurpose === 'internal');
-      
-      const customerPhrasesWithSentiment = customerPhrases.filter(p => p.sentiment !== null && p.sentiment !== undefined);
-      const agentPhrasesWithEmpathy = agentPhrases.filter(p => p.empathy !== null && p.empathy !== undefined);
-      const phrasesWithConfidence = processedPhrases.filter(p => p.confidence !== null && p.confidence !== undefined);
-      
+
+      const customerPhrases = enriched.filter(p=>p.participantPurpose==='external');
+      const agentPhrases = enriched.filter(p=>p.participantPurpose==='internal');
+      const customerWithSent = customerPhrases.filter(p=>p.sentiment!=null);
+      const agentWithEmp = agentPhrases.filter(p=>p.empathy!=null);
+      const withConf = enriched.filter(p=>p.confidence!=null);
+
       html += '<div class="muted" style="margin-top:16px;padding:12px;background:#f8f9fa;border-radius:6px;">';
       html += '<strong>Analytics Summary:</strong><br>';
-      html += 'Total phrases: ' + processedPhrases.length + '<br>';
-      html += 'Customer phrases: ' + customerPhrases.length + ' (with sentiment: ' + customerPhrasesWithSentiment.length + ')<br>';
-      html += 'Agent phrases: ' + agentPhrases.length + ' (with empathy: ' + agentPhrasesWithEmpathy.length + ')<br>';
-      html += 'Phrases with confidence: ' + phrasesWithConfidence.length + '<br>';
-      html += 'Sentiment analytics found: ' + sentimentAnalytics.length + '<br>';
-      html += 'Empathy analytics found: ' + empathyAnalytics.length + '<br>';
+      html += 'Total phrases: ' + enriched.length + '<br>';
+      html += 'Customer phrases: ' + customerPhrases.length + ' (with sentiment: ' + customerWithSent.length + ')<br>';
+      html += 'Agent phrases: ' + agentPhrases.length + ' (with empathy: ' + agentWithEmp.length + ')<br>';
+      html += 'Phrases with confidence: ' + withConf.length + '<br>';
+      html += 'Signals found – sentiment: ' + sentiments.length + ', empathy: ' + empathies.length + '<br>';
       html += '</div>';
-      
+
+      html += '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(JSON.stringify(parsed, null, 2)) + '</pre></details>';
       container.innerHTML = html;
+    }
+
+    function findCommunicationsIdFromDetails(conv){
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.sessionId) return s.sessionId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.communicationId) return s.communicationId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.id) return s.id;
+      return null;
     }
 
     // ===== Fetch conversations =====
@@ -664,13 +563,8 @@
         if(!state.selectedAgent){ setStatus('Please select an agent first', true); return; }
         const from=$('fromDate').value, to=$('toDate').value||from;
         if(!from){ setStatus('Please select a start date', true); return; }
-
-        // Validate dates are not in future
         const today = new Date().toISOString().split('T')[0];
-        if(from > today || to > today) {
-          setStatus('Date range cannot be in the future', true);
-          return;
-        }
+        if(from > today || to > today) { setStatus('Date range cannot be in the future', true); return; }
 
         setStatus('Fetching conversations…'); setLoading(true); $('resultsSection').style.display='none';
 
@@ -689,20 +583,14 @@
           const ch=dateChunks[i]; updateProgress((i/dateChunks.length)*100, i+1, dateChunks.length);
           setStatus('Fetching chunk ' + (i+1) + '/' + dateChunks.length + ': ' + ch.start + ' → ' + ch.end);
           try{
-            const body = {
-              interval: ch.start + 'T00:00:00/' + ch.end + 'T23:59:59',
-              order:'asc', orderBy:'conversationStart',
-              segmentFilters:[{type:'and',predicates:[{type:'dimension',dimension:'userId',operator:'matches',value: state.selectedAgent.id }]}]
-            };
-            const res = await fetch(CONFIG.apiHost + '/api/v2/analytics/conversations/details/query', {
-              method:'POST', headers:{Authorization:'Bearer ' + state.token,'Content-Type':'application/json'}, body:JSON.stringify(body)
-            });
+            const body = { interval: ch.start + 'T00:00:00/' + ch.end + 'T23:59:59', order:'asc', orderBy:'conversationStart', segmentFilters:[{type:'and',predicates:[{type:'dimension',dimension:'userId',operator:'matches',value: state.selectedAgent.id }]}] };
+            const res = await fetch(CONFIG.apiHost + '/api/v2/analytics/conversations/details/query', { method:'POST', headers:{Authorization:'Bearer ' + state.token,'Content-Type':'application/json'}, body:JSON.stringify(body) });
             if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error('Details error: ' + res.status + ' ' + res.statusText + (t?' - ' + t.slice(0,200):'')); }
             const data = await res.json(); const convs = data.conversations||[];
             for(const c of convs) state.convIndex[c.conversationId]=c;
             state.conversations = state.conversations.concat(convs);
           }catch(e){ console.error(e); setStatus('Warning: failed chunk ' + (i+1) + ', continuing…', true); }
-          if(i<dateChunks.length-1) await new Promise(function(r){return setTimeout(r,400);});
+          if(i<dateChunks.length-1) await new Promise(r=>setTimeout(r,400));
         }
 
         await warmQueueCache(state.conversations);
