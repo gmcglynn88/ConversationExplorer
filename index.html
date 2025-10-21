@@ -533,9 +533,9 @@
       let html = '<div class="transcript-summary">';
       html += '<div class="t-summary-grid">';
       html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (getConversationMediaTypes(conversation) || 'Voice') + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">' + conversation.conversationId + '</span></div>';
       html += '<div class="t-kv"><span class="k">Conversation Start:</span><span>' + fmt(conversation.conversationStart) + '</span></div>';
       html += '<div class="t-kv"><span class="k">Conversation End:</span><span>' + fmt(conversation.conversationEnd) + '</span></div>';
+      html += '<div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">' + conversation.conversationId + '</span></div>';
       html += '<div class="t-kv"><span class="k">Duration:</span><span>' + formatSeconds(calculateDuration(conversation.conversationStart, conversation.conversationEnd)) + '</span></div>';
       html += '<div class="t-kv"><span class="k">Direction:</span><span>' + (getDirection(conversation) || 'Unknown') + '</span></div>';
       html += '</div></div>';
