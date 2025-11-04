@@ -62,6 +62,32 @@
     .confidence-low{color:#dc2626;font-weight:700}
     .loading{opacity:.6;pointer-events:none}
     .future-date{color:#ccc;cursor:not-allowed}
+    
+    /* New styles for transfer reporting */
+    .tab-container { margin-top: 20px; }
+    .tab-buttons { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
+    .tab-button { padding: 10px 20px; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; }
+    .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    .transfer-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    .transfer-table th, .transfer-table td { border: 1px solid var(--border-color); padding: 12px; text-align: left; }
+    .transfer-table th { background-color: var(--primary-color); color: white; font-weight: 600; }
+    .transfer-table tr:nth-child(even) { background-color: var(--light-bg); }
+    .transfer-table tr:hover { background-color: #f0f7f4; }
+    
+    .transfer-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .transfer-stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; text-align: center; }
+    .transfer-stat-number { font-size: 24px; color: var(--primary-color); font-weight: 700; margin-bottom: 8px; }
+    .transfer-stat-label { font-size: 14px; color: var(--text-light); }
+    
+    .transfer-flow { display: flex; align-items: center; justify-content: center; margin: 10px 0; }
+    .transfer-node { padding: 8px 16px; border-radius: 6px; background: var(--light-bg); border: 1px solid var(--border-color); font-weight: 600; }
+    .transfer-arrow { margin: 0 12px; color: var(--primary-color); font-size: 18px; }
+    
+    .filter-controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-controls select, .filter-controls input { flex: 1; min-width: 150px; }
   </style>
 </head>
 <body>
@@ -119,15 +145,66 @@
       </div>
     </div>
 
-    <div id="resultsSection" style="display:none;">
-      <div class="card">
-        <h2 style="margin:0 0 12px;">Conversation Results</h2>
-        <div class="stats">
-          <div class="stat-card"><div class="stat-number" id="totalConversations">0</div><div class="stat-label">Total Conversations</div></div>
-          <div class="stat-card"><div class="stat-number" id="dateRange">-</div><div class="stat-label">Date Range</div></div>
-          <div class="stat-card"><div class="stat-number" id="selectedAgent">-</div><div class="stat-label">Selected Agent</div></div>
+    <div class="tab-container">
+      <div class="tab-buttons">
+        <button class="tab-button active" data-tab="conversations">Conversations</button>
+        <button class="tab-button" data-tab="transfers">Transfer Reporting</button>
+      </div>
+      
+      <div id="conversations-tab" class="tab-content active">
+        <div id="resultsSection" style="display:none;">
+          <div class="card">
+            <h2 style="margin:0 0 12px;">Conversation Results</h2>
+            <div class="stats">
+              <div class="stat-card"><div class="stat-number" id="totalConversations">0</div><div class="stat-label">Total Conversations</div></div>
+              <div class="stat-card"><div class="stat-number" id="dateRange">-</div><div class="stat-label">Date Range</div></div>
+              <div class="stat-card"><div class="stat-number" id="selectedAgent">-</div><div class="stat-label">Selected Agent</div></div>
+            </div>
+            <div id="results"></div>
+          </div>
         </div>
-        <div id="results"></div>
+      </div>
+      
+      <div id="transfers-tab" class="tab-content">
+        <div class="card">
+          <h2 style="margin:0 0 12px;">Transfer Reporting</h2>
+          <div class="filter-controls">
+            <select id="transferFilter">
+              <option value="all">All Transfers</option>
+              <option value="agent-to-agent">Agent → Agent</option>
+              <option value="agent-to-queue">Agent → Queue</option>
+              <option value="queue-to-agent">Queue → Agent</option>
+            </select>
+            <input type="text" id="transferSearch" placeholder="Search by conversation ID, queue, or agent">
+          </div>
+          
+          <div id="transferStats" class="transfer-stats">
+            <!-- Will be populated with transfer statistics -->
+          </div>
+          
+          <div id="transferTableContainer">
+            <table class="transfer-table">
+              <thead>
+                <tr>
+                  <th>Conversation ID</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <th>Transfer Type</th>
+                  <th>Time</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+              <tbody id="transferTableBody">
+                <!-- Will be populated with transfer data -->
+              </tbody>
+            </table>
+          </div>
+          
+          <div id="noTransfersMessage" style="display:none; text-align:center; padding:40px;">
+            <div style="font-size:48px;margin-bottom:12px">🔄</div>
+            <div>No transfers found for the selected criteria.</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -142,7 +219,15 @@
     };
 
     // ===== State =====
-    const state = { token:null, users:[], queues:{}, conversations:[], selectedAgent:null, convIndex:{} };
+    const state = { 
+      token:null, 
+      users:[], 
+      queues:{}, 
+      conversations:[], 
+      selectedAgent:null, 
+      convIndex:{},
+      allTransfers: [] // New state for storing all transfers
+    };
 
     // ===== Utils =====
     const $ = id => document.getElementById(id);
@@ -172,6 +257,25 @@
       });
     }
 
+    // ===== Tab Management =====
+    function setupTabs() {
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const tabContents = document.querySelectorAll('.tab-content');
+      
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          // Remove active class from all buttons and contents
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          tabContents.forEach(content => content.classList.remove('active'));
+          
+          // Add active class to clicked button and corresponding content
+          button.classList.add('active');
+          const tabId = button.getAttribute('data-tab') + '-tab';
+          document.getElementById(tabId).classList.add('active');
+        });
+      });
+    }
+
     // ===== Auth (Implicit) — auto-redirect once per tab if no token =====
     function parseTokenFromHash(){
       const params = new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -186,7 +290,7 @@
 
       if(token){
         sessionStorage.removeItem('gc_auto_auth_attempted');
-        state.token = token; showMain(); setupDateLimits(); fetchAllUsers();
+        state.token = token; showMain(); setupDateLimits(); setupTabs(); fetchAllUsers();
         return;
       }
 
@@ -313,7 +417,21 @@
       for(let i=1;i<legs.length;i++){ const prev=legs[i-1], cur=legs[i];
         const a2a = prev.userId && cur.userId && prev.userId!==cur.userId;
         const a2q = prev.userId && cur.queueId && !cur.userId;
-        if(a2a||a2q){ count++; transfers.push({step:i,from: prev.userId?'Agent':(prev.queueId?'Queue':(prev.purpose||'Unknown')), to: cur.userId?'Agent':(cur.queueId?'Queue':(cur.purpose||'Unknown')), time:new Date(cur.when).toISOString(), type:a2a?'Agent → Agent':'Agent → Queue'}); }
+        const q2a = prev.queueId && cur.userId;
+        if(a2a||a2q||q2a){ 
+          count++; 
+          transfers.push({
+            step:i,
+            from: prev.userId?'Agent':(prev.queueId?'Queue':(prev.purpose||'Unknown')), 
+            to: cur.userId?'Agent':(cur.queueId?'Queue':(cur.purpose||'Unknown')), 
+            time:new Date(cur.when).toISOString(), 
+            type:a2a?'Agent → Agent':(a2q?'Agent → Queue':'Queue → Agent'),
+            fromId: prev.userId || prev.queueId,
+            toId: cur.userId || cur.queueId,
+            conversationId: c.conversationId,
+            duration: i < legs.length-1 ? (legs[i+1].when - cur.when) : 0
+          }); 
+        }
       }
       return {totalTransfers:count, transfers};
     }
@@ -616,6 +734,7 @@
 
         showProgress();
         state.conversations=[]; state.convIndex={};
+        state.allTransfers = []; // Reset transfers
 
         for(let i=0;i<dateChunks.length;i++){
           const ch=dateChunks[i]; updateProgress((i/dateChunks.length)*100, i+1, dateChunks.length);
@@ -627,6 +746,20 @@
             const data = await res.json(); const convs = data.conversations||[];
             for(const c of convs) state.convIndex[c.conversationId]=c;
             state.conversations = state.conversations.concat(convs);
+            
+            // Extract transfers from conversations
+            for(const conv of convs) {
+              const transferAnalysis = analyzeTransfers(conv);
+              if(transferAnalysis.transfers.length > 0) {
+                state.allTransfers = state.allTransfers.concat(
+                  transferAnalysis.transfers.map(t => ({
+                    ...t,
+                    conversationId: conv.conversationId,
+                    conversationStart: conv.conversationStart
+                  }))
+                );
+              }
+            }
           }catch(e){ console.error(e); setStatus('Warning: failed chunk ' + (i+1) + ', continuing…', true); }
           if(i<dateChunks.length-1) await new Promise(r=>setTimeout(r,400));
         }
@@ -635,6 +768,7 @@
 
         updateProgress(100, dateChunks.length, dateChunks.length);
         renderResults(state.conversations, from, to);
+        renderTransferReport(); // Render the transfer report
         setStatus('Found ' + state.conversations.length + ' conversations for the selected period');
         setLoading(false); hideProgress();
       }catch(e){ setStatus('Error fetching conversations: ' + e.message, true); setLoading(false); hideProgress(); }
@@ -738,6 +872,111 @@
       }).join('');
     }
 
+    // ===== Transfer Reporting =====
+    function renderTransferReport() {
+      const statsContainer = $('transferStats');
+      const tableBody = $('transferTableBody');
+      const noTransfersMessage = $('noTransfersMessage');
+      
+      if (state.allTransfers.length === 0) {
+        statsContainer.innerHTML = '';
+        tableBody.innerHTML = '';
+        noTransfersMessage.style.display = 'block';
+        return;
+      }
+      
+      noTransfersMessage.style.display = 'none';
+      
+      // Calculate statistics
+      const totalTransfers = state.allTransfers.length;
+      const agentToAgent = state.allTransfers.filter(t => t.type === 'Agent → Agent').length;
+      const agentToQueue = state.allTransfers.filter(t => t.type === 'Agent → Queue').length;
+      const queueToAgent = state.allTransfers.filter(t => t.type === 'Queue → Agent').length;
+      
+      // Render statistics
+      statsContainer.innerHTML = `
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${totalTransfers}</div>
+          <div class="transfer-stat-label">Total Transfers</div>
+        </div>
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${agentToAgent}</div>
+          <div class="transfer-stat-label">Agent → Agent</div>
+        </div>
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${agentToQueue}</div>
+          <div class="transfer-stat-label">Agent → Queue</div>
+        </div>
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${queueToAgent}</div>
+          <div class="transfer-stat-label">Queue → Agent</div>
+        </div>
+      `;
+      
+      // Apply filters
+      const filterType = $('transferFilter').value;
+      const searchTerm = $('transferSearch').value.toLowerCase();
+      
+      let filteredTransfers = state.allTransfers;
+      
+      if (filterType !== 'all') {
+        filteredTransfers = filteredTransfers.filter(t => {
+          if (filterType === 'agent-to-agent') return t.type === 'Agent → Agent';
+          if (filterType === 'agent-to-queue') return t.type === 'Agent → Queue';
+          if (filterType === 'queue-to-agent') return t.type === 'Queue → Agent';
+          return true;
+        });
+      }
+      
+      if (searchTerm) {
+        filteredTransfers = filteredTransfers.filter(t => {
+          const fromName = getTransferParticipantName(t.fromId, t.from);
+          const toName = getTransferParticipantName(t.toId, t.to);
+          return t.conversationId.toLowerCase().includes(searchTerm) || 
+                 fromName.toLowerCase().includes(searchTerm) || 
+                 toName.toLowerCase().includes(searchTerm);
+        });
+      }
+      
+      // Render table
+      if (filteredTransfers.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px">No transfers match the selected filters</td></tr>';
+        return;
+      }
+      
+      tableBody.innerHTML = filteredTransfers.map(transfer => {
+        const fromName = getTransferParticipantName(transfer.fromId, transfer.from);
+        const toName = getTransferParticipantName(transfer.toId, transfer.to);
+        
+        return `
+          <tr>
+            <td class="mono">${transfer.conversationId}</td>
+            <td>${fromName}</td>
+            <td>${toName}</td>
+            <td>${transfer.type}</td>
+            <td>${fmt(transfer.time)}</td>
+            <td>${formatSeconds(transfer.duration)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    function getTransferParticipantName(id, type) {
+      if (type === 'Agent') {
+        const user = state.users.find(u => u.id === id);
+        return user ? user.name : `Agent (${id})`;
+      } else if (type === 'Queue') {
+        return getQueueName(id) || `Queue (${id})`;
+      }
+      return type;
+    }
+    
+    // Set up transfer report filters
+    function setupTransferFilters() {
+      $('transferFilter').addEventListener('change', renderTransferReport);
+      $('transferSearch').addEventListener('input', renderTransferReport);
+    }
+
     // ===== Events & Init =====
     $('fetchBtn').addEventListener('click', fetchConversations);
     (function init(){
@@ -745,6 +984,7 @@
       $('fromDate').value = weekAgo.toISOString().slice(0,10);
       $('toDate').value = today.toISOString().slice(0,10);
       initAuth();
+      setupTransferFilters();
     })();
   </script>
 </body>
