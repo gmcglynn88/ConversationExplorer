@@ -11,7 +11,7 @@
       --pill:#e9f6f0;
     }
     /* Aptos first, then sensible fallbacks */
-    body{font-family:"Aptos","Segoe UI",Arial,sans-serif;margin:20px;padding:20px;max-width:1200px;background:var(--light-bg);color:var(--text-color)}
+    body{font-family:"Aptos","Segoe UI",Arial,sans-serif;margin:20px;padding:20px;max-width:1400px;background:var(--light-bg);color:var(--text-color)}
     #logo-container{text-align:center;margin-bottom:20px} #logo{width:300px}
     h1{margin:0 0 16px}
     .card{background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;margin-top:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
@@ -88,6 +88,24 @@
     
     .filter-controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     .filter-controls select, .filter-controls input { flex: 1; min-width: 150px; }
+    
+    /* Queue Transfer Matrix Styles */
+    .queue-transfer-matrix { overflow-x: auto; margin-top: 20px; }
+    .matrix-table { border-collapse: collapse; width: 100%; min-width: 600px; }
+    .matrix-table th, .matrix-table td { border: 1px solid var(--border-color); padding: 10px; text-align: center; }
+    .matrix-table th { background-color: var(--primary-color); color: white; font-weight: 600; }
+    .matrix-table th.from-header { background-color: var(--secondary-color); }
+    .matrix-table th.to-header { background-color: var(--primary-color); }
+    .matrix-table td.from-label { background-color: var(--light-bg); font-weight: 600; text-align: left; }
+    .matrix-table tr:hover td { background-color: #f0f7f4; }
+    .matrix-count { font-weight: 600; color: var(--text-color); }
+    .matrix-high { background-color: #fee2e2 !important; }
+    .matrix-medium { background-color: #fef3c7 !important; }
+    .matrix-low { background-color: #d1fae5 !important; }
+    
+    .agent-selector { margin-bottom: 16px; }
+    .agent-selector label { display: inline-block; margin-right: 12px; }
+    .agent-selector select { min-width: 200px; }
   </style>
 </head>
 <body>
@@ -149,6 +167,7 @@
       <div class="tab-buttons">
         <button class="tab-button active" data-tab="conversations">Conversations</button>
         <button class="tab-button" data-tab="transfers">Transfer Reporting</button>
+        <button class="tab-button" data-tab="queue-transfer-matrix">Queue Transfer Matrix</button>
       </div>
       
       <div id="conversations-tab" class="tab-content active">
@@ -174,6 +193,7 @@
               <option value="agent-to-agent">Agent → Agent</option>
               <option value="agent-to-queue">Agent → Queue</option>
               <option value="queue-to-agent">Queue → Agent</option>
+              <option value="queue-to-queue">Queue → Queue</option>
             </select>
             <input type="text" id="transferSearch" placeholder="Search by conversation ID, queue, or agent">
           </div>
@@ -206,6 +226,33 @@
           </div>
         </div>
       </div>
+      
+      <div id="queue-transfer-matrix-tab" class="tab-content">
+        <div class="card">
+          <h2 style="margin:0 0 12px;">Queue Transfer Matrix</h2>
+          
+          <div class="agent-selector">
+            <label for="matrixAgentSelect">Show transfers for:</label>
+            <select id="matrixAgentSelect">
+              <option value="all">All Agents</option>
+              <!-- Agent options will be populated dynamically -->
+            </select>
+          </div>
+          
+          <div id="matrixStats" class="transfer-stats">
+            <!-- Will be populated with matrix statistics -->
+          </div>
+          
+          <div id="matrixContainer" class="queue-transfer-matrix">
+            <!-- Will be populated with the queue transfer matrix -->
+          </div>
+          
+          <div id="noMatrixDataMessage" style="display:none; text-align:center; padding:40px;">
+            <div style="font-size:48px;margin-bottom:12px">📊</div>
+            <div>No queue transfer data available for the selected criteria.</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -226,7 +273,8 @@
       conversations:[], 
       selectedAgent:null, 
       convIndex:{},
-      allTransfers: [] // New state for storing all transfers
+      allTransfers: [], // New state for storing all transfers
+      queueTransfers: [] // New state for queue-to-queue transfers
     };
 
     // ===== Utils =====
@@ -329,6 +377,7 @@
         }
         state.users = all.map(u=>({id:u.id,name:u.name||'',email:u.email||''})).sort((a,b)=>a.name.localeCompare(b.name));
         populateUserSelect(state.users);
+        populateMatrixAgentSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`); setLoading(false);
       }catch(e){ setStatus(`Failed to load users: ${e.message}`, true); setLoading(false); $('agentSelect').innerHTML='<option>Failed to load users</option>'; }
     }
@@ -337,6 +386,13 @@
       sel.innerHTML = '<option value="">Select an agent…</option>' + users.map(u=>`<option value="${u.id}">${u.name||'(Unnamed)'}</option>`).join('');
       sel.onchange=()=>{ const u = users.find(x=>x.id===sel.value); state.selectedAgent=u||null; if(u){ $('selectedAgentName').textContent=u.name||'(Unnamed)'; $('selectedAgentInfo').style.display='block'; } else { $('selectedAgentInfo').style.display='none'; } };
     }
+    
+    function populateMatrixAgentSelect(users) {
+      const sel = $('matrixAgentSelect');
+      sel.innerHTML = '<option value="all">All Agents</option>' + 
+        users.map(u => `<option value="${u.id}">${u.name || '(Unnamed)'}</option>`).join('');
+    }
+    
     $('agentFilter').addEventListener('input', function(){
       const q = this.value.trim().toLowerCase();
       populateUserSelect(q ? state.users.filter(u=>(u.name||'').toLowerCase().includes(q)) : state.users);
@@ -418,14 +474,15 @@
         const a2a = prev.userId && cur.userId && prev.userId!==cur.userId;
         const a2q = prev.userId && cur.queueId && !cur.userId;
         const q2a = prev.queueId && cur.userId;
-        if(a2a||a2q||q2a){ 
+        const q2q = prev.queueId && cur.queueId && prev.queueId !== cur.queueId;
+        if(a2a||a2q||q2a||q2q){ 
           count++; 
           transfers.push({
             step:i,
             from: prev.userId?'Agent':(prev.queueId?'Queue':(prev.purpose||'Unknown')), 
             to: cur.userId?'Agent':(cur.queueId?'Queue':(cur.purpose||'Unknown')), 
             time:new Date(cur.when).toISOString(), 
-            type:a2a?'Agent → Agent':(a2q?'Agent → Queue':'Queue → Agent'),
+            type:a2a?'Agent → Agent':(a2q?'Agent → Queue':(q2a?'Queue → Agent':'Queue → Queue')),
             fromId: prev.userId || prev.queueId,
             toId: cur.userId || cur.queueId,
             conversationId: c.conversationId,
@@ -735,6 +792,7 @@
         showProgress();
         state.conversations=[]; state.convIndex={};
         state.allTransfers = []; // Reset transfers
+        state.queueTransfers = []; // Reset queue transfers
 
         for(let i=0;i<dateChunks.length;i++){
           const ch=dateChunks[i]; updateProgress((i/dateChunks.length)*100, i+1, dateChunks.length);
@@ -758,6 +816,18 @@
                     conversationStart: conv.conversationStart
                   }))
                 );
+                
+                // Extract queue-to-queue transfers specifically
+                const queueTransfers = transferAnalysis.transfers.filter(t => t.type === 'Queue → Queue');
+                if (queueTransfers.length > 0) {
+                  state.queueTransfers = state.queueTransfers.concat(
+                    queueTransfers.map(t => ({
+                      ...t,
+                      conversationId: conv.conversationId,
+                      conversationStart: conv.conversationStart
+                    }))
+                  );
+                }
               }
             }
           }catch(e){ console.error(e); setStatus('Warning: failed chunk ' + (i+1) + ', continuing…', true); }
@@ -769,6 +839,7 @@
         updateProgress(100, dateChunks.length, dateChunks.length);
         renderResults(state.conversations, from, to);
         renderTransferReport(); // Render the transfer report
+        renderQueueTransferMatrix(); // Render the queue transfer matrix
         setStatus('Found ' + state.conversations.length + ' conversations for the selected period');
         setLoading(false); hideProgress();
       }catch(e){ setStatus('Error fetching conversations: ' + e.message, true); setLoading(false); hideProgress(); }
@@ -892,6 +963,7 @@
       const agentToAgent = state.allTransfers.filter(t => t.type === 'Agent → Agent').length;
       const agentToQueue = state.allTransfers.filter(t => t.type === 'Agent → Queue').length;
       const queueToAgent = state.allTransfers.filter(t => t.type === 'Queue → Agent').length;
+      const queueToQueue = state.allTransfers.filter(t => t.type === 'Queue → Queue').length;
       
       // Render statistics
       statsContainer.innerHTML = `
@@ -911,6 +983,10 @@
           <div class="transfer-stat-number">${queueToAgent}</div>
           <div class="transfer-stat-label">Queue → Agent</div>
         </div>
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${queueToQueue}</div>
+          <div class="transfer-stat-label">Queue → Queue</div>
+        </div>
       `;
       
       // Apply filters
@@ -924,6 +1000,7 @@
           if (filterType === 'agent-to-agent') return t.type === 'Agent → Agent';
           if (filterType === 'agent-to-queue') return t.type === 'Agent → Queue';
           if (filterType === 'queue-to-agent') return t.type === 'Queue → Agent';
+          if (filterType === 'queue-to-queue') return t.type === 'Queue → Queue';
           return true;
         });
       }
@@ -971,10 +1048,120 @@
       return type;
     }
     
+    // ===== Queue Transfer Matrix =====
+    function renderQueueTransferMatrix() {
+      const statsContainer = $('matrixStats');
+      const matrixContainer = $('matrixContainer');
+      const noMatrixDataMessage = $('noMatrixDataMessage');
+      const selectedAgentId = $('matrixAgentSelect').value;
+      
+      // Filter transfers based on agent selection
+      let transfersToShow = state.queueTransfers;
+      
+      if (selectedAgentId !== 'all') {
+        // Filter to only include conversations that involved the selected agent
+        const agentConversations = state.conversations.filter(conv => 
+          conv.participants.some(p => p.userId === selectedAgentId)
+        );
+        const agentConversationIds = new Set(agentConversations.map(c => c.conversationId));
+        transfersToShow = transfersToShow.filter(t => agentConversationIds.has(t.conversationId));
+      }
+      
+      if (transfersToShow.length === 0) {
+        statsContainer.innerHTML = '';
+        matrixContainer.innerHTML = '';
+        noMatrixDataMessage.style.display = 'block';
+        return;
+      }
+      
+      noMatrixDataMessage.style.display = 'none';
+      
+      // Calculate matrix statistics
+      const totalQueueTransfers = transfersToShow.length;
+      const uniqueFromQueues = [...new Set(transfersToShow.map(t => t.fromId))].length;
+      const uniqueToQueues = [...new Set(transfersToShow.map(t => t.toId))].length;
+      
+      // Render statistics
+      statsContainer.innerHTML = `
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${totalQueueTransfers}</div>
+          <div class="transfer-stat-label">Queue Transfers</div>
+        </div>
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${uniqueFromQueues}</div>
+          <div class="transfer-stat-label">Source Queues</div>
+        </div>
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${uniqueToQueues}</div>
+          <div class="transfer-stat-label">Target Queues</div>
+        </div>
+      `;
+      
+      // Build the transfer matrix
+      const fromQueues = [...new Set(transfersToShow.map(t => t.fromId))];
+      const toQueues = [...new Set(transfersToShow.map(t => t.toId))];
+      
+      // Get all unique queue names for rows and columns
+      const allQueues = [...new Set([...fromQueues, ...toQueues])];
+      
+      // Create a matrix to count transfers between queues
+      const matrix = {};
+      allQueues.forEach(fromQueue => {
+        matrix[fromQueue] = {};
+        allQueues.forEach(toQueue => {
+          matrix[fromQueue][toQueue] = 0;
+        });
+      });
+      
+      // Count transfers
+      transfersToShow.forEach(transfer => {
+        if (matrix[transfer.fromId] && matrix[transfer.fromId][transfer.toId] !== undefined) {
+          matrix[transfer.fromId][transfer.toId]++;
+        }
+      });
+      
+      // Generate the matrix table HTML
+      let matrixHtml = '<table class="matrix-table">';
+      
+      // Header row with TO queues
+      matrixHtml += '<thead><tr>';
+      matrixHtml += '<th class="from-header">FROM / TO</th>';
+      allQueues.forEach(queueId => {
+        const queueName = getQueueName(queueId) || `Queue ${queueId}`;
+        matrixHtml += `<th class="to-header">${queueName}</th>`;
+      });
+      matrixHtml += '</tr></thead>';
+      
+      // Data rows
+      matrixHtml += '<tbody>';
+      allQueues.forEach(fromQueueId => {
+        const fromQueueName = getQueueName(fromQueueId) || `Queue ${fromQueueId}`;
+        matrixHtml += `<tr><td class="from-label">${fromQueueName}</td>`;
+        
+        allQueues.forEach(toQueueId => {
+          const count = matrix[fromQueueId][toQueueId];
+          let cellClass = '';
+          if (count > 0) {
+            if (count >= 10) cellClass = 'matrix-high';
+            else if (count >= 5) cellClass = 'matrix-medium';
+            else cellClass = 'matrix-low';
+          }
+          
+          matrixHtml += `<td class="${cellClass}"><span class="matrix-count">${count}</span></td>`;
+        });
+        
+        matrixHtml += '</tr>';
+      });
+      matrixHtml += '</tbody></table>';
+      
+      matrixContainer.innerHTML = matrixHtml;
+    }
+    
     // Set up transfer report filters
     function setupTransferFilters() {
       $('transferFilter').addEventListener('change', renderTransferReport);
       $('transferSearch').addEventListener('input', renderTransferReport);
+      $('matrixAgentSelect').addEventListener('change', renderQueueTransferMatrix);
     }
 
     // ===== Events & Init =====
