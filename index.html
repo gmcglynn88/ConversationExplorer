@@ -10,7 +10,6 @@
       --light-bg:#F8F9FA; --card-bg:#FFFFFF; --text-color:#2C3E50; --text-light:#6C757D;
       --pill:#e9f6f0;
     }
-    /* Aptos first, then sensible fallbacks */
     body{font-family:"Aptos","Segoe UI",Arial,sans-serif;margin:20px;padding:20px;max-width:1400px;background:var(--light-bg);color:var(--text-color)}
     #logo-container{text-align:center;margin-bottom:20px} #logo{width:300px}
     h1{margin:0 0 16px}
@@ -63,7 +62,6 @@
     .loading{opacity:.6;pointer-events:none}
     .future-date{color:#ccc;cursor:not-allowed}
     
-    /* Tabs */
     .tab-container { margin-top: 20px; }
     .tab-buttons { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
     .tab-button { padding: 10px 20px; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; }
@@ -71,7 +69,6 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     
-    /* Transfer reporting */
     .transfer-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
     .transfer-table th, .transfer-table td { border: 1px solid var(--border-color); padding: 12px; text-align: left; }
     .transfer-table th { background-color: var(--primary-color); color: white; font-weight: 600; }
@@ -86,7 +83,6 @@
     .filter-controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     .filter-controls select, .filter-controls input { flex: 1; min-width: 150px; }
     
-    /* Queue / Agent transfer matrices */
     .queue-transfer-matrix { overflow-x: auto; margin-top: 20px; }
     .matrix-table { border-collapse: collapse; width: 100%; min-width: 600px; }
     .matrix-table th, .matrix-table td { border: 1px solid var(--border-color); padding: 10px; text-align: center; }
@@ -100,7 +96,6 @@
     .matrix-medium { background-color: #fef3c7 !important; }
     .matrix-low { background-color: #d1fae5 !important; }
     
-    /* Nested transfers */
     .conversation-transfer-group { 
       border: 1px solid var(--border-color);
       border-radius: 8px;
@@ -112,9 +107,9 @@
       padding: 12px 16px;
       cursor: pointer;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: 600;
+      justify-content:space-between;
+      align-items:center;
+      font-weight:600;
     }
     .conversation-transfer-count {
       background-color: var(--primary-color);
@@ -360,7 +355,7 @@
       });
     }
 
-    // ===== Tab Management =====
+    // ===== Tabs =====
     function setupTabs() {
       const tabButtons = document.querySelectorAll('.tab-button');
       const tabContents = document.querySelectorAll('.tab-content');
@@ -513,8 +508,8 @@
         }
         const transferAnalysis = analyzeTransfers(c);
         for(const transfer of transferAnalysis.transfers) {
-          if(transfer.fromId && transfer.fromType === 'Queue') queueIds.add(transfer.fromId);
-          if(transfer.toId && transfer.toType === 'Queue') queueIds.add(transfer.toId);
+          if(transfer.fromType === 'Queue' && transfer.fromId) queueIds.add(transfer.fromId);
+          if(transfer.toType === 'Queue' && transfer.toId) queueIds.add(transfer.toId);
         }
       }
       await fetchQueueNames([...queueIds]);
@@ -583,7 +578,12 @@
       return total;
     }
 
-    // ===== Transfer Analysis =====
+    function getUserNameById(id){
+      const u = state.users.find(u => u.id === id);
+      return u ? u.name : `Agent ${id}`;
+    }
+
+    // ===== Transfer Analysis (fixed) =====
     function isAgentTransferInitiated(fromParticipant, toParticipant) {
       for (const session of (fromParticipant.sessions || [])) {
         for (const segment of (session.segments || [])) {
@@ -609,7 +609,6 @@
       return true;
     }
 
-    // Original-style, non-over-filtered transfer detection
     function analyzeTransfers(c){
       const transfers = [];
       const timeline = [];
@@ -617,11 +616,11 @@
       for(const p of (c.participants||[])){
         const queueId = getQueueIdFromParticipant(p);
         const startTime = getStepStart(p);
-        const purpose = p.purpose || '';
-        const name = p.name || '';
+        const purpose = (p.purpose || '').toLowerCase();
+        const name = (p.name || '').toLowerCase();
         
-        if (purpose.toLowerCase().includes('ivr') || purpose.toLowerCase().includes('survey') || 
-            name.toLowerCase().includes('ivr') || name.toLowerCase().includes('survey')) {
+        if (purpose.includes('ivr') || purpose.includes('survey') ||
+            name.includes('ivr') || name.includes('survey')) {
           continue;
         }
         
@@ -630,8 +629,7 @@
             time: startTime.getTime(),
             participant: p,
             queueId: queueId,
-            userId: p.userId,
-            purpose: p.purpose
+            userId: p.userId
           });
         }
       }
@@ -643,41 +641,72 @@
         const curr = timeline[i];
         if(!prev || !curr) continue;
         
-        const fromName = prev.userId ? 
-          (state.users.find(u => u.id === prev.userId)?.name || `Agent ${prev.userId}`) :
-          (getQueueName(prev.queueId) || `Queue ${prev.queueId}`);
-          
-        const toName = curr.userId ? 
-          (state.users.find(u => u.id === curr.userId)?.name || `Agent ${curr.userId}`) :
-          (getQueueName(curr.queueId) || `Queue ${curr.queueId}`);
-        
         let transferType = '';
-        if(prev.userId && curr.userId) {
-          const isAgentInitiated = isAgentTransferInitiated(prev.participant, curr.participant);
-          if (!isAgentInitiated) continue;
+        let fromType = '';
+        let toType = '';
+        let fromId = null;
+        let toId = null;
+        let fromName = '';
+        let toName = '';
+        let agentInitiated = true;
+        
+        if (prev.userId && curr.userId) {
+          // Agent → Agent
+          agentInitiated = isAgentTransferInitiated(prev.participant, curr.participant);
+          if (!agentInitiated) continue;
           transferType = 'Agent → Agent';
-        } else if(prev.queueId && curr.queueId) {
+          fromType = 'Agent';
+          toType = 'Agent';
+          fromId = prev.userId;
+          toId = curr.userId;
+          fromName = getUserNameById(prev.userId);
+          toName = getUserNameById(curr.userId);
+        } else if (!prev.userId && prev.queueId && !curr.userId && curr.queueId) {
+          // Queue → Queue
           transferType = 'Queue → Queue';
+          fromType = 'Queue';
+          toType = 'Queue';
+          fromId = prev.queueId;
+          toId = curr.queueId;
+          fromName = getQueueName(prev.queueId) || `Queue ${prev.queueId}`;
+          toName = getQueueName(curr.queueId) || `Queue ${curr.queueId}`;
+        } else if (prev.userId && curr.queueId && !curr.userId) {
+          // Agent → Queue
+          transferType = 'Agent → Queue';
+          fromType = 'Agent';
+          toType = 'Queue';
+          fromId = prev.userId;
+          toId = curr.queueId;
+          fromName = getUserNameById(prev.userId);
+          toName = getQueueName(curr.queueId) || `Queue ${curr.queueId}`;
+        } else if (!prev.userId && prev.queueId && curr.userId) {
+          // Queue → Agent
+          transferType = 'Queue → Agent';
+          fromType = 'Queue';
+          toType = 'Agent';
+          fromId = prev.queueId;
+          toId = curr.userId;
+          fromName = getQueueName(prev.queueId) || `Queue ${prev.queueId}`;
+          toName = getUserNameById(curr.userId);
         } else {
           continue;
         }
+
+        if (!fromId || !toId || fromId === toId) continue;
         
-        if((prev.userId && curr.userId && prev.userId !== curr.userId) || 
-           (prev.queueId && curr.queueId && prev.queueId !== curr.queueId)) {
-          transfers.push({
-            step: i,
-            fromId: prev.userId || prev.queueId,
-            toId: curr.userId || curr.queueId,
-            fromName: fromName,
-            toName: toName,
-            fromType: prev.userId ? 'Agent' : 'Queue',
-            toType: curr.userId ? 'Agent' : 'Queue',
-            time: new Date(curr.time).toISOString(),
-            type: transferType,
-            conversationId: c.conversationId,
-            isAgentInitiated: prev.userId && curr.userId ? isAgentTransferInitiated(prev.participant, curr.participant) : true
-          });
-        }
+        transfers.push({
+          step: i,
+          fromId,
+          toId,
+          fromName,
+          toName,
+          fromType,
+          toType,
+          time: new Date(curr.time).toISOString(),
+          type: transferType,
+          conversationId: c.conversationId,
+          isAgentInitiated: (fromType === 'Agent' && toType === 'Agent') ? agentInitiated : true
+        });
       }
       
       return {totalTransfers: transfers.length, transfers};
@@ -704,7 +733,7 @@
       return '<span class="participant-badge ' + cls + '">' + name + '</span>';
     }
 
-    // ===== Transcript helpers (unchanged from your version) =====
+    // ===== Transcript helpers (unchanged core logic) =====
     function normaliseRole(v){
       const s=(v||'').toString().toLowerCase();
       if(['internal','agent','user'].includes(s)) return 'internal';
@@ -1006,7 +1035,9 @@
                     conversationStart: conv.conversationStart
                   }))
                 );
-                const queueTransfers = transferAnalysis.transfers.filter(t => t.type === 'Queue → Queue');
+                const queueTransfers = transferAnalysis.transfers.filter(t => 
+                  t.fromType === 'Queue' && t.toType === 'Queue'
+                );
                 if (queueTransfers.length > 0) {
                   state.queueTransfers = state.queueTransfers.concat(
                     queueTransfers.map(t => ({
@@ -1083,7 +1114,7 @@
       html += '<div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">' + fmt(conv.conversationStart) + '</span></div>';
       html += '<div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">' + fmt(conv.conversationEnd) + '</span></div>';
       html += '<div class="info-item"><span class="info-label">Duration:</span><span class="info-value">' + formatSeconds(totalDur) + '</span></div>';
-      html += '<div class="info-item"><span class="info-label">Transfers (Agent→Queue/Agent):</span><span class="info-value"><span class="transfer-count">' + transfers.totalTransfers + '</span></span></div>';
+      html += '<div class="info-item"><span class="info-label">Transfers (Agent/Queue):</span><span class="info-value"><span class="transfer-count">' + transfers.totalTransfers + '</span></span></div>';
       html += '</div>';
 
       html += '<div class="transcript-actions" style="display:flex;gap:8px;align-items:center;margin-top:8px">';
@@ -1130,7 +1161,7 @@
         stepHtml += '<div class="step-header">Step ' + (idx+1) + ': ' + badge(purpose, name) + (transfer?'<span style="color:#dc2626;margin-left:8px">🔄 TRANSFERRED</span>':'') + '</div>';
         stepHtml += '<div class="step-details">';
         if(transfer){
-          stepHtml += '<div class="transfer-info"><strong>Transfer:</strong> ' + transfer.type + '<br>From: ' + transfer.fromName + ' → To: ' + transfer.toName + '<br>Time: ' + fmt(transfer.time) + '</div>';
+          stepHtml += '<div class="transfer-info"><strong>Transfer:</strong> ' + transfer.type + '<br>From: ' + transfer.fromName + ' → ' + transfer.toName + '<br>Time: ' + fmt(transfer.time) + '</div>';
         }
         stepHtml += '<div class="info-grid">';
         stepHtml += '<div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">' + getParticipantType(p) + '</span></div>';
@@ -1162,7 +1193,7 @@
       
       const totalTransfers = state.allTransfers.length;
       const agentToAgent = state.allTransfers.filter(t => t.type === 'Agent → Agent' && t.isAgentInitiated).length;
-      const queueToQueue = state.allTransfers.filter(t => t.type === 'Queue → Queue').length;
+      const queueToQueue = state.allTransfers.filter(t => t.fromType === 'Queue' && t.toType === 'Queue').length;
       
       statsContainer.innerHTML = `
         <div class="transfer-stat-card">
@@ -1187,7 +1218,7 @@
       if (filterType !== 'all') {
         filteredTransfers = filteredTransfers.filter(t => {
           if (filterType === 'agent-to-agent') return t.type === 'Agent → Agent' && t.isAgentInitiated;
-          if (filterType === 'queue-to-queue') return t.type === 'Queue → Queue';
+          if (filterType === 'queue-to-queue') return t.fromType === 'Queue' && t.toType === 'Queue';
           return true;
         });
       }
