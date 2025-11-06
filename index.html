@@ -253,7 +253,7 @@
           <div class="filter-controls">
             <select id="transferFilter">
               <option value="all">All Transfers</option>
-              <option value="agent-to-agent">Agent → Agent</option>
+              <option value="agent-to-agent">Agent → Agent (Agent-Initiated Only)</option>
               <option value="queue-to-queue">Queue → Queue</option>
             </select>
             <input type="text" id="transferSearch" placeholder="Search by conversation ID">
@@ -502,26 +502,45 @@
       return null; 
     }
 
+    // FIXED: Enhanced queue name function
     function getQueueName(id){ 
       if (!id) return null;
-      if (!state.queues[id]) {
+      // Check if we already have a proper name (not the ID-based fallback)
+      if (state.queues[id] && !state.queues[id].startsWith('Queue ') && !state.queues[id].includes('...')) {
+        return state.queues[id];
+      }
+      // If we don't have it or it's still the ID-based fallback, try to fetch it
+      if (!state.queues[id] || state.queues[id].startsWith('Queue ') || state.queues[id].includes('...')) {
         fetchQueueName(id); // Try to fetch it in background
+        // Return a temporary placeholder that doesn't show the full ID
         return `Queue ${id.substring(0, 8)}...`;
       }
       return state.queues[id]; 
     }
 
+    // FIXED: Enhanced queue name fetching
     async function fetchQueueName(id){ 
-      if(!id || state.queues[id]) return; 
+      if(!id || (state.queues[id] && !state.queues[id].startsWith('Queue '))) return; 
       try{ 
         const q = await api(`/api/v2/routing/queues/${id}`); 
-        state.queues[id] = q?.name || `Queue ${id}`; 
+        if (q && q.name) {
+          state.queues[id] = q.name;
+          // Trigger re-rendering of any components that use this queue name
+          if (state.allTransfers.length > 0) {
+            setTimeout(() => {
+              renderTransferReport();
+              renderQueueTransferMatrix();
+            }, 100);
+          }
+        }
       } catch(e) { 
         console.warn(`Could not fetch queue name for ${id}:`, e);
-        state.queues[id] = `Queue ${id}`; 
+        // Use a more descriptive fallback that doesn't show the full ID
+        state.queues[id] = `Queue ${id.substring(0, 8)}...`; 
       } 
     }
 
+    // FIXED: Enhanced queue cache warming
     async function warmQueueCache(convs){
       const set = new Set(); 
       for(const c of convs) {
@@ -540,7 +559,9 @@
         }
       }
       
-      await Promise.all([...set].filter(id => !state.queues[id]).map(fetchQueueName));
+      // Fetch all queue names immediately, don't rely on background fetching
+      const queueFetchPromises = [...set].filter(id => !state.queues[id] || state.queues[id].startsWith('Queue ')).map(fetchQueueName);
+      await Promise.all(queueFetchPromises);
     }
 
     // Function to refresh missing queue names
@@ -612,7 +633,44 @@
       return total;
     }
 
-    // ===== SIMPLE TRANSFER ANALYSIS =====
+    // ===== ENHANCED TRANSFER ANALYSIS =====
+    // FIXED: New function to determine if a transfer was agent-initiated
+    function isAgentTransferInitiated(fromParticipant, toParticipant) {
+      // Look for transfer events in the fromParticipant's sessions
+      for (const session of (fromParticipant.sessions || [])) {
+        for (const segment of (session.segments || [])) {
+          for (const event of (segment.events || [])) {
+            // Check for transfer-related events
+            if (event.eventType && (
+              event.eventType.toLowerCase().includes('transfer') ||
+              event.eventType.toLowerCase().includes('redirect') ||
+              (event.type && event.type.toLowerCase().includes('transfer'))
+            )) {
+              return true; // Agent initiated a transfer
+            }
+          }
+        }
+      }
+      
+      // If no transfer events found, this is likely a system transfer (agent didn't answer)
+      // Check timing - if the transfer happens very quickly after the previous agent joined,
+      // it's likely a system transfer due to non-answer
+      const fromStart = getStepStart(fromParticipant);
+      const toStart = getStepStart(toParticipant);
+      
+      if (fromStart && toStart) {
+        const timeBetween = toStart.getTime() - fromStart.getTime();
+        // If less than 10 seconds between agents, it's likely a system transfer
+        if (timeBetween < 10000) {
+          return false;
+        }
+      }
+      
+      // Default to assuming it's agent-initiated if we can't determine
+      return true;
+    }
+
+    // FIXED: Enhanced transfer analysis function
     function analyzeTransfers(c){
       const transfers = [];
       
@@ -664,6 +722,11 @@
         // Determine transfer type
         let transferType = '';
         if(prev.userId && curr.userId) {
+          // Check if this is an agent-initiated transfer (not system auto-transfer)
+          const isAgentInitiated = isAgentTransferInitiated(prev.participant, curr.participant);
+          if (!isAgentInitiated) {
+            continue; // Skip system-initiated agent transfers
+          }
           transferType = 'Agent → Agent';
         } else if(prev.queueId && curr.queueId) {
           transferType = 'Queue → Queue';
@@ -684,7 +747,8 @@
             toType: curr.userId ? 'Agent' : 'Queue',
             time: new Date(curr.time).toISOString(),
             type: transferType,
-            conversationId: c.conversationId
+            conversationId: c.conversationId,
+            isAgentInitiated: prev.userId && curr.userId ? isAgentTransferInitiated(prev.participant, curr.participant) : true
           });
         }
       }
@@ -1030,8 +1094,10 @@
                   );
                 }
                 
-                // Extract agent transfers
-                const agentTransfers = transferAnalysis.transfers.filter(t => t.type === 'Agent → Agent');
+                // FIXED: Extract agent transfers - ONLY agent-initiated ones
+                const agentTransfers = transferAnalysis.transfers.filter(t => 
+                  t.type === 'Agent → Agent' && t.isAgentInitiated
+                );
                 if (agentTransfers.length > 0) {
                   state.agentTransfers = state.agentTransfers.concat(
                     agentTransfers.map(t => ({
@@ -1175,10 +1241,10 @@
       
       // Calculate statistics
       const totalTransfers = state.allTransfers.length;
-      const agentToAgent = state.allTransfers.filter(t => t.type === 'Agent → Agent').length;
+      const agentToAgent = state.allTransfers.filter(t => t.type === 'Agent → Agent' && t.isAgentInitiated).length;
       const queueToQueue = state.allTransfers.filter(t => t.type === 'Queue → Queue').length;
       
-      // Render statistics
+      // FIXED: Render statistics with agent-initiated note
       statsContainer.innerHTML = `
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${totalTransfers}</div>
@@ -1186,7 +1252,7 @@
         </div>
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${agentToAgent}</div>
-          <div class="transfer-stat-label">Agent → Agent</div>
+          <div class="transfer-stat-label">Agent → Agent<br><small>(Agent-Initiated Only)</small></div>
         </div>
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${queueToQueue}</div>
@@ -1202,7 +1268,7 @@
       
       if (filterType !== 'all') {
         filteredTransfers = filteredTransfers.filter(t => {
-          if (filterType === 'agent-to-agent') return t.type === 'Agent → Agent';
+          if (filterType === 'agent-to-agent') return t.type === 'Agent → Agent' && t.isAgentInitiated;
           if (filterType === 'queue-to-queue') return t.type === 'Queue → Queue';
           return true;
         });
@@ -1409,7 +1475,7 @@
       statsContainer.innerHTML = `
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${totalAgentTransfers}</div>
-          <div class="transfer-stat-label">Agent Transfers</div>
+          <div class="transfer-stat-label">Agent Transfers<br><small>(Agent-Initiated Only)</small></div>
         </div>
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${uniqueFromAgents}</div>
