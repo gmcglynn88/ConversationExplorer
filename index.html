@@ -695,7 +695,7 @@
       return '<span class="participant-badge ' + cls + '">' + name + '</span>';
     }
 
-    // ===== Transcript helpers (unchanged core) =====
+    // ===== Transcript helpers =====
     function normaliseRole(v){
       const s=(v||'').toString().toLowerCase();
       if(['internal','agent','user'].includes(s)) return 'internal';
@@ -1125,25 +1125,42 @@
       }).join('');
     }
 
-    // ===== Transfer Reporting (agent-initiated only) =====
+    // ===== Transfer Reporting (agent-initiated only, with fresh queue names) =====
     function renderTransferReport() {
       const statsContainer = $('transferStats');
       const tableContainer = $('transferTableContainer');
       const noTransfersMessage = $('noTransfersMessage');
-      
+
       if (state.allTransfers.length === 0) {
         statsContainer.innerHTML = '';
         tableContainer.innerHTML = '';
         noTransfersMessage.style.display = 'block';
         return;
       }
-      
+
       noTransfersMessage.style.display = 'none';
-      
-      const totalTransfers = state.allTransfers.length;
-      const agentToAgent = state.allTransfers.filter(t => t.type === 'Agent → Agent').length;
-      const agentToQueue = state.allTransfers.filter(t => t.type === 'Agent → Queue').length;
-      
+
+      // Re-apply latest queue names based on IDs
+      const transfers = state.allTransfers.map(t => {
+        const copy = { ...t };
+
+        if (copy.fromType === 'Queue') {
+          const qName = getKnownQueueName(copy.fromId) || getQueueName(copy.fromId);
+          copy.fromName = qName;
+        }
+        if (copy.toType === 'Queue') {
+          const qName = getKnownQueueName(copy.toId) || getQueueName(copy.toId);
+          copy.toName = qName;
+        }
+
+        return copy;
+      });
+
+      // Stats
+      const totalTransfers = transfers.length;
+      const agentToAgent = transfers.filter(t => t.type === 'Agent → Agent').length;
+      const agentToQueue = transfers.filter(t => t.type === 'Agent → Queue').length;
+
       statsContainer.innerHTML = `
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${totalTransfers}</div>
@@ -1158,24 +1175,26 @@
           <div class="transfer-stat-label">Agent → Queue</div>
         </div>
       `;
-      
+
+      // Filters
       const filterType = $('transferFilter').value;
       const searchTerm = $('transferSearch').value.toLowerCase();
-      
-      let filteredTransfers = state.allTransfers;
-      
+
+      let filteredTransfers = transfers;
+
       if (filterType === 'agent-to-agent') {
         filteredTransfers = filteredTransfers.filter(t => t.type === 'Agent → Agent');
       } else if (filterType === 'agent-to-queue') {
         filteredTransfers = filteredTransfers.filter(t => t.type === 'Agent → Queue');
       }
-      
+
       if (searchTerm) {
-        filteredTransfers = filteredTransfers.filter(t => 
+        filteredTransfers = filteredTransfers.filter(t =>
           t.conversationId.toLowerCase().includes(searchTerm)
         );
       }
-      
+
+      // Group by conversation
       const transfersByConversation = {};
       filteredTransfers.forEach(transfer => {
         if (!transfersByConversation[transfer.conversationId]) {
@@ -1183,25 +1202,34 @@
         }
         transfersByConversation[transfer.conversationId].push(transfer);
       });
-      
+
       if (Object.keys(transfersByConversation).length === 0) {
-        tableContainer.innerHTML = '<div style="text-align:center;padding:20px">No transfers match the selected filters</div>';
+        tableContainer.innerHTML =
+          '<div style="text-align:center;padding:20px">No transfers match the selected filters</div>';
         return;
       }
-      
+
+      // Nested UI
       let html = '';
-      Object.entries(transfersByConversation).forEach(([conversationId, transfers]) => {
-        const sortedTransfers = transfers.sort((a, b) => new Date(a.time) - new Date(b.time));
-        
+      Object.entries(transfersByConversation).forEach(([conversationId, convTransfers]) => {
+        const sortedTransfers = convTransfers.sort(
+          (a, b) => new Date(a.time) - new Date(b.time)
+        );
+
         html += `
           <div class="conversation-transfer-group">
             <div class="conversation-transfer-header" onclick="this.nextElementSibling.classList.toggle('open')">
-              <span>${conversationId} <span class="conversation-transfer-count">${transfers.length} transfer${transfers.length > 1 ? 's' : ''}</span></span>
+              <span>
+                ${conversationId}
+                <span class="conversation-transfer-count">
+                  ${convTransfers.length} transfer${convTransfers.length > 1 ? 's' : ''}
+                </span>
+              </span>
               <span>${fmt(sortedTransfers[0].conversationStart)}</span>
             </div>
             <div class="conversation-transfer-details">
         `;
-        
+
         sortedTransfers.forEach((transfer, index) => {
           html += `
             <div class="transfer-leg">
@@ -1210,21 +1238,23 @@
                 <strong>${transfer.fromName}</strong>
                 <span class="transfer-leg-arrow">→</span>
                 <strong>${transfer.toName}</strong>
-                <span style="margin-left: 12px; color: var(--text-light);">${transfer.type} • ${fmt(transfer.time)}</span>
+                <span style="margin-left: 12px; color: var(--text-light);">
+                  ${transfer.type} • ${fmt(transfer.time)}
+                </span>
               </div>
             </div>
           `;
         });
-        
+
         html += `
             </div>
           </div>
         `;
       });
-      
+
       tableContainer.innerHTML = html;
     }
-    
+
     // ===== Queue Transfer Matrix: derive from ACD queue participants only =====
     function computeQueueMatrixTransfers() {
       const transfers = [];
@@ -1235,7 +1265,7 @@
           const qid = getQueueIdFromParticipant(p);
           if (!qid) continue;
           const qName = getKnownQueueName(qid);
-          if (!qName) continue; // skip unknown / 08377fd8-style queues
+          if (!qName) continue; // skip unknown queues
           const start = getStepStart(p);
           if (!start) continue;
           queues.push({
