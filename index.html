@@ -490,7 +490,7 @@
       if(total<=7) return 7; if(total<=30) return 7; if(total<=90) return 5; if(total<=180) return 3; return 2;
     }
 
-    // ===== Enhanced Queue helpers =====
+    // ===== COMPLETELY REWRITTEN Queue helpers =====
     function getQueueIdFromParticipant(p){ 
       if(p.queueId) return p.queueId; 
       for(const s of (p.sessions||[])) {
@@ -502,66 +502,79 @@
       return null; 
     }
 
-    // FIXED: Enhanced queue name function
+    // COMPLETELY REWRITTEN: Enhanced queue name function with synchronous queue fetching
     function getQueueName(id){ 
       if (!id) return null;
-      // Check if we already have a proper name (not the ID-based fallback)
-      if (state.queues[id] && !state.queues[id].startsWith('Queue ') && !state.queues[id].includes('...')) {
+      // If we already have a proper name, return it
+      if (state.queues[id] && typeof state.queues[id] === 'string' && !state.queues[id].startsWith('Queue ') && !state.queues[id].includes('...')) {
         return state.queues[id];
       }
-      // If we don't have it or it's still the ID-based fallback, try to fetch it
-      if (!state.queues[id] || state.queues[id].startsWith('Queue ') || state.queues[id].includes('...')) {
-        fetchQueueName(id); // Try to fetch it in background
-        // Return a temporary placeholder that doesn't show the full ID
-        return `Queue ${id.substring(0, 8)}...`;
-      }
-      return state.queues[id]; 
+      // Return the best available name, even if it's a placeholder
+      return state.queues[id] || `Queue ${id.substring(0, 8)}...`;
     }
 
-    // FIXED: Enhanced queue name fetching
-    async function fetchQueueName(id){ 
-      if(!id || (state.queues[id] && !state.queues[id].startsWith('Queue '))) return; 
-      try{ 
-        const q = await api(`/api/v2/routing/queues/${id}`); 
-        if (q && q.name) {
-          state.queues[id] = q.name;
-          // Trigger re-rendering of any components that use this queue name
-          if (state.allTransfers.length > 0) {
-            setTimeout(() => {
-              renderTransferReport();
-              renderQueueTransferMatrix();
-            }, 100);
+    // COMPLETELY REWRITTEN: Synchronous queue name fetching with batch processing
+    async function fetchQueueNames(queueIds) {
+      if (!queueIds || queueIds.length === 0) return;
+      
+      // Filter out queues we already have proper names for
+      const queuesToFetch = queueIds.filter(id => 
+        !state.queues[id] || 
+        state.queues[id].startsWith('Queue ') || 
+        state.queues[id].includes('...')
+      );
+      
+      if (queuesToFetch.length === 0) return;
+      
+      console.log(`Fetching ${queuesToFetch.length} queue names...`);
+      
+      // Process in batches to avoid rate limiting
+      const batchSize = 10;
+      for (let i = 0; i < queuesToFetch.length; i += batchSize) {
+        const batch = queuesToFetch.slice(i, i + batchSize);
+        const promises = batch.map(async (queueId) => {
+          try {
+            const queue = await api(`/api/v2/routing/queues/${queueId}`);
+            if (queue && queue.name) {
+              state.queues[queueId] = queue.name;
+              return { id: queueId, name: queue.name, success: true };
+            }
+          } catch (e) {
+            console.warn(`Could not fetch queue name for ${queueId}:`, e);
+            state.queues[queueId] = `Queue ${queueId.substring(0, 8)}...`;
+            return { id: queueId, success: false, error: e.message };
           }
+        });
+        
+        await Promise.all(promises);
+        // Small delay between batches to avoid rate limiting
+        if (i + batchSize < queuesToFetch.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
-      } catch(e) { 
-        console.warn(`Could not fetch queue name for ${id}:`, e);
-        // Use a more descriptive fallback that doesn't show the full ID
-        state.queues[id] = `Queue ${id.substring(0, 8)}...`; 
-      } 
+      }
     }
 
-    // FIXED: Enhanced queue cache warming
-    async function warmQueueCache(convs){
-      const set = new Set(); 
+    // COMPLETELY REWRITTEN: Enhanced queue cache warming
+    async function warmQueueCache(convs) {
+      const queueIds = new Set(); 
+      
+      // Collect all queue IDs from conversations
       for(const c of convs) {
         for(const p of (c.participants||[])){ 
           const id = getQueueIdFromParticipant(p); 
-          if(id) set.add(id); 
+          if(id) queueIds.add(id); 
         }
-      }
-      
-      // Also extract queue IDs from transfers
-      for(const c of convs) {
+        
+        // Also extract queue IDs from transfers
         const transferAnalysis = analyzeTransfers(c);
         for(const transfer of transferAnalysis.transfers) {
-          if(transfer.fromId && transfer.fromType === 'Queue') set.add(transfer.fromId);
-          if(transfer.toId && transfer.toType === 'Queue') set.add(transfer.toId);
+          if(transfer.fromId && transfer.fromType === 'Queue') queueIds.add(transfer.fromId);
+          if(transfer.toId && transfer.toType === 'Queue') queueIds.add(transfer.toId);
         }
       }
       
-      // Fetch all queue names immediately, don't rely on background fetching
-      const queueFetchPromises = [...set].filter(id => !state.queues[id] || state.queues[id].startsWith('Queue ')).map(fetchQueueName);
-      await Promise.all(queueFetchPromises);
+      // Fetch all queue names immediately
+      await fetchQueueNames([...queueIds]);
     }
 
     // Function to refresh missing queue names
@@ -581,7 +594,7 @@
       
       if (uniqueMissing.length > 0) {
         console.log('Refreshing missing queue names:', uniqueMissing);
-        await Promise.all(uniqueMissing.map(fetchQueueName));
+        await fetchQueueNames(uniqueMissing);
         
         // Re-render to show updated names
         renderTransferReport();
@@ -634,7 +647,6 @@
     }
 
     // ===== ENHANCED TRANSFER ANALYSIS =====
-    // FIXED: New function to determine if a transfer was agent-initiated
     function isAgentTransferInitiated(fromParticipant, toParticipant) {
       // Look for transfer events in the fromParticipant's sessions
       for (const session of (fromParticipant.sessions || [])) {
@@ -670,7 +682,6 @@
       return true;
     }
 
-    // FIXED: Enhanced transfer analysis function
     function analyzeTransfers(c){
       const transfers = [];
       
@@ -1094,7 +1105,7 @@
                   );
                 }
                 
-                // FIXED: Extract agent transfers - ONLY agent-initiated ones
+                // Extract agent transfers - ONLY agent-initiated ones
                 const agentTransfers = transferAnalysis.transfers.filter(t => 
                   t.type === 'Agent → Agent' && t.isAgentInitiated
                 );
@@ -1244,7 +1255,7 @@
       const agentToAgent = state.allTransfers.filter(t => t.type === 'Agent → Agent' && t.isAgentInitiated).length;
       const queueToQueue = state.allTransfers.filter(t => t.type === 'Queue → Queue').length;
       
-      // FIXED: Render statistics with agent-initiated note
+      // Render statistics with agent-initiated note
       statsContainer.innerHTML = `
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${totalTransfers}</div>
@@ -1331,7 +1342,7 @@
       tableContainer.innerHTML = html;
     }
     
-    // ===== Queue Transfer Matrix =====
+    // ===== COMPLETELY REWRITTEN Queue Transfer Matrix =====
     function renderQueueTransferMatrix() {
       const statsContainer = $('queueMatrixStats');
       const matrixContainer = $('queueMatrixContainer');
@@ -1379,19 +1390,19 @@
         </div>
       `;
       
-      // Build the transfer matrix
+      // Build the transfer matrix with proper queue names
       const fromQueues = [...new Set(transfersToShow.map(t => t.fromId))];
       const toQueues = [...new Set(transfersToShow.map(t => t.toId))];
       
-      // Get all unique queue names for rows and columns
-      const allQueues = [...new Set([...fromQueues, ...toQueues])];
+      // Get all unique queue IDs for rows and columns
+      const allQueueIds = [...new Set([...fromQueues, ...toQueues])];
       
       // Create a matrix to count transfers between queues
       const matrix = {};
-      allQueues.forEach(fromQueue => {
-        matrix[fromQueue] = {};
-        allQueues.forEach(toQueue => {
-          matrix[fromQueue][toQueue] = 0;
+      allQueueIds.forEach(fromQueueId => {
+        matrix[fromQueueId] = {};
+        allQueueIds.forEach(toQueueId => {
+          matrix[fromQueueId][toQueueId] = 0;
         });
       });
       
@@ -1402,25 +1413,32 @@
         }
       });
       
+      // Sort queue IDs by their display names for better organization
+      const sortedQueueIds = allQueueIds.sort((a, b) => {
+        const nameA = getQueueName(a).toLowerCase();
+        const nameB = getQueueName(b).toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      
       // Generate the matrix table HTML
       let matrixHtml = '<table class="matrix-table">';
       
       // Header row with TO queues
       matrixHtml += '<thead><tr>';
       matrixHtml += '<th class="from-header">FROM / TO</th>';
-      allQueues.forEach(queueId => {
-        const queueName = getQueueName(queueId) || `Queue ${queueId}`;
+      sortedQueueIds.forEach(queueId => {
+        const queueName = getQueueName(queueId);
         matrixHtml += `<th class="to-header">${queueName}</th>`;
       });
       matrixHtml += '</tr></thead>';
       
       // Data rows
       matrixHtml += '<tbody>';
-      allQueues.forEach(fromQueueId => {
-        const fromQueueName = getQueueName(fromQueueId) || `Queue ${fromQueueId}`;
+      sortedQueueIds.forEach(fromQueueId => {
+        const fromQueueName = getQueueName(fromQueueId);
         matrixHtml += `<tr><td class="from-label">${fromQueueName}</td>`;
         
-        allQueues.forEach(toQueueId => {
+        sortedQueueIds.forEach(toQueueId => {
           const count = matrix[fromQueueId][toQueueId];
           let cellClass = '';
           if (count > 0) {
