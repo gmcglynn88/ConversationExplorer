@@ -44,7 +44,7 @@
     .badge-queue{background:#fde7ff;color:#7c3aed}
     .transfer-info{background:#fff7ed;border:1px solid var(--border-color);border-radius:6px;padding:8px;margin:8px 0}
     .transfer-count{background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:6px;font-weight:700}
-    .progress-bar{width:100%;height:8px;background:var(--border-color);border-radius:4px;overflow:hidden;margin:10px 0}
+    .progress-bar{width:100%;height=8px;background:var(--border-color);border-radius:4px;overflow:hidden;margin:10px 0}
     .progress-fill{height:100%;background:var(--primary-color);transition:width .3s}
     .t-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 16px}
     .t-kv{display:flex;gap:10px;justify-content:space-between}.t-kv .k{font-weight:700}
@@ -58,7 +58,7 @@
     .empathy-positive{color:#16a34a;font-weight:700}
     .empathy-negative{color:#dc2626;font-weight:700} /* Unhelpful = red */
     .confidence-high{color:#16a34a;font-weight:700}
-    .confidence-medium{color:#f59e0b;font-weight:700}
+    .confidence-medium{color:#f59e0b;font-weight=700}
     .confidence-low{color:#dc2626;font-weight:700}
     .loading{opacity:.6;pointer-events:none}
     .future-date{color:#ccc;cursor:not-allowed}
@@ -89,7 +89,7 @@
     .filter-controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     .filter-controls select, .filter-controls input { flex: 1; min-width: 150px; }
     
-    /* Queue Transfer Matrix Styles - UPDATED to match reference image */
+    /* Queue Transfer Matrix Styles */
     .queue-transfer-matrix { 
       overflow-x: auto; 
       margin-top: 20px; 
@@ -159,6 +159,68 @@
     }
     .matrix-low { 
       background-color: #d1fae5 !important; 
+    }
+    
+    /* Nested transfers styles */
+    .conversation-transfer-group { 
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .conversation-transfer-header { 
+      background-color: var(--light-bg);
+      padding: 12px 16px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+    }
+    .conversation-transfer-count {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+    .conversation-transfer-details {
+      display: none;
+      background-color: white;
+    }
+    .conversation-transfer-details.open {
+      display: block;
+    }
+    .transfer-leg {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--light-bg);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .transfer-leg:last-child {
+      border-bottom: none;
+    }
+    .transfer-leg-number {
+      background-color: var(--light-bg);
+      color: var(--text-color);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .transfer-leg-content {
+      flex: 1;
+    }
+    .transfer-leg-arrow {
+      color: var(--primary-color);
+      font-weight: 600;
+      margin: 0 8px;
     }
     
     .agent-selector { margin-bottom: 16px; }
@@ -240,6 +302,7 @@
         <button class="tab-button active" data-tab="conversations">Conversations</button>
         <button class="tab-button" data-tab="transfers">Transfer Reporting</button>
         <button class="tab-button" data-tab="queue-transfer-matrix">Queue Transfer Matrix</button>
+        <button class="tab-button" data-tab="agent-transfer-matrix">Agent Transfer Matrix</button>
       </div>
       
       <div id="conversations-tab" class="tab-content active">
@@ -265,7 +328,7 @@
               <option value="agent-to-agent">Agent → Agent</option>
               <option value="queue-to-queue">Queue → Queue</option>
             </select>
-            <input type="text" id="transferSearch" placeholder="Search by conversation ID, queue, or agent">
+            <input type="text" id="transferSearch" placeholder="Search by conversation ID">
           </div>
           
           <div id="transferStats" class="transfer-stats">
@@ -273,21 +336,7 @@
           </div>
           
           <div id="transferTableContainer">
-            <table class="transfer-table">
-              <thead>
-                <tr>
-                  <th>Conversation ID</th>
-                  <th>From</th>
-                  <th>To</th>
-                  <th>Transfer Type</th>
-                  <th>Time</th>
-                  <th>Duration</th>
-                </tr>
-              </thead>
-              <tbody id="transferTableBody">
-                <!-- Will be populated with transfer data -->
-              </tbody>
-            </table>
+            <!-- Will be populated with nested transfer data -->
           </div>
           
           <div id="noTransfersMessage" style="display:none; text-align:center; padding:40px;">
@@ -302,24 +351,51 @@
           <h2 style="margin:0 0 12px;">Queue Transfer Matrix</h2>
           
           <div class="agent-selector">
-            <label for="matrixAgentSelect">Show transfers for:</label>
-            <select id="matrixAgentSelect">
+            <label for="queueMatrixAgentSelect">Show transfers for:</label>
+            <select id="queueMatrixAgentSelect">
               <option value="all">All Agents</option>
               <!-- Agent options will be populated dynamically -->
             </select>
           </div>
           
-          <div id="matrixStats" class="transfer-stats">
+          <div id="queueMatrixStats" class="transfer-stats">
             <!-- Will be populated with matrix statistics -->
           </div>
           
-          <div id="matrixContainer" class="queue-transfer-matrix">
+          <div id="queueMatrixContainer" class="queue-transfer-matrix">
             <!-- Will be populated with the queue transfer matrix -->
           </div>
           
-          <div id="noMatrixDataMessage" style="display:none; text-align:center; padding:40px;">
+          <div id="noQueueMatrixDataMessage" style="display:none; text-align:center; padding:40px;">
             <div style="font-size:48px;margin-bottom:12px">📊</div>
             <div>No queue transfer data available for the selected criteria.</div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="agent-transfer-matrix-tab" class="tab-content">
+        <div class="card">
+          <h2 style="margin:0 0 12px;">Agent Transfer Matrix</h2>
+          
+          <div class="agent-selector">
+            <label for="agentMatrixAgentSelect">Show transfers for:</label>
+            <select id="agentMatrixAgentSelect">
+              <option value="all">All Agents</option>
+              <!-- Agent options will be populated dynamically -->
+            </select>
+          </div>
+          
+          <div id="agentMatrixStats" class="transfer-stats">
+            <!-- Will be populated with matrix statistics -->
+          </div>
+          
+          <div id="agentMatrixContainer" class="queue-transfer-matrix">
+            <!-- Will be populated with the agent transfer matrix -->
+          </div>
+          
+          <div id="noAgentMatrixDataMessage" style="display:none; text-align:center; padding:40px;">
+            <div style="font-size:48px;margin-bottom:12px">👥</div>
+            <div>No agent transfer data available for the selected criteria.</div>
           </div>
         </div>
       </div>
@@ -344,7 +420,8 @@
       selectedAgent:null, 
       convIndex:{},
       allTransfers: [], // New state for storing all transfers
-      queueTransfers: [] // New state for queue-to-queue transfers
+      queueTransfers: [], // New state for queue-to-queue transfers
+      agentTransfers: [] // New state for agent-to-agent transfers
     };
 
     // ===== Utils =====
@@ -447,7 +524,7 @@
         }
         state.users = all.map(u=>({id:u.id,name:u.name||'',email:u.email||''})).sort((a,b)=>a.name.localeCompare(b.name));
         populateUserSelect(state.users);
-        populateMatrixAgentSelect(state.users);
+        populateMatrixAgentSelects(state.users);
         setStatus(`Loaded ${state.users.length} users`); setLoading(false);
       }catch(e){ setStatus(`Failed to load users: ${e.message}`, true); setLoading(false); $('agentSelect').innerHTML='<option>Failed to load users</option>'; }
     }
@@ -457,10 +534,15 @@
       sel.onchange=()=>{ const u = users.find(x=>x.id===sel.value); state.selectedAgent=u||null; if(u){ $('selectedAgentName').textContent=u.name||'(Unnamed)'; $('selectedAgentInfo').style.display='block'; } else { $('selectedAgentInfo').style.display='none'; } };
     }
     
-    function populateMatrixAgentSelect(users) {
-      const sel = $('matrixAgentSelect');
-      sel.innerHTML = '<option value="all">All Agents</option>' + 
+    function populateMatrixAgentSelects(users) {
+      const queueSel = $('queueMatrixAgentSelect');
+      const agentSel = $('agentMatrixAgentSelect');
+      
+      const options = '<option value="all">All Agents</option>' + 
         users.map(u => `<option value="${u.id}">${u.name || '(Unnamed)'}</option>`).join('');
+      
+      queueSel.innerHTML = options;
+      agentSel.innerHTML = options;
     }
     
     $('agentFilter').addEventListener('input', function(){
@@ -670,12 +752,11 @@
           // Determine transfer type
           if(fromType === 'Agent' && toType === 'Agent') {
             transferType = 'Agent → Agent';
-          } else if((fromType === 'Queue' && toType === 'Queue') || 
-                    (fromType === 'Agent' && toType === 'Queue') || 
-                    (fromType === 'Queue' && toType === 'Agent')) {
+          } else if(fromType === 'Queue' && toType === 'Queue') {
             transferType = 'Queue → Queue';
           } else {
-            transferType = `${fromType} → ${toType}`;
+            // Skip mixed transfers (Queue→Agent, Agent→Queue)
+            continue;
           }
           
           if(transferType) {
@@ -1014,6 +1095,7 @@
         state.conversations=[]; state.convIndex={};
         state.allTransfers = []; // Reset transfers
         state.queueTransfers = []; // Reset queue transfers
+        state.agentTransfers = []; // Reset agent transfers
 
         for(let i=0;i<dateChunks.length;i++){
           const ch=dateChunks[i]; updateProgress((i/dateChunks.length)*100, i+1, dateChunks.length);
@@ -1039,18 +1121,29 @@
                 );
                 
                 // Extract queue transfers (Queue → Queue only)
-                const queueTransfers = transferAnalysis.transfers.filter(t => 
-                  t.type === 'Queue → Queue' && t.fromQueueId && t.toQueueId
-                );
+                const queueTransfers = transferAnalysis.transfers.filter(t => t.type === 'Queue → Queue');
                 if (queueTransfers.length > 0) {
                   state.queueTransfers = state.queueTransfers.concat(
                     queueTransfers.map(t => ({
                       ...t,
                       conversationId: conv.conversationId,
                       conversationStart: conv.conversationStart,
-                      // For matrix, use queue IDs when available
                       matrixFromId: t.fromQueueId || t.fromId,
                       matrixToId: t.toQueueId || t.toId
+                    }))
+                  );
+                }
+                
+                // Extract agent transfers (Agent → Agent only)
+                const agentTransfers = transferAnalysis.transfers.filter(t => t.type === 'Agent → Agent');
+                if (agentTransfers.length > 0) {
+                  state.agentTransfers = state.agentTransfers.concat(
+                    agentTransfers.map(t => ({
+                      ...t,
+                      conversationId: conv.conversationId,
+                      conversationStart: conv.conversationStart,
+                      matrixFromId: t.fromUserId || t.fromId,
+                      matrixToId: t.toUserId || t.toId
                     }))
                   );
                 }
@@ -1066,6 +1159,7 @@
         renderResults(state.conversations, from, to);
         renderTransferReport(); // Render the transfer report
         renderQueueTransferMatrix(); // Render the queue transfer matrix
+        renderAgentTransferMatrix(); // Render the agent transfer matrix
         setStatus('Found ' + state.conversations.length + ' conversations for the selected period');
         setLoading(false); hideProgress();
       }catch(e){ setStatus('Error fetching conversations: ' + e.message, true); setLoading(false); hideProgress(); }
@@ -1172,12 +1266,12 @@
     // ===== Transfer Reporting =====
     function renderTransferReport() {
       const statsContainer = $('transferStats');
-      const tableBody = $('transferTableBody');
+      const tableContainer = $('transferTableContainer');
       const noTransfersMessage = $('noTransfersMessage');
       
       if (state.allTransfers.length === 0) {
         statsContainer.innerHTML = '';
-        tableBody.innerHTML = '';
+        tableContainer.innerHTML = '';
         noTransfersMessage.style.display = 'block';
         return;
       }
@@ -1220,36 +1314,63 @@
       }
       
       if (searchTerm) {
-        filteredTransfers = filteredTransfers.filter(t => {
-          const fromName = getTransferParticipantName(t.fromId, t.from);
-          const toName = getTransferParticipantName(t.toId, t.to);
-          return t.conversationId.toLowerCase().includes(searchTerm) || 
-                 fromName.toLowerCase().includes(searchTerm) || 
-                 toName.toLowerCase().includes(searchTerm);
-        });
+        filteredTransfers = filteredTransfers.filter(t => 
+          t.conversationId.toLowerCase().includes(searchTerm)
+        );
       }
       
-      // Render table
-      if (filteredTransfers.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px">No transfers match the selected filters</td></tr>';
+      // Group transfers by conversation
+      const transfersByConversation = {};
+      filteredTransfers.forEach(transfer => {
+        if (!transfersByConversation[transfer.conversationId]) {
+          transfersByConversation[transfer.conversationId] = [];
+        }
+        transfersByConversation[transfer.conversationId].push(transfer);
+      });
+      
+      // Render nested transfers
+      if (Object.keys(transfersByConversation).length === 0) {
+        tableContainer.innerHTML = '<div style="text-align:center;padding:20px">No transfers match the selected filters</div>';
         return;
       }
       
-      tableBody.innerHTML = filteredTransfers.map(transfer => {
-        const fromName = getTransferParticipantName(transfer.fromId, transfer.from);
-        const toName = getTransferParticipantName(transfer.toId, transfer.to);
+      let html = '';
+      Object.entries(transfersByConversation).forEach(([conversationId, transfers]) => {
+        const sortedTransfers = transfers.sort((a, b) => new Date(a.time) - new Date(b.time));
         
-        return `
-          <tr>
-            <td class="mono">${transfer.conversationId}</td>
-            <td>${fromName}</td>
-            <td>${toName}</td>
-            <td>${transfer.type}</td>
-            <td>${fmt(transfer.time)}</td>
-            <td>${formatSeconds(transfer.duration)}</td>
-          </tr>
+        html += `
+          <div class="conversation-transfer-group">
+            <div class="conversation-transfer-header" onclick="this.nextElementSibling.classList.toggle('open')">
+              <span>${conversationId} <span class="conversation-transfer-count">${transfers.length} transfer${transfers.length > 1 ? 's' : ''}</span></span>
+              <span>${fmt(sortedTransfers[0].conversationStart)}</span>
+            </div>
+            <div class="conversation-transfer-details">
         `;
-      }).join('');
+        
+        sortedTransfers.forEach((transfer, index) => {
+          const fromName = getTransferParticipantName(transfer.fromId, transfer.from);
+          const toName = getTransferParticipantName(transfer.toId, transfer.to);
+          
+          html += `
+            <div class="transfer-leg">
+              <div class="transfer-leg-number">${index + 1}</div>
+              <div class="transfer-leg-content">
+                <strong>${fromName}</strong>
+                <span class="transfer-leg-arrow">→</span>
+                <strong>${toName}</strong>
+                <span style="margin-left: 12px; color: var(--text-light);">${transfer.type} • ${fmt(transfer.time)}</span>
+              </div>
+            </div>
+          `;
+        });
+        
+        html += `
+            </div>
+          </div>
+        `;
+      });
+      
+      tableContainer.innerHTML = html;
     }
     
     function getTransferParticipantName(id, type) {
@@ -1264,24 +1385,21 @@
     
     // ===== Queue Transfer Matrix =====
     function renderQueueTransferMatrix() {
-      const statsContainer = $('matrixStats');
-      const matrixContainer = $('matrixContainer');
-      const noMatrixDataMessage = $('noMatrixDataMessage');
-      const selectedAgentId = $('matrixAgentSelect').value;
+      const statsContainer = $('queueMatrixStats');
+      const matrixContainer = $('queueMatrixContainer');
+      const noMatrixDataMessage = $('noQueueMatrixDataMessage');
+      const selectedAgentId = $('queueMatrixAgentSelect').value;
       
       // Filter transfers based on agent selection
       let transfersToShow = state.queueTransfers;
       
       if (selectedAgentId !== 'all') {
-        // Filter to only include conversations that involved the selected agent
         const agentConversations = state.conversations.filter(conv => 
           conv.participants && conv.participants.some(p => p.userId === selectedAgentId)
         );
         const agentConversationIds = new Set(agentConversations.map(c => c.conversationId));
         transfersToShow = transfersToShow.filter(t => agentConversationIds.has(t.conversationId));
       }
-      
-      console.log('Queue transfers for matrix:', transfersToShow);
       
       if (transfersToShow.length === 0) {
         statsContainer.innerHTML = '';
@@ -1336,12 +1454,12 @@
         }
       });
       
-      // Generate the matrix table HTML - UPDATED to match reference image
+      // Generate the matrix table HTML
       let matrixHtml = '<table class="matrix-table">';
       
-      // Header row with TO queues - exactly like the reference image
+      // Header row with TO queues
       matrixHtml += '<thead><tr>';
-      matrixHtml += '<th class="corner-header"></th>'; // Empty top-left corner
+      matrixHtml += '<th class="corner-header"></th>';
       matrixHtml += '<th class="from-header" colspan="' + allQueues.length + '">To</th>';
       matrixHtml += '</tr><tr>';
       matrixHtml += '<th class="from-header">From</th>';
@@ -1366,7 +1484,117 @@
             else cellClass = 'matrix-low';
           }
           
-          // Only show numbers for cells with transfers, leave others empty
+          matrixHtml += `<td class="${cellClass}">${count > 0 ? `<span class="matrix-count">${count}</span>` : ''}</td>`;
+        });
+        
+        matrixHtml += '</tr>';
+      });
+      matrixHtml += '</tbody></table>';
+      
+      matrixContainer.innerHTML = matrixHtml;
+    }
+    
+    // ===== Agent Transfer Matrix =====
+    function renderAgentTransferMatrix() {
+      const statsContainer = $('agentMatrixStats');
+      const matrixContainer = $('agentMatrixContainer');
+      const noMatrixDataMessage = $('noAgentMatrixDataMessage');
+      const selectedAgentId = $('agentMatrixAgentSelect').value;
+      
+      // Filter transfers based on agent selection
+      let transfersToShow = state.agentTransfers;
+      
+      if (selectedAgentId !== 'all') {
+        const agentConversations = state.conversations.filter(conv => 
+          conv.participants && conv.participants.some(p => p.userId === selectedAgentId)
+        );
+        const agentConversationIds = new Set(agentConversations.map(c => c.conversationId));
+        transfersToShow = transfersToShow.filter(t => agentConversationIds.has(t.conversationId));
+      }
+      
+      if (transfersToShow.length === 0) {
+        statsContainer.innerHTML = '';
+        matrixContainer.innerHTML = '';
+        noMatrixDataMessage.style.display = 'block';
+        return;
+      }
+      
+      noMatrixDataMessage.style.display = 'none';
+      
+      // Calculate matrix statistics
+      const totalAgentTransfers = transfersToShow.length;
+      const uniqueFromAgents = [...new Set(transfersToShow.map(t => t.matrixFromId))].length;
+      const uniqueToAgents = [...new Set(transfersToShow.map(t => t.matrixToId))].length;
+      
+      // Render statistics
+      statsContainer.innerHTML = `
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${totalAgentTransfers}</div>
+          <div class="transfer-stat-label">Agent Transfers</div>
+        </div>
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${uniqueFromAgents}</div>
+          <div class="transfer-stat-label">Source Agents</div>
+        </div>
+        <div class="transfer-stat-card">
+          <div class="transfer-stat-number">${uniqueToAgents}</div>
+          <div class="transfer-stat-label">Target Agents</div>
+        </div>
+      `;
+      
+      // Build the transfer matrix
+      const fromAgents = [...new Set(transfersToShow.map(t => t.matrixFromId))];
+      const toAgents = [...new Set(transfersToShow.map(t => t.matrixToId))];
+      
+      // Get all unique agent names for rows and columns
+      const allAgents = [...new Set([...fromAgents, ...toAgents])];
+      
+      // Create a matrix to count transfers between agents
+      const matrix = {};
+      allAgents.forEach(fromAgent => {
+        matrix[fromAgent] = {};
+        allAgents.forEach(toAgent => {
+          matrix[fromAgent][toAgent] = 0;
+        });
+      });
+      
+      // Count transfers
+      transfersToShow.forEach(transfer => {
+        if (matrix[transfer.matrixFromId] && matrix[transfer.matrixFromId][transfer.matrixToId] !== undefined) {
+          matrix[transfer.matrixFromId][transfer.matrixToId]++;
+        }
+      });
+      
+      // Generate the matrix table HTML
+      let matrixHtml = '<table class="matrix-table">';
+      
+      // Header row with TO agents
+      matrixHtml += '<thead><tr>';
+      matrixHtml += '<th class="corner-header"></th>';
+      matrixHtml += '<th class="from-header" colspan="' + allAgents.length + '">To</th>';
+      matrixHtml += '</tr><tr>';
+      matrixHtml += '<th class="from-header">From</th>';
+      allAgents.forEach(agentId => {
+        const agentName = getTransferParticipantName(agentId, 'Agent');
+        matrixHtml += `<th class="to-header">${agentName}</th>`;
+      });
+      matrixHtml += '</tr></thead>';
+      
+      // Data rows
+      matrixHtml += '<tbody>';
+      allAgents.forEach(fromAgentId => {
+        const fromAgentName = getTransferParticipantName(fromAgentId, 'Agent');
+        matrixHtml += `<tr><td class="from-label">${fromAgentName}</td>`;
+        
+        allAgents.forEach(toAgentId => {
+          const count = matrix[fromAgentId][toAgentId];
+          let cellClass = '';
+          if (count > 0) {
+            if (count >= 10) cellClass = 'matrix-high';
+            else if (count >= 5) cellClass = 'matrix-medium';
+            else cellClass = 'matrix-low';
+          }
+          
           matrixHtml += `<td class="${cellClass}">${count > 0 ? `<span class="matrix-count">${count}</span>` : ''}</td>`;
         });
         
@@ -1381,7 +1609,8 @@
     function setupTransferFilters() {
       $('transferFilter').addEventListener('change', renderTransferReport);
       $('transferSearch').addEventListener('input', renderTransferReport);
-      $('matrixAgentSelect').addEventListener('change', renderQueueTransferMatrix);
+      $('queueMatrixAgentSelect').addEventListener('change', renderQueueTransferMatrix);
+      $('agentMatrixAgentSelect').addEventListener('change', renderAgentTransferMatrix);
     }
 
     // ===== Events & Init =====
