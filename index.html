@@ -59,7 +59,7 @@
     .empathy-negative{color:#dc2626;font-weight=700} /* Unhelpful = red */
     .confidence-high{color:#16a34a;font-weight:700}
     .confidence-medium{color:#f59e0b;font-weight=700}
-    .confidence-low{color:#dc2626;font-weight:700}
+    .confidence-low{color:#dc2626;font-weight=700}
     .loading{opacity:.6;pointer-events:none}
     .future-date{color:#ccc;cursor:not-allowed}
     
@@ -655,7 +655,6 @@
       
       // Build a timeline of all participant engagements with their queue context
       const timeline = [];
-      let currentQueue = null;
       
       for(const p of (c.participants||[])){
         const queueId = getQueueIdFromParticipant(p);
@@ -670,19 +669,12 @@
         }
         
         if(startTime) {
-          // Update current queue context
-          if(queueId) {
-            currentQueue = queueId;
-            console.log('Queue context updated to:', getQueueName(queueId) || queueId);
-          }
-          
           timeline.push({
             time: startTime.getTime(),
             participant: p,
             queueId: queueId,
             userId: p.userId,
-            purpose: p.purpose,
-            currentQueue: currentQueue
+            purpose: p.purpose
           });
           
           console.log('Added to timeline:', {
@@ -735,24 +727,29 @@
         let fromType = null;
         let fromQueueId = null;
         let fromUserId = null;
+        let fromName = null;
         
         if(prev.userId) {
           // Agent transfer
           fromId = prev.userId;
           fromType = 'Agent';
-          fromQueueId = prev.currentQueue;
           fromUserId = prev.userId;
-          console.log('FROM: Agent', fromId, 'in queue', fromQueueId);
+          fromQueueId = prev.queueId;
+          const user = state.users.find(u => u.id === prev.userId);
+          fromName = user ? user.name : `Agent (${prev.userId})`;
+          console.log('FROM: Agent', fromName, 'in queue', fromQueueId);
         } else if(prev.queueId) {
           // Direct queue transfer
           fromId = prev.queueId;
           fromType = 'Queue';
           fromQueueId = prev.queueId;
-          console.log('FROM: Queue', fromId);
+          fromName = getQueueName(prev.queueId) || `Queue ${prev.queueId}`;
+          console.log('FROM: Queue', fromName);
         } else {
           // Unknown source
           fromId = prev.purpose || 'Unknown';
           fromType = prev.purpose || 'Unknown';
+          fromName = prev.purpose || 'Unknown';
           console.log('FROM: Unknown', fromId);
         }
         
@@ -761,24 +758,29 @@
         let toType = null;
         let toQueueId = null;
         let toUserId = null;
+        let toName = null;
         
         if(curr.userId) {
           // Transfer to agent
           toId = curr.userId;
           toType = 'Agent';
-          toQueueId = curr.currentQueue;
           toUserId = curr.userId;
-          console.log('TO: Agent', toId, 'in queue', toQueueId);
+          toQueueId = curr.queueId;
+          const user = state.users.find(u => u.id === curr.userId);
+          toName = user ? user.name : `Agent (${curr.userId})`;
+          console.log('TO: Agent', toName, 'in queue', toQueueId);
         } else if(curr.queueId) {
           // Transfer to queue
           toId = curr.queueId;
           toType = 'Queue';
           toQueueId = curr.queueId;
-          console.log('TO: Queue', toId);
+          toName = getQueueName(curr.queueId) || `Queue ${curr.queueId}`;
+          console.log('TO: Queue', toName);
         } else {
           // Unknown destination
           toId = curr.purpose || 'Unknown';
           toType = curr.purpose || 'Unknown';
+          toName = curr.purpose || 'Unknown';
           console.log('TO: Unknown', toId);
         }
         
@@ -810,6 +812,8 @@
               toQueueId: toQueueId,
               fromUserId: fromUserId,
               toUserId: toUserId,
+              fromName: fromName,
+              toName: toName,
               time: new Date(curr.time).toISOString(),
               type: transferType,
               conversationId: c.conversationId,
@@ -1303,7 +1307,7 @@
         stepHtml += '<div class="step-header">Step ' + (idx+1) + ': ' + badge(purpose, name) + (transfer?'<span style="color:#dc2626;margin-left:8px">🔄 TRANSFERRED</span>':'') + '</div>';
         stepHtml += '<div class="step-details">';
         if(transfer){
-          stepHtml += '<div class="transfer-info"><strong>Transfer:</strong> ' + transfer.type + '<br>From: ' + transfer.from + ' → To: ' + transfer.to + '<br>Time: ' + fmt(transfer.time) + '</div>';
+          stepHtml += '<div class="transfer-info"><strong>Transfer:</strong> ' + transfer.type + '<br>From: ' + transfer.fromName + ' → To: ' + transfer.toName + '<br>Time: ' + fmt(transfer.time) + '</div>';
         }
         stepHtml += '<div class="info-grid">';
         stepHtml += '<div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">' + getParticipantType(p) + '</span></div>';
@@ -1403,16 +1407,13 @@
         `;
         
         sortedTransfers.forEach((transfer, index) => {
-          const fromName = getTransferParticipantName(transfer.fromId, transfer.from);
-          const toName = getTransferParticipantName(transfer.toId, transfer.to);
-          
           html += `
             <div class="transfer-leg">
               <div class="transfer-leg-number">${index + 1}</div>
               <div class="transfer-leg-content">
-                <strong>${fromName}</strong>
+                <strong>${transfer.fromName}</strong>
                 <span class="transfer-leg-arrow">→</span>
-                <strong>${toName}</strong>
+                <strong>${transfer.toName}</strong>
                 <span style="margin-left: 12px; color: var(--text-light);">${transfer.type} • ${fmt(transfer.time)}</span>
               </div>
             </div>
