@@ -651,6 +651,8 @@
       const transfers = [];
       let totalTransfers = 0;
       
+      console.log('=== Analyzing transfers for conversation:', c.conversationId);
+      
       // Build a timeline of all participant engagements with their queue context
       const timeline = [];
       let currentQueue = null;
@@ -663,6 +665,7 @@
         const purpose = p.purpose || '';
         if (purpose.includes('ivr') || purpose.includes('survey') || 
             (p.name && (p.name.toLowerCase().includes('ivr') || p.name.toLowerCase().includes('survey')))) {
+          console.log('Skipping IVR/survey participant:', purpose, p.name);
           continue;
         }
         
@@ -670,6 +673,7 @@
           // Update current queue context
           if(queueId) {
             currentQueue = queueId;
+            console.log('Queue context updated to:', getQueueName(queueId) || queueId);
           }
           
           timeline.push({
@@ -678,28 +682,55 @@
             queueId: queueId,
             userId: p.userId,
             purpose: p.purpose,
-            currentQueue: currentQueue // Track the queue context at this point
+            currentQueue: currentQueue
+          });
+          
+          console.log('Added to timeline:', {
+            purpose: p.purpose,
+            userId: p.userId,
+            queueId: queueId,
+            queueName: queueId ? (getQueueName(queueId) || queueId) : 'None',
+            time: new Date(startTime).toISOString()
           });
         }
       }
       
       // Sort by time
       timeline.sort((a, b) => a.time - b.time);
+      console.log('Timeline sorted:', timeline.length, 'entries');
       
       // Analyze transfers between consecutive entries
       for(let i = 1; i < timeline.length; i++) {
         const prev = timeline[i-1];
         const curr = timeline[i];
         
-        // Skip if we don't have proper queue/user info
-        if(!prev || !curr) continue;
+        console.log(`\n=== Analyzing step ${i}:`);
+        console.log('Previous:', {
+          purpose: prev.purpose,
+          userId: prev.userId, 
+          queueId: prev.queueId,
+          queueName: prev.queueId ? (getQueueName(prev.queueId) || prev.queueId) : 'None'
+        });
+        console.log('Current:', {
+          purpose: curr.purpose,
+          userId: curr.userId,
+          queueId: curr.queueId,
+          queueName: curr.queueId ? (getQueueName(curr.queueId) || curr.queueId) : 'None'
+        });
         
-        // Skip if either participant is IVR or survey
-        if (isIVRorSurvey(prev.participant) || isIVRorSurvey(curr.participant)) {
+        // Skip if we don't have proper queue/user info
+        if(!prev || !curr) {
+          console.log('Skipping: missing prev or curr');
           continue;
         }
         
-        // Determine FROM information - use queue context if available
+        // Skip if either participant is IVR or survey
+        if (isIVRorSurvey(prev.participant) || isIVRorSurvey(curr.participant)) {
+          console.log('Skipping: IVR/survey participant');
+          continue;
+        }
+        
+        // Determine FROM information
         let fromId = null;
         let fromType = null;
         let fromQueueId = null;
@@ -711,15 +742,18 @@
           fromType = 'Agent';
           fromQueueId = prev.currentQueue;
           fromUserId = prev.userId;
+          console.log('FROM: Agent', fromId, 'in queue', fromQueueId);
         } else if(prev.queueId) {
           // Direct queue transfer
           fromId = prev.queueId;
           fromType = 'Queue';
           fromQueueId = prev.queueId;
+          console.log('FROM: Queue', fromId);
         } else {
           // Unknown source
           fromId = prev.purpose || 'Unknown';
           fromType = prev.purpose || 'Unknown';
+          console.log('FROM: Unknown', fromId);
         }
         
         // Determine TO information
@@ -734,52 +768,62 @@
           toType = 'Agent';
           toQueueId = curr.currentQueue;
           toUserId = curr.userId;
+          console.log('TO: Agent', toId, 'in queue', toQueueId);
         } else if(curr.queueId) {
           // Transfer to queue
           toId = curr.queueId;
           toType = 'Queue';
           toQueueId = curr.queueId;
+          console.log('TO: Queue', toId);
         } else {
           // Unknown destination
           toId = curr.purpose || 'Unknown';
           toType = curr.purpose || 'Unknown';
+          console.log('TO: Unknown', toId);
         }
         
         // Only count as transfer if FROM and TO are different
         if(fromId !== toId) {
           let transferType = null;
           
-          // Determine transfer type - FIXED LOGIC
+          // Determine transfer type
           if(fromType === 'Agent' && toType === 'Agent') {
             transferType = 'Agent → Agent';
+            console.log('TRANSFER TYPE: Agent → Agent');
           } else if(fromType === 'Queue' && toType === 'Queue') {
             transferType = 'Queue → Queue';
+            console.log('TRANSFER TYPE: Queue → Queue');
           } else {
-            // Skip mixed transfers (Queue→Agent, Agent→Queue) for now
+            console.log('TRANSFER TYPE: Mixed (skipping)', fromType, '→', toType);
             continue;
           }
           
           if(transferType) {
             totalTransfers++;
-            transfers.push({
+            const transfer = {
               step: i,
               from: fromType,
               to: toType,
               fromId: fromId,
               toId: toId,
-              fromQueueId: fromQueueId, // For matrix tracking
-              toQueueId: toQueueId,     // For matrix tracking
-              fromUserId: fromUserId,   // For agent transfers
-              toUserId: toUserId,       // For agent transfers
+              fromQueueId: fromQueueId,
+              toQueueId: toQueueId,
+              fromUserId: fromUserId,
+              toUserId: toUserId,
               time: new Date(curr.time).toISOString(),
               type: transferType,
               conversationId: c.conversationId,
               duration: i < timeline.length-1 ? (timeline[i+1].time - curr.time) : 0
-            });
+            };
+            transfers.push(transfer);
+            console.log('ADDED TRANSFER:', transfer);
           }
+        } else {
+          console.log('Skipping: same source and destination');
         }
       }
       
+      console.log('=== Total transfers found:', transfers.length, 'for conversation', c.conversationId);
       return {totalTransfers, transfers};
     }
 
@@ -1105,6 +1149,7 @@
             const res = await fetch(CONFIG.apiHost + '/api/v2/analytics/conversations/details/query', { method:'POST', headers:{Authorization:'Bearer ' + state.token,'Content-Type':'application/json'}, body:JSON.stringify(body) });
             if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error('Details error: ' + res.status + ' ' + res.statusText + (t?' - ' + t.slice(0,200):'')); }
             const data = await res.json(); const convs = data.conversations||[];
+            console.log('Fetched', convs.length, 'conversations in chunk', i+1);
             for(const c of convs) state.convIndex[c.conversationId]=c;
             state.conversations = state.conversations.concat(convs);
             
@@ -1112,6 +1157,7 @@
             for(const conv of convs) {
               const transferAnalysis = analyzeTransfers(conv);
               if(transferAnalysis.transfers.length > 0) {
+                console.log('Found', transferAnalysis.transfers.length, 'transfers in conversation', conv.conversationId);
                 state.allTransfers = state.allTransfers.concat(
                   transferAnalysis.transfers.map(t => ({
                     ...t,
@@ -1122,6 +1168,7 @@
                 
                 // Extract queue transfers (Queue → Queue only)
                 const queueTransfers = transferAnalysis.transfers.filter(t => t.type === 'Queue → Queue');
+                console.log('Queue transfers found:', queueTransfers.length);
                 if (queueTransfers.length > 0) {
                   state.queueTransfers = state.queueTransfers.concat(
                     queueTransfers.map(t => ({
@@ -1136,6 +1183,7 @@
                 
                 // Extract agent transfers (Agent → Agent only)
                 const agentTransfers = transferAnalysis.transfers.filter(t => t.type === 'Agent → Agent');
+                console.log('Agent transfers found:', agentTransfers.length);
                 if (agentTransfers.length > 0) {
                   state.agentTransfers = state.agentTransfers.concat(
                     agentTransfers.map(t => ({
@@ -1154,6 +1202,13 @@
         }
 
         await warmQueueCache(state.conversations);
+
+        console.log('=== FINAL TRANSFER COUNTS ===');
+        console.log('All transfers:', state.allTransfers.length);
+        console.log('Queue transfers:', state.queueTransfers.length);
+        console.log('Agent transfers:', state.agentTransfers.length);
+        console.log('Queue transfer details:', state.queueTransfers);
+        console.log('Agent transfer details:', state.agentTransfers);
 
         updateProgress(100, dateChunks.length, dateChunks.length);
         renderResults(state.conversations, from, to);
