@@ -191,8 +191,6 @@
             <select id="transferFilter">
               <option value="all">All Transfers</option>
               <option value="agent-to-agent">Agent → Agent</option>
-              <option value="agent-to-queue">Agent → Queue</option>
-              <option value="queue-to-agent">Queue → Agent</option>
               <option value="queue-to-queue">Queue → Queue</option>
             </select>
             <input type="text" id="transferSearch" placeholder="Search by conversation ID, queue, or agent">
@@ -499,20 +497,27 @@
       const transfers = [];
       let totalTransfers = 0;
       
-      // Build a timeline of all participant engagements
+      // Build a timeline of all participant engagements with their queue context
       const timeline = [];
+      let currentQueue = null;
       
       for(const p of (c.participants||[])){
         const queueId = getQueueIdFromParticipant(p);
         const startTime = getStepStart(p);
         
         if(startTime) {
+          // Update current queue context
+          if(queueId) {
+            currentQueue = queueId;
+          }
+          
           timeline.push({
             time: startTime.getTime(),
             participant: p,
             queueId: queueId,
             userId: p.userId,
-            purpose: p.purpose
+            purpose: p.purpose,
+            currentQueue: currentQueue // Track the queue context at this point
           });
         }
       }
@@ -528,63 +533,87 @@
         // Skip if we don't have proper queue/user info
         if(!prev || !curr) continue;
         
-        const prevIsQueue = prev.queueId && !prev.userId;
-        const currIsQueue = curr.queueId && !curr.userId;
-        const prevIsAgent = prev.userId;
-        const currIsAgent = curr.userId;
-        
-        let transferType = null;
+        // Determine FROM information - use queue context if available
         let fromId = null;
-        let toId = null;
         let fromType = null;
+        let fromQueueId = null;
+        
+        if(prev.userId) {
+          // Agent transfer - use the queue they were in
+          fromId = prev.currentQueue || prev.userId;
+          fromType = prev.currentQueue ? 'Queue' : 'Agent';
+          fromQueueId = prev.currentQueue;
+        } else if(prev.queueId) {
+          // Direct queue transfer
+          fromId = prev.queueId;
+          fromType = 'Queue';
+          fromQueueId = prev.queueId;
+        } else {
+          // Unknown source
+          fromId = prev.purpose || 'Unknown';
+          fromType = prev.purpose || 'Unknown';
+        }
+        
+        // Determine TO information
+        let toId = null;
         let toType = null;
+        let toQueueId = null;
         
-        // Queue to Queue transfer
-        if(prevIsQueue && currIsQueue && prev.queueId !== curr.queueId) {
-          transferType = 'Queue → Queue';
-          fromId = prev.queueId;
+        if(curr.userId) {
+          // Transfer to agent - use the queue they're in
+          toId = curr.currentQueue || curr.userId;
+          toType = curr.currentQueue ? 'Queue' : 'Agent';
+          toQueueId = curr.currentQueue;
+        } else if(curr.queueId) {
+          // Transfer to queue
           toId = curr.queueId;
-          fromType = 'Queue';
           toType = 'Queue';
-        }
-        // Agent to Queue transfer
-        else if(prevIsAgent && currIsQueue) {
-          transferType = 'Agent → Queue';
-          fromId = prev.userId;
-          toId = curr.queueId;
-          fromType = 'Agent';
-          toType = 'Queue';
-        }
-        // Queue to Agent transfer
-        else if(prevIsQueue && currIsAgent) {
-          transferType = 'Queue → Agent';
-          fromId = prev.queueId;
-          toId = curr.userId;
-          fromType = 'Queue';
-          toType = 'Agent';
-        }
-        // Agent to Agent transfer
-        else if(prevIsAgent && currIsAgent && prev.userId !== curr.userId) {
-          transferType = 'Agent → Agent';
-          fromId = prev.userId;
-          toId = curr.userId;
-          fromType = 'Agent';
-          toType = 'Agent';
+          toQueueId = curr.queueId;
+        } else {
+          // Unknown destination
+          toId = curr.purpose || 'Unknown';
+          toType = curr.purpose || 'Unknown';
         }
         
-        if(transferType) {
-          totalTransfers++;
-          transfers.push({
-            step: i,
-            from: fromType,
-            to: toType,
-            fromId: fromId,
-            toId: toId,
-            time: new Date(curr.time).toISOString(),
-            type: transferType,
-            conversationId: c.conversationId,
-            duration: i < timeline.length-1 ? (timeline[i+1].time - curr.time) : 0
-          });
+        // Only count as transfer if FROM and TO are different
+        if(fromId !== toId) {
+          let transferType = null;
+          
+          // Determine transfer type
+          if(fromType === 'Agent' && toType === 'Agent') {
+            transferType = 'Agent → Agent';
+          } else {
+            // Everything else is considered Queue → Queue
+            // This includes Agent→Queue, Queue→Agent, and Queue→Queue
+            transferType = 'Queue → Queue';
+            
+            // For the matrix, we need to ensure we have queue IDs
+            if(!fromQueueId && fromType === 'Agent') {
+              // If agent doesn't have a queue context, we can't track this in matrix
+              continue;
+            }
+            if(!toQueueId && toType === 'Agent') {
+              // If destination agent doesn't have queue context, we can't track this in matrix
+              continue;
+            }
+          }
+          
+          if(transferType) {
+            totalTransfers++;
+            transfers.push({
+              step: i,
+              from: fromType,
+              to: toType,
+              fromId: fromId,
+              toId: toId,
+              fromQueueId: fromQueueId, // For matrix tracking
+              toQueueId: toQueueId,     // For matrix tracking
+              time: new Date(curr.time).toISOString(),
+              type: transferType,
+              conversationId: c.conversationId,
+              duration: i < timeline.length-1 ? (timeline[i+1].time - curr.time) : 0
+            });
+          }
         }
       }
       
@@ -916,14 +945,20 @@
                   }))
                 );
                 
-                // Extract queue-to-queue transfers specifically
-                const queueTransfers = transferAnalysis.transfers.filter(t => t.type === 'Queue → Queue');
+                // Extract queue transfers (Queue → Queue and Agent→Queue/Queue→Agent with queue context)
+                const queueTransfers = transferAnalysis.transfers.filter(t => 
+                  t.type === 'Queue → Queue' || 
+                  (t.fromQueueId && t.toQueueId) // Both have queue context
+                );
                 if (queueTransfers.length > 0) {
                   state.queueTransfers = state.queueTransfers.concat(
                     queueTransfers.map(t => ({
                       ...t,
                       conversationId: conv.conversationId,
-                      conversationStart: conv.conversationStart
+                      conversationStart: conv.conversationStart,
+                      // For matrix, use queue IDs when available
+                      matrixFromId: t.fromQueueId || t.fromId,
+                      matrixToId: t.toQueueId || t.toId
                     }))
                   );
                 }
@@ -1060,8 +1095,6 @@
       // Calculate statistics
       const totalTransfers = state.allTransfers.length;
       const agentToAgent = state.allTransfers.filter(t => t.type === 'Agent → Agent').length;
-      const agentToQueue = state.allTransfers.filter(t => t.type === 'Agent → Queue').length;
-      const queueToAgent = state.allTransfers.filter(t => t.type === 'Queue → Agent').length;
       const queueToQueue = state.allTransfers.filter(t => t.type === 'Queue → Queue').length;
       
       // Render statistics
@@ -1073,14 +1106,6 @@
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${agentToAgent}</div>
           <div class="transfer-stat-label">Agent → Agent</div>
-        </div>
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${agentToQueue}</div>
-          <div class="transfer-stat-label">Agent → Queue</div>
-        </div>
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${queueToAgent}</div>
-          <div class="transfer-stat-label">Queue → Agent</div>
         </div>
         <div class="transfer-stat-card">
           <div class="transfer-stat-number">${queueToQueue}</div>
@@ -1097,8 +1122,6 @@
       if (filterType !== 'all') {
         filteredTransfers = filteredTransfers.filter(t => {
           if (filterType === 'agent-to-agent') return t.type === 'Agent → Agent';
-          if (filterType === 'agent-to-queue') return t.type === 'Agent → Queue';
-          if (filterType === 'queue-to-agent') return t.type === 'Queue → Agent';
           if (filterType === 'queue-to-queue') return t.type === 'Queue → Queue';
           return true;
         });
@@ -1160,11 +1183,13 @@
       if (selectedAgentId !== 'all') {
         // Filter to only include conversations that involved the selected agent
         const agentConversations = state.conversations.filter(conv => 
-          conv.participants.some(p => p.userId === selectedAgentId)
+          conv.participants && conv.participants.some(p => p.userId === selectedAgentId)
         );
         const agentConversationIds = new Set(agentConversations.map(c => c.conversationId));
         transfersToShow = transfersToShow.filter(t => agentConversationIds.has(t.conversationId));
       }
+      
+      console.log('Queue transfers for matrix:', transfersToShow);
       
       if (transfersToShow.length === 0) {
         statsContainer.innerHTML = '';
@@ -1177,8 +1202,8 @@
       
       // Calculate matrix statistics
       const totalQueueTransfers = transfersToShow.length;
-      const uniqueFromQueues = [...new Set(transfersToShow.map(t => t.fromId))].length;
-      const uniqueToQueues = [...new Set(transfersToShow.map(t => t.toId))].length;
+      const uniqueFromQueues = [...new Set(transfersToShow.map(t => t.matrixFromId))].length;
+      const uniqueToQueues = [...new Set(transfersToShow.map(t => t.matrixToId))].length;
       
       // Render statistics
       statsContainer.innerHTML = `
@@ -1197,8 +1222,8 @@
       `;
       
       // Build the transfer matrix
-      const fromQueues = [...new Set(transfersToShow.map(t => t.fromId))];
-      const toQueues = [...new Set(transfersToShow.map(t => t.toId))];
+      const fromQueues = [...new Set(transfersToShow.map(t => t.matrixFromId))];
+      const toQueues = [...new Set(transfersToShow.map(t => t.matrixToId))];
       
       // Get all unique queue names for rows and columns
       const allQueues = [...new Set([...fromQueues, ...toQueues])];
@@ -1214,8 +1239,8 @@
       
       // Count transfers
       transfersToShow.forEach(transfer => {
-        if (matrix[transfer.fromId] && matrix[transfer.fromId][transfer.toId] !== undefined) {
-          matrix[transfer.fromId][transfer.toId]++;
+        if (matrix[transfer.matrixFromId] && matrix[transfer.matrixFromId][transfer.matrixToId] !== undefined) {
+          matrix[transfer.matrixFromId][transfer.matrixToId]++;
         }
       });
       
