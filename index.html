@@ -89,23 +89,95 @@
     .filter-controls { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     .filter-controls select, .filter-controls input { flex: 1; min-width: 150px; }
     
-    /* Queue Transfer Matrix Styles */
-    .queue-transfer-matrix { overflow-x: auto; margin-top: 20px; }
-    .matrix-table { border-collapse: collapse; width: 100%; min-width: 600px; }
-    .matrix-table th, .matrix-table td { border: 1px solid var(--border-color); padding: 10px; text-align: center; }
-    .matrix-table th { background-color: var(--primary-color); color: white; font-weight: 600; }
-    .matrix-table th.from-header { background-color: var(--secondary-color); }
-    .matrix-table th.to-header { background-color: var(--primary-color); }
-    .matrix-table td.from-label { background-color: var(--light-bg); font-weight: 600; text-align: left; }
-    .matrix-table tr:hover td { background-color: #f0f7f4; }
-    .matrix-count { font-weight: 600; color: var(--text-color); }
-    .matrix-high { background-color: #fee2e2 !important; }
-    .matrix-medium { background-color: #fef3c7 !important; }
-    .matrix-low { background-color: #d1fae5 !important; }
+    /* Queue Transfer Matrix Styles - UPDATED to match reference image */
+    .queue-transfer-matrix { 
+      overflow-x: auto; 
+      margin-top: 20px; 
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      background: var(--card-bg);
+    }
+    .matrix-table { 
+      border-collapse: collapse; 
+      width: auto; 
+      min-width: 500px;
+      margin: 0 auto;
+    }
+    .matrix-table th, 
+    .matrix-table td { 
+      border: 1px solid var(--border-color); 
+      padding: 12px 16px; 
+      text-align: center; 
+      font-size: 14px;
+    }
+    .matrix-table th { 
+      font-weight: 600; 
+      position: sticky;
+      top: 0;
+      background-color: var(--primary-color);
+      color: white;
+    }
+    .matrix-table th.corner-header {
+      background-color: var(--secondary-color);
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .matrix-table th.from-header { 
+      background-color: var(--secondary-color); 
+      color: white;
+      text-align: center;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .matrix-table th.to-header { 
+      background-color: var(--primary-color); 
+      color: white;
+      font-weight: 600;
+    }
+    .matrix-table td.from-label { 
+      background-color: var(--light-bg); 
+      font-weight: 600; 
+      text-align: left;
+      border-right: 2px solid var(--border-color);
+      position: sticky;
+      left: 0;
+    }
+    .matrix-table tr:hover td { 
+      background-color: #f0f7f4; 
+    }
+    .matrix-count { 
+      font-weight: 700; 
+      color: var(--text-color); 
+      font-size: 16px;
+    }
+    .matrix-high { 
+      background-color: #fee2e2 !important; 
+    }
+    .matrix-medium { 
+      background-color: #fef3c7 !important; 
+    }
+    .matrix-low { 
+      background-color: #d1fae5 !important; 
+    }
     
     .agent-selector { margin-bottom: 16px; }
     .agent-selector label { display: inline-block; margin-right: 12px; }
     .agent-selector select { min-width: 200px; }
+
+    /* Add some visual separation */
+    .matrix-table th:first-child {
+      border-top-left-radius: 6px;
+    }
+    .matrix-table th:last-child {
+      border-top-right-radius: 6px;
+    }
+    .matrix-table tr:last-child td:first-child {
+      border-bottom-left-radius: 6px;
+    }
+    .matrix-table tr:last-child td:last-child {
+      border-bottom-right-radius: 6px;
+    }
   </style>
 </head>
 <body>
@@ -281,7 +353,7 @@
     const fmt = d => { if(!d) return 'N/A'; try{return new Date(d).toLocaleString()}catch{return 'N/A'} };
     const fmtDMY = s => { if(!s||s.length<10) return s||''; const [y,m,d]=s.slice(0,10).split('-'); return `${d}-${m}-${y}`; };
     const formatSeconds = ms => { if(!ms) return '0s'; const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60); if(h) return `${h}h ${m%60}m ${s%60}s`; if(m) return `${m}m ${s%60}s`; return `${s}s`; };
-    const mmss = ms => { const totalSeconds = Math.max(0, Math.floor((+ms||0)/1000)); const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0'); };
+    const mmss = ms => { const totalSeconds = Math.max(0, Math.floor((+ms||0)/1000)); const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + ''; };
     const calculateDuration = (a,b)=>{ if(!a||!b) return 0; return new Date(b)-new Date(a); };
     function showMain(){ $('authStatus').style.display='none'; $('mainContent').style.display='block'; }
     function setLoading(v){ $('mainContent').classList.toggle('loading', !!v); }
@@ -505,6 +577,13 @@
         const queueId = getQueueIdFromParticipant(p);
         const startTime = getStepStart(p);
         
+        // Skip IVR and survey portions
+        const purpose = p.purpose || '';
+        if (purpose.includes('ivr') || purpose.includes('survey') || 
+            (p.name && (p.name.toLowerCase().includes('ivr') || p.name.toLowerCase().includes('survey')))) {
+          continue;
+        }
+        
         if(startTime) {
           // Update current queue context
           if(queueId) {
@@ -532,6 +611,11 @@
         
         // Skip if we don't have proper queue/user info
         if(!prev || !curr) continue;
+        
+        // Skip if either participant is IVR or survey
+        if (isIVRorSurvey(prev.participant) || isIVRorSurvey(curr.participant)) {
+          continue;
+        }
         
         // Determine FROM information - use queue context if available
         let fromId = null;
@@ -618,6 +702,17 @@
       }
       
       return {totalTransfers, transfers};
+    }
+
+    // Helper function to identify IVR or survey participants
+    function isIVRorSurvey(participant) {
+      if (!participant) return false;
+      
+      const purpose = (participant.purpose || '').toLowerCase();
+      const name = (participant.name || '').toLowerCase();
+      
+      return purpose.includes('ivr') || purpose.includes('survey') || 
+             name.includes('ivr') || name.includes('survey');
     }
 
     function getParticipantName(p){
@@ -1189,6 +1284,13 @@
         transfersToShow = transfersToShow.filter(t => agentConversationIds.has(t.conversationId));
       }
       
+      // Filter out IVR and survey transfers
+      transfersToShow = transfersToShow.filter(transfer => {
+        // For queue transfers, we've already filtered at the participant level in analyzeTransfers
+        // But we can add additional filtering here if needed
+        return true;
+      });
+      
       console.log('Queue transfers for matrix:', transfersToShow);
       
       if (transfersToShow.length === 0) {
@@ -1244,12 +1346,15 @@
         }
       });
       
-      // Generate the matrix table HTML
+      // Generate the matrix table HTML - UPDATED to match reference image
       let matrixHtml = '<table class="matrix-table">';
       
-      // Header row with TO queues
+      // Header row with TO queues - exactly like the reference image
       matrixHtml += '<thead><tr>';
-      matrixHtml += '<th class="from-header">FROM / TO</th>';
+      matrixHtml += '<th class="corner-header"></th>'; // Empty top-left corner
+      matrixHtml += '<th class="from-header" colspan="' + allQueues.length + '">To</th>';
+      matrixHtml += '</tr><tr>';
+      matrixHtml += '<th class="from-header">From</th>';
       allQueues.forEach(queueId => {
         const queueName = getQueueName(queueId) || `Queue ${queueId}`;
         matrixHtml += `<th class="to-header">${queueName}</th>`;
@@ -1271,7 +1376,8 @@
             else cellClass = 'matrix-low';
           }
           
-          matrixHtml += `<td class="${cellClass}"><span class="matrix-count">${count}</span></td>`;
+          // Only show numbers for cells with transfers, leave others empty
+          matrixHtml += `<td class="${cellClass}">${count > 0 ? `<span class="matrix-count">${count}</span>` : ''}</td>`;
         });
         
         matrixHtml += '</tr>';
