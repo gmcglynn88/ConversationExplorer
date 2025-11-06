@@ -490,24 +490,27 @@
       if(total<=7) return 7; if(total<=30) return 7; if(total<=90) return 5; if(total<=180) return 3; return 2;
     }
 
-    // ===== Queue helpers =====
+    // ===== Enhanced Queue helpers =====
     function getQueueIdFromParticipant(p){ 
       if(p.queueId) return p.queueId; 
       for(const s of (p.sessions||[])) {
         if(s.queueId) return s.queueId;
-        // Also check segments for queue information
         for(const seg of (s.segments||[])) {
           if(seg.queueId) return seg.queueId;
         }
       }
       return null; 
     }
-    
+
     function getQueueName(id){ 
       if (!id) return null;
-      return state.queues[id] || null; 
+      if (!state.queues[id]) {
+        fetchQueueName(id); // Try to fetch it in background
+        return `Queue ${id.substring(0, 8)}...`;
+      }
+      return state.queues[id]; 
     }
-    
+
     async function fetchQueueName(id){ 
       if(!id || state.queues[id]) return; 
       try{ 
@@ -518,7 +521,7 @@
         state.queues[id] = `Queue ${id}`; 
       } 
     }
-    
+
     async function warmQueueCache(convs){
       const set = new Set(); 
       for(const c of convs) {
@@ -527,7 +530,42 @@
           if(id) set.add(id); 
         }
       }
+      
+      // Also extract queue IDs from transfers
+      for(const c of convs) {
+        const transferAnalysis = analyzeTransfers(c);
+        for(const transfer of transferAnalysis.transfers) {
+          if(transfer.fromId && transfer.fromType === 'Queue') set.add(transfer.fromId);
+          if(transfer.toId && transfer.toType === 'Queue') set.add(transfer.toId);
+        }
+      }
+      
       await Promise.all([...set].filter(id => !state.queues[id]).map(fetchQueueName));
+    }
+
+    // Function to refresh missing queue names
+    async function refreshMissingQueueNames() {
+      const missingQueues = [];
+      
+      state.allTransfers.forEach(transfer => {
+        if (transfer.fromType === 'Queue' && (!state.queues[transfer.fromId] || state.queues[transfer.fromId].startsWith('Queue '))) {
+          missingQueues.push(transfer.fromId);
+        }
+        if (transfer.toType === 'Queue' && (!state.queues[transfer.toId] || state.queues[transfer.toId].startsWith('Queue '))) {
+          missingQueues.push(transfer.toId);
+        }
+      });
+      
+      const uniqueMissing = [...new Set(missingQueues)];
+      
+      if (uniqueMissing.length > 0) {
+        console.log('Refreshing missing queue names:', uniqueMissing);
+        await Promise.all(uniqueMissing.map(fetchQueueName));
+        
+        // Re-render to show updated names
+        renderTransferReport();
+        renderQueueTransferMatrix();
+      }
     }
 
     // ===== Conversation helpers =====
@@ -1010,6 +1048,7 @@
         }
 
         await warmQueueCache(state.conversations);
+        await refreshMissingQueueNames(); // Add this line to refresh any missing queue names
 
         updateProgress(100, dateChunks.length, dateChunks.length);
         renderResults(state.conversations, from, to);
