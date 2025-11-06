@@ -411,12 +411,43 @@
     }
 
     // ===== Queue helpers =====
-    function getQueueIdFromParticipant(p){ if(p.queueId) return p.queueId; for(const s of (p.sessions||[])) if(s.queueId) return s.queueId; return null; }
-    function getQueueName(id){ return state.queues[id]||null; }
-    async function fetchQueueName(id){ if(!id||state.queues[id]) return; try{ const q=await api(`/api/v2/routing/queues/${id}`); state.queues[id]=q?.name||id; }catch{ state.queues[id]=id; } }
+    function getQueueIdFromParticipant(p){ 
+      if(p.queueId) return p.queueId; 
+      for(const s of (p.sessions||[])) {
+        if(s.queueId) return s.queueId;
+        // Also check segments for queue information
+        for(const seg of (s.segments||[])) {
+          if(seg.queueId) return seg.queueId;
+        }
+      }
+      return null; 
+    }
+    
+    function getQueueName(id){ 
+      if (!id) return null;
+      return state.queues[id] || null; 
+    }
+    
+    async function fetchQueueName(id){ 
+      if(!id || state.queues[id]) return; 
+      try{ 
+        const q = await api(`/api/v2/routing/queues/${id}`); 
+        state.queues[id] = q?.name || `Queue ${id}`; 
+      } catch(e) { 
+        console.warn(`Could not fetch queue name for ${id}:`, e);
+        state.queues[id] = `Queue ${id}`; 
+      } 
+    }
+    
     async function warmQueueCache(convs){
-      const set=new Set(); for(const c of convs) for(const p of (c.participants||[])){ const id=getQueueIdFromParticipant(p); if(id) set.add(id); }
-      await Promise.all([...set].filter(id=>!state.queues[id]).map(fetchQueueName));
+      const set = new Set(); 
+      for(const c of convs) {
+        for(const p of (c.participants||[])){ 
+          const id = getQueueIdFromParticipant(p); 
+          if(id) set.add(id); 
+        }
+      }
+      await Promise.all([...set].filter(id => !state.queues[id]).map(fetchQueueName));
     }
 
     // ===== Conversation helpers =====
@@ -462,36 +493,104 @@
       }
       return total;
     }
-    function buildLegs(c){
-      const legs=[]; for(const p of (c.participants||[])){
-        const when=getStepStart(p)?.getTime()??Infinity; legs.push({when,purpose:p.purpose,userId:p.userId||null,queueId:getQueueIdFromParticipant(p)||null});
-      }
-      legs.sort((a,b)=>a.when-b.when); return legs.filter(l=>Number.isFinite(l.when));
-    }
+
+    // ===== IMPROVED TRANSFER ANALYSIS =====
     function analyzeTransfers(c){
-      const legs=buildLegs(c), transfers=[]; let count=0;
-      for(let i=1;i<legs.length;i++){ const prev=legs[i-1], cur=legs[i];
-        const a2a = prev.userId && cur.userId && prev.userId!==cur.userId;
-        const a2q = prev.userId && cur.queueId && !cur.userId;
-        const q2a = prev.queueId && cur.userId;
-        const q2q = prev.queueId && cur.queueId && prev.queueId !== cur.queueId;
-        if(a2a||a2q||q2a||q2q){ 
-          count++; 
-          transfers.push({
-            step:i,
-            from: prev.userId?'Agent':(prev.queueId?'Queue':(prev.purpose||'Unknown')), 
-            to: cur.userId?'Agent':(cur.queueId?'Queue':(cur.purpose||'Unknown')), 
-            time:new Date(cur.when).toISOString(), 
-            type:a2a?'Agent → Agent':(a2q?'Agent → Queue':(q2a?'Queue → Agent':'Queue → Queue')),
-            fromId: prev.userId || prev.queueId,
-            toId: cur.userId || cur.queueId,
-            conversationId: c.conversationId,
-            duration: i < legs.length-1 ? (legs[i+1].when - cur.when) : 0
-          }); 
+      const transfers = [];
+      let totalTransfers = 0;
+      
+      // Build a timeline of all participant engagements
+      const timeline = [];
+      
+      for(const p of (c.participants||[])){
+        const queueId = getQueueIdFromParticipant(p);
+        const startTime = getStepStart(p);
+        
+        if(startTime) {
+          timeline.push({
+            time: startTime.getTime(),
+            participant: p,
+            queueId: queueId,
+            userId: p.userId,
+            purpose: p.purpose
+          });
         }
       }
-      return {totalTransfers:count, transfers};
+      
+      // Sort by time
+      timeline.sort((a, b) => a.time - b.time);
+      
+      // Analyze transfers between consecutive entries
+      for(let i = 1; i < timeline.length; i++) {
+        const prev = timeline[i-1];
+        const curr = timeline[i];
+        
+        // Skip if we don't have proper queue/user info
+        if(!prev || !curr) continue;
+        
+        const prevIsQueue = prev.queueId && !prev.userId;
+        const currIsQueue = curr.queueId && !curr.userId;
+        const prevIsAgent = prev.userId;
+        const currIsAgent = curr.userId;
+        
+        let transferType = null;
+        let fromId = null;
+        let toId = null;
+        let fromType = null;
+        let toType = null;
+        
+        // Queue to Queue transfer
+        if(prevIsQueue && currIsQueue && prev.queueId !== curr.queueId) {
+          transferType = 'Queue → Queue';
+          fromId = prev.queueId;
+          toId = curr.queueId;
+          fromType = 'Queue';
+          toType = 'Queue';
+        }
+        // Agent to Queue transfer
+        else if(prevIsAgent && currIsQueue) {
+          transferType = 'Agent → Queue';
+          fromId = prev.userId;
+          toId = curr.queueId;
+          fromType = 'Agent';
+          toType = 'Queue';
+        }
+        // Queue to Agent transfer
+        else if(prevIsQueue && currIsAgent) {
+          transferType = 'Queue → Agent';
+          fromId = prev.queueId;
+          toId = curr.userId;
+          fromType = 'Queue';
+          toType = 'Agent';
+        }
+        // Agent to Agent transfer
+        else if(prevIsAgent && currIsAgent && prev.userId !== curr.userId) {
+          transferType = 'Agent → Agent';
+          fromId = prev.userId;
+          toId = curr.userId;
+          fromType = 'Agent';
+          toType = 'Agent';
+        }
+        
+        if(transferType) {
+          totalTransfers++;
+          transfers.push({
+            step: i,
+            from: fromType,
+            to: toType,
+            fromId: fromId,
+            toId: toId,
+            time: new Date(curr.time).toISOString(),
+            type: transferType,
+            conversationId: c.conversationId,
+            duration: i < timeline.length-1 ? (timeline[i+1].time - curr.time) : 0
+          });
+        }
+      }
+      
+      return {totalTransfers, transfers};
     }
+
     function getParticipantName(p){
       if(p.purpose==='customer') return 'Customer';
       if(p.userId){ const u=state.users.find(x=>x.id===p.userId); return u?u.name:`Agent (${p.userId})`; }
