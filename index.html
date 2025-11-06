@@ -621,12 +621,14 @@
         let fromId = null;
         let fromType = null;
         let fromQueueId = null;
+        let fromUserId = null;
         
         if(prev.userId) {
-          // Agent transfer - use the queue they were in
-          fromId = prev.currentQueue || prev.userId;
-          fromType = prev.currentQueue ? 'Queue' : 'Agent';
+          // Agent transfer
+          fromId = prev.userId;
+          fromType = 'Agent';
           fromQueueId = prev.currentQueue;
+          fromUserId = prev.userId;
         } else if(prev.queueId) {
           // Direct queue transfer
           fromId = prev.queueId;
@@ -642,12 +644,14 @@
         let toId = null;
         let toType = null;
         let toQueueId = null;
+        let toUserId = null;
         
         if(curr.userId) {
-          // Transfer to agent - use the queue they're in
-          toId = curr.currentQueue || curr.userId;
-          toType = curr.currentQueue ? 'Queue' : 'Agent';
+          // Transfer to agent
+          toId = curr.userId;
+          toType = 'Agent';
           toQueueId = curr.currentQueue;
+          toUserId = curr.userId;
         } else if(curr.queueId) {
           // Transfer to queue
           toId = curr.queueId;
@@ -666,20 +670,12 @@
           // Determine transfer type
           if(fromType === 'Agent' && toType === 'Agent') {
             transferType = 'Agent → Agent';
-          } else {
-            // Everything else is considered Queue → Queue
-            // This includes Agent→Queue, Queue→Agent, and Queue→Queue
+          } else if((fromType === 'Queue' && toType === 'Queue') || 
+                    (fromType === 'Agent' && toType === 'Queue') || 
+                    (fromType === 'Queue' && toType === 'Agent')) {
             transferType = 'Queue → Queue';
-            
-            // For the matrix, we need to ensure we have queue IDs
-            if(!fromQueueId && fromType === 'Agent') {
-              // If agent doesn't have a queue context, we can't track this in matrix
-              continue;
-            }
-            if(!toQueueId && toType === 'Agent') {
-              // If destination agent doesn't have queue context, we can't track this in matrix
-              continue;
-            }
+          } else {
+            transferType = `${fromType} → ${toType}`;
           }
           
           if(transferType) {
@@ -692,6 +688,8 @@
               toId: toId,
               fromQueueId: fromQueueId, // For matrix tracking
               toQueueId: toQueueId,     // For matrix tracking
+              fromUserId: fromUserId,   // For agent transfers
+              toUserId: toUserId,       // For agent transfers
               time: new Date(curr.time).toISOString(),
               type: transferType,
               conversationId: c.conversationId,
@@ -1040,10 +1038,9 @@
                   }))
                 );
                 
-                // Extract queue transfers (Queue → Queue and Agent→Queue/Queue→Agent with queue context)
+                // Extract queue transfers (Queue → Queue only)
                 const queueTransfers = transferAnalysis.transfers.filter(t => 
-                  t.type === 'Queue → Queue' || 
-                  (t.fromQueueId && t.toQueueId) // Both have queue context
+                  t.type === 'Queue → Queue' && t.fromQueueId && t.toQueueId
                 );
                 if (queueTransfers.length > 0) {
                   state.queueTransfers = state.queueTransfers.concat(
@@ -1283,13 +1280,6 @@
         const agentConversationIds = new Set(agentConversations.map(c => c.conversationId));
         transfersToShow = transfersToShow.filter(t => agentConversationIds.has(t.conversationId));
       }
-      
-      // Filter out IVR and survey transfers
-      transfersToShow = transfersToShow.filter(transfer => {
-        // For queue transfers, we've already filtered at the participant level in analyzeTransfers
-        // But we can add additional filtering here if needed
-        return true;
-      });
       
       console.log('Queue transfers for matrix:', transfersToShow);
       
