@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
   <style>
     :root{
       --primary-color:#63AB8F; --secondary-color:#4A8C7D; --border-color:#DEE2E6;
@@ -68,94 +70,25 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     
-    .transfer-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    .transfer-table th, .transfer-table td { border: 1px solid var(--border-color); padding: 12px; text-align: left; }
-    .transfer-table th { background-color: var(--primary-color); color: white; font-weight: 600; }
-    .transfer-table tr:nth-child(even) { background-color: var(--light-bg); }
-    .transfer-table tr:hover { background-color: #f0f7f4; }
+    .selection-controls { margin: 20px 0; padding: 20px; background: var(--light-bg); border-radius: 8px; }
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+    .conversation-checkbox { display: none; }
+    .conversation-checkbox-label { cursor: pointer; padding: 8px 12px; background: white; border: 1px solid var(--border-color); border-radius: 4px; transition: all 0.2s; }
+    .conversation-checkbox:checked + .conversation-checkbox-label { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+    .select-all-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; }
+    .export-controls { display: flex; gap: 10px; margin-top: 15px; }
+    .export-options { display: flex; gap: 15px; align-items: center; margin-top: 10px; }
     
-    .transfer-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
-    .transfer-stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; text-align: center; }
-    .transfer-stat-number { font-size: 24px; color: var(--primary-color); font-weight: 700; margin-bottom: 8px; }
-    .transfer-stat-label { font-size: 14px; color: var(--text-light); }
+    .analytics-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0; }
+    .analytics-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .wordcloud-container { width: 100%; height: 400px; background: white; border-radius: 8px; overflow: hidden; position: relative; }
+    canvas { display: block; }
+    .word-list { max-height: 300px; overflow-y: auto; }
+    .word-item { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-color); }
+    .word-frequency { font-weight: bold; color: var(--primary-color); }
     
-    .queue-transfer-matrix { overflow-x: auto; margin-top: 20px; }
-    .matrix-table { border-collapse: collapse; width: 100%; min-width: 600px; }
-    .matrix-table th, .matrix-table td { border: 1px solid var(--border-color); padding: 10px; text-align: center; }
-    .matrix-table th { background-color: var(--primary-color); color: white; font-weight: 600; }
-    .matrix-table th.from-header { background-color: var(--secondary-color); }
-    .matrix-table th.to-header { background-color: var(--primary-color); }
-    .matrix-table td.from-label { background-color: var(--light-bg); font-weight: 600; text-align: left; }
-    .matrix-table tr:hover td { background-color: #f0f7f4; }
-    .matrix-count { font-weight: 600; color: var(--text-color); }
-    .matrix-high { background-color: #fee2e2 !important; }
-    .matrix-medium { background-color: #fef3c7 !important; }
-    .matrix-low { background-color: #d1fae5 !important; }
-    
-    .conversation-transfer-group { 
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      margin-bottom: 12px;
-      overflow: hidden;
-    }
-    .conversation-transfer-header { 
-      background-color: var(--light-bg);
-      padding: 12px 16px;
-      cursor: pointer;
-      display: flex;
-      justify-content:space-between;
-      align-items:center;
-      font-weight:600;
-    }
-    .conversation-transfer-count {
-      background-color: var(--primary-color);
-      color: white;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      margin-left: 8px;
-    }
-    .conversation-transfer-details {
-      display: none;
-      background-color: white;
-    }
-    .conversation-transfer-details.open {
-      display: block;
-    }
-    .transfer-leg {
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--light-bg);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .transfer-leg:last-child {
-      border-bottom: none;
-    }
-    .transfer-leg-number {
-      background-color: var(--light-bg);
-      color: var(--text-color);
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .transfer-leg-content {
-      flex: 1;
-    }
-    .transfer-leg-arrow {
-      color: var(--primary-color);
-      font-weight: 600;
-      margin: 0 8px;
-    }
-    
-    .agent-selector { margin-bottom: 16px; }
-    .agent-selector label { display: inline-block; margin-right: 12px; }
-    .agent-selector select { min-width: 200px; }
+    .conv-select-btn { margin-left: 10px; padding: 4px 8px; font-size: 12px; }
+    .selected-count { background: var(--primary-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -200,7 +133,7 @@
 
     <div id="progressSection" style="display:none;">
       <div class="card">
-        <h3 style="margin:0 0 8px;">Fetching Conversations</h3>
+        <h3 style="margin:0 0 8px;">Fetching Conversations & Transcripts</h3>
         <div class="muted" id="chunkInfo">Processing date range in smaller chunks…</div>
         <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
         <div style="display:flex;justify-content:space-between;font-size:14px" class="muted">
@@ -212,15 +145,36 @@
     <div class="tab-container">
       <div class="tab-buttons">
         <button class="tab-button active" data-tab="conversations">Conversations</button>
-        <button class="tab-button" data-tab="transfers">Transfer Reporting</button>
-        <button class="tab-button" data-tab="queue-transfer-matrix">Queue Transfer Matrix</button>
-        <button class="tab-button" data-tab="agent-transfer-matrix">Agent Transfer Matrix</button>
+        <button class="tab-button" data-tab="analytics">Analytics & Word Cloud</button>
       </div>
       
       <div id="conversations-tab" class="tab-content active">
         <div id="resultsSection" style="display:none;">
           <div class="card">
-            <h2 style="margin:0 0 12px;">Conversation Results</h2>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <h2 style="margin:0;">Conversation Results</h2>
+              <div style="display:flex;align-items:center;">
+                <span id="selectedCount" class="selected-count">0 selected</span>
+              </div>
+            </div>
+            
+            <div class="selection-controls">
+              <div class="select-all-controls">
+                <button id="selectAllBtn" class="conv-select-btn">Select All</button>
+                <button id="deselectAllBtn" class="conv-select-btn">Deselect All</button>
+                <button id="exportSelectedBtn" style="background:var(--secondary-color);">Export Selected Conversations</button>
+              </div>
+              
+              <div class="export-options">
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <input type="checkbox" id="includeTranscripts" checked/> Include Transcripts
+                </label>
+                <label style="display:flex;align-items:center;gap:8px;">
+                  <input type="checkbox" id="includeAnalytics" checked/> Include Analytics
+                </label>
+              </div>
+            </div>
+            
             <div class="stats">
               <div class="stat-card"><div class="stat-number" id="totalConversations">0</div><div class="stat-label">Total Conversations</div></div>
               <div class="stat-card"><div class="stat-number" id="dateRange">-</div><div class="stat-label">Date Range</div></div>
@@ -231,66 +185,54 @@
         </div>
       </div>
       
-      <div id="transfers-tab" class="tab-content">
+      <div id="analytics-tab" class="tab-content">
         <div class="card">
-          <h2 style="margin:0 0 12px;">Transfer Reporting</h2>
-          <div class="filter-controls">
-            <select id="transferFilter">
-              <option value="all">All Agent-Initiated Transfers</option>
-              <option value="agent-to-agent">Agent → Agent</option>
-              <option value="agent-to-queue">Agent → Queue</option>
-            </select>
-            <input type="text" id="transferSearch" placeholder="Search by conversation ID">
+          <h2 style="margin:0 0 12px;">Analytics & Word Cloud</h2>
+          
+          <div class="analytics-controls">
+            <div>
+              <label>Agent Filter</label>
+              <select id="analyticsAgentSelect">
+                <option value="all">All Agents</option>
+              </select>
+            </div>
+            <div>
+              <label>Word Cloud Settings</label>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <input type="range" id="wordCountSlider" min="20" max="200" value="50" style="flex:1;">
+                <span id="wordCountValue">50 words</span>
+              </div>
+              <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                <input type="checkbox" id="autoGenerate" checked/> Auto-generate transcripts on fetch
+              </label>
+            </div>
+            <div>
+              <button id="generateWordCloudBtn" style="width:100%;margin-top:24px;">Generate Word Cloud</button>
+              <button id="exportAnalyticsBtn" style="width:100%;margin-top:10px;background:var(--secondary-color);">Export Analytics Data</button>
+            </div>
           </div>
           
-          <div id="transferStats" class="transfer-stats"></div>
-          <div id="transferTableContainer"></div>
-          
-          <div id="noTransfersMessage" style="display:none; text-align:center; padding:40px;">
-            <div style="font-size:48px;margin-bottom:12px">🔄</div>
-            <div>No transfers found for the selected criteria.</div>
-          </div>
-        </div>
-      </div>
-      
-      <div id="queue-transfer-matrix-tab" class="tab-content">
-        <div class="card">
-          <h2 style="margin:0 0 12px;">Queue Transfer Matrix</h2>
-          
-          <div class="agent-selector">
-            <label for="queueMatrixAgentSelect">Show transfers for:</label>
-            <select id="queueMatrixAgentSelect">
-              <option value="all">All Agents</option>
-            </select>
+          <div class="stats" style="margin-top:20px;">
+            <div class="stat-card"><div class="stat-number" id="totalWords">0</div><div class="stat-label">Total Words</div></div>
+            <div class="stat-card"><div class="stat-number" id="uniqueWords">0</div><div class="stat-label">Unique Words</div></div>
+            <div class="stat-card"><div class="stat-number" id="transcriptsProcessed">0</div><div class="stat-label">Transcripts</div></div>
           </div>
           
-          <div id="queueMatrixStats" class="transfer-stats"></div>
-          <div id="queueMatrixContainer" class="queue-transfer-matrix"></div>
-          
-          <div id="noQueueMatrixDataMessage" style="display:none; text-align:center; padding:40px;">
-            <div style="font-size:48px;margin-bottom:12px">📊</div>
-            <div>No queue transfer data available for the selected criteria.</div>
-          </div>
-        </div>
-      </div>
-      
-      <div id="agent-transfer-matrix-tab" class="tab-content">
-        <div class="card">
-          <h2 style="margin:0 0 12px;">Agent Transfer Matrix</h2>
-          
-          <div class="agent-selector">
-            <label for="agentMatrixAgentSelect">Show transfers for:</label>
-            <select id="agentMatrixAgentSelect">
-              <option value="all">All Agents</option>
-            </select>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
+            <div class="analytics-card">
+              <h3 style="margin:0 0 15px;">Word Cloud</h3>
+              <div id="wordCloudCanvas" class="wordcloud-container"></div>
+            </div>
+            
+            <div class="analytics-card">
+              <h3 style="margin:0 0 15px;">Top Words</h3>
+              <div id="wordList" class="word-list"></div>
+            </div>
           </div>
           
-          <div id="agentMatrixStats" class="transfer-stats"></div>
-          <div id="agentMatrixContainer" class="queue-transfer-matrix"></div>
-          
-          <div id="noAgentMatrixDataMessage" style="display:none; text-align:center; padding:40px;">
-            <div style="font-size:48px;margin-bottom:12px">👥</div>
-            <div>No agent transfer data available for the selected criteria.</div>
+          <div class="analytics-card" style="margin-top:20px;">
+            <h3 style="margin:0 0 15px;">Transcript Analytics</h3>
+            <div id="transcriptStats"></div>
           </div>
         </div>
       </div>
@@ -314,9 +256,15 @@
       conversations:[], 
       selectedAgent:null, 
       convIndex:{},
-      allTransfers: [],
-      queueTransfers: [],
-      agentTransfers: []
+      selectedConversations: new Set(),
+      transcripts: {}, // Store transcripts by conversation ID
+      wordCloudData: [],
+      analyticsData: {
+        wordFrequencies: {},
+        transcriptCount: 0,
+        totalWords: 0,
+        uniqueWords: 0
+      }
     };
 
     // ===== Utils =====
@@ -413,7 +361,7 @@
         }
         state.users = all.map(u=>({id:u.id,name:u.name||'',email:u.email||''})).sort((a,b)=>a.name.localeCompare(b.name));
         populateUserSelect(state.users);
-        populateMatrixAgentSelects(state.users);
+        populateAnalyticsAgentSelect(state.users);
         setStatus(`Loaded ${state.users.length} users`); setLoading(false);
       }catch(e){ setStatus(`Failed to load users: ${e.message}`, true); setLoading(false); $('agentSelect').innerHTML='<option>Failed to load users</option>'; }
     }
@@ -422,13 +370,10 @@
       sel.innerHTML = '<option value="">Select an agent…</option>' + users.map(u=>`<option value="${u.id}">${u.name||'(Unnamed)'}</option>`).join('');
       sel.onchange=()=>{ const u = users.find(x=>x.id===sel.value); state.selectedAgent=u||null; if(u){ $('selectedAgentName').textContent=u.name||'(Unnamed)'; $('selectedAgentInfo').style.display='block'; } else { $('selectedAgentInfo').style.display='none'; } };
     }
-    function populateMatrixAgentSelects(users) {
-      const queueSel = $('queueMatrixAgentSelect');
-      const agentSel = $('agentMatrixAgentSelect');
-      const options = '<option value="all">All Agents</option>' + 
+    function populateAnalyticsAgentSelect(users) {
+      const sel = $('analyticsAgentSelect');
+      sel.innerHTML = '<option value="all">All Agents</option>' + 
         users.map(u => `<option value="${u.id}">${u.name || '(Unnamed)'}</option>`).join('');
-      queueSel.innerHTML = options;
-      agentSel.innerHTML = options;
     }
     $('agentFilter').addEventListener('input', function(){
       const q = this.value.trim().toLowerCase();
@@ -464,15 +409,6 @@
       const name = state.queues[id];
       if (name) return name;
       return `Queue ${id.substring(0, 8)}...`;
-    }
-
-    function isPlaceholderQueueName(name){
-      return !name || name === 'Unknown Queue';
-    }
-    function getKnownQueueName(id){
-      const name = state.queues[id];
-      if (isPlaceholderQueueName(name)) return null;
-      return name;
     }
 
     async function fetchQueueNames(queueIds) {
@@ -560,113 +496,6 @@
         }
       }
       return total;
-    }
-
-    // ===== Agent transfer detection =====
-    function isAgentTransferInitiated(fromParticipant, toParticipant) {
-      for (const session of (fromParticipant.sessions || [])) {
-        for (const segment of (session.segments || [])) {
-          for (const event of (segment.events || [])) {
-            if (event.eventType && (
-              event.eventType.toLowerCase().includes('transfer') ||
-              event.eventType.toLowerCase().includes('redirect') ||
-              (event.type && event.type.toLowerCase().includes('transfer'))
-            )) {
-              return true;
-            }
-          }
-        }
-      }
-      const fromStart = getStepStart(fromParticipant);
-      const toStart = getStepStart(toParticipant);
-      if (fromStart && toStart) {
-        const timeBetween = toStart.getTime() - fromStart.getTime();
-        if (timeBetween < 10000) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    // ===== analyzeTransfers: only agent-initiated (Agent→Agent, Agent→Queue) =====
-    function analyzeTransfers(c){
-      const transfers = [];
-      const timeline = [];
-      
-      for(const p of (c.participants||[])){
-        const queueId = getQueueIdFromParticipant(p);
-        const startTime = getStepStart(p);
-        const purpose = (p.purpose || '').toLowerCase();
-        const name = (p.name || '').toLowerCase();
-        
-        if (purpose.includes('ivr') || purpose.includes('survey') ||
-            name.includes('ivr') || name.includes('survey')) {
-          continue;
-        }
-        
-        if(startTime && (queueId || p.userId)) {
-          timeline.push({
-            time: startTime.getTime(),
-            participant: p,
-            queueId,
-            userId: p.userId
-          });
-        }
-      }
-      
-      timeline.sort((a, b) => a.time - b.time);
-      
-      for(let i = 1; i < timeline.length; i++) {
-        const prev = timeline[i-1];
-        const curr = timeline[i];
-        if(!prev || !curr) continue;
-        
-        // Only consider transfers where the FROM side is an agent
-        if (!prev.userId) continue;
-        
-        const fromId = prev.userId;
-        const fromName = getUserNameById(prev.userId);
-        const fromType = 'Agent';
-        
-        let toId, toName, toType, type, isAgentInitiated = true;
-        
-        if (curr.userId) {
-          // Agent → Agent
-          const agentInitiated = isAgentTransferInitiated(prev.participant, curr.participant);
-          if (!agentInitiated) continue;
-          toId = curr.userId;
-          toName = getUserNameById(curr.userId);
-          toType = 'Agent';
-          type = 'Agent → Agent';
-        } else if (curr.queueId) {
-          // Agent → Queue
-          toId = curr.queueId;
-          toName = getQueueName(curr.queueId) || `Queue ${curr.queueId}`;
-          toType = 'Queue';
-          type = 'Agent → Queue';
-          isAgentInitiated = true;
-        } else {
-          continue;
-        }
-        
-        if (!toId || fromId === toId) continue;
-        
-        transfers.push({
-          step: i,
-          fromId,
-          toId,
-          fromName,
-          toName,
-          fromType,
-          toType,
-          time: new Date(curr.time).toISOString(),
-          type,
-          conversationId: c.conversationId,
-          isAgentInitiated
-        });
-      }
-      
-      return {totalTransfers: transfers.length, transfers};
     }
 
     function getParticipantName(p){
@@ -783,170 +612,358 @@
     }
 
     async function getTranscriptForConversation(conversationId){
-      const statusEl = document.querySelector('#transcript-status-' + conversationId);
-      const container = document.querySelector('#transcript-' + conversationId);
-      const btn = document.querySelector('#btn-transcript-' + conversationId);
-      if(!state.token){ alert('Not authenticated'); return; }
-      const conv = state.convIndex[conversationId]; if(!conv){ statusEl.textContent='Conversation not found in state.'; return; }
+      const conv = state.convIndex[conversationId]; 
+      if(!conv){ 
+        console.error('Conversation not found in state.'); 
+        return null;
+      }
+      
+      if(state.transcripts[conversationId]) {
+        return state.transcripts[conversationId];
+      }
+      
       const commId = findCommunicationsIdFromDetails(conv);
-      if(!commId){ statusEl.textContent='No sessionId found to use as communicationsId.'; return; }
+      if(!commId){ 
+        console.error('No sessionId found to use as communicationsId.'); 
+        return null;
+      }
+      
       try{
-        btn.disabled=true; statusEl.textContent='Requesting transcript URL…';
         const urlRes = await fetch(CONFIG.apiHost + '/api/v2/speechandtextanalytics/conversations/' + conversationId + '/communications/' + commId + '/transcripturl', {headers:{Authorization:'Bearer ' + state.token}});
-        if(!urlRes.ok){ const t=await urlRes.text().catch(()=> ''); throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); }
-        const {url:presigned} = await urlRes.json(); if(!presigned) throw new Error('No URL in transcript response.');
-        statusEl.textContent='Downloading transcript…';
-        const raw = await fetch(presigned); if(!raw.ok) throw new Error('Transcript download failed: ' + raw.status + ' ' + raw.statusText);
-        const text = await raw.text(); let parsed=null; try{ parsed=JSON.parse(text);}catch{}
-        statusEl.textContent='Rendering transcript…';
-        renderTranscript(container, parsed, text, conv);
-        statusEl.textContent='Transcript loaded.';
+        if(!urlRes.ok){ 
+          const t=await urlRes.text().catch(()=> ''); 
+          throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); 
+        }
+        const {url:presigned} = await urlRes.json(); 
+        if(!presigned) throw new Error('No URL in transcript response.');
+        
+        const raw = await fetch(presigned); 
+        if(!raw.ok) throw new Error('Transcript download failed: ' + raw.status + ' ' + raw.statusText);
+        const text = await raw.text(); 
+        let parsed=null; 
+        try{ parsed=JSON.parse(text);}catch{}
+        
+        state.transcripts[conversationId] = parsed;
+        return parsed;
       }catch(e){
-        console.error(e); statusEl.innerHTML='⚠️ ' + e.message + '<span class="muted"> — If this is a CORS issue, try opening the raw URL in a new tab.</span>';
-      }finally{ btn.disabled=false; }
+        console.error(e); 
+        return null;
+      }
     }
-    window.getTranscriptForConversation = getTranscriptForConversation;
 
-    const SIGNAL_ANCHOR_TOL_MS = 1500;
+    // ===== Selection and Export Functions =====
+    function updateSelectedCount() {
+      $('selectedCount').textContent = `${state.selectedConversations.size} selected`;
+    }
 
-    function renderTranscript(container, parsed, rawText, conversation){
-      const escapeHtml = s => (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    function toggleConversationSelection(conversationId) {
+      if (state.selectedConversations.has(conversationId)) {
+        state.selectedConversations.delete(conversationId);
+      } else {
+        state.selectedConversations.add(conversationId);
+      }
+      updateSelectedCount();
+    }
 
-      const phrases = processPhrases(parsed);
-      const signals = extractSignals(parsed);
-      if (!phrases.length){
-        container.innerHTML = '<div class="muted">No transcript phrases found.</div>' +
-          '<details><summary>Show Raw Data for Debugging</summary><pre>' + escapeHtml(typeof rawText==='string'?rawText:JSON.stringify(parsed,null,2)) + '</pre></details>';
+    function selectAllConversations() {
+      state.selectedConversations = new Set(state.conversations.map(c => c.conversationId));
+      updateSelectedCount();
+      renderResults(state.conversations, $('fromDate').value, $('toDate').value);
+    }
+
+    function deselectAllConversations() {
+      state.selectedConversations.clear();
+      updateSelectedCount();
+      renderResults(state.conversations, $('fromDate').value, $('toDate').value);
+    }
+
+    async function exportSelectedConversations() {
+      if (state.selectedConversations.size === 0) {
+        alert('Please select at least one conversation to export.');
         return;
       }
 
-      const enriched = phrases.map(p=>({
-        ...p,
-        sentiment: (p.sentimentDirect!=null)?Number(p.sentimentDirect):null,
-        empathy:   (p.empathyDirect!=null)?Number(p.empathyDirect):null
-      }));
+      try {
+        setStatus('Preparing export...');
+        setLoading(true);
 
-      const sentiments = signals.filter(s=>s.kind==='sentiment' && s.role==='external');
-      const empathies  = signals.filter(s=>s.kind==='empathy'  && s.role==='internal');
+        const includeTranscripts = $('includeTranscripts').checked;
+        const includeAnalytics = $('includeAnalytics').checked;
+        
+        const workbook = new ExcelJS.Workbook();
+        
+        // Create Conversations sheet
+        const conversationsSheet = workbook.addWorksheet('Conversations');
+        conversationsSheet.columns = [
+          { header: 'Conversation ID', key: 'id', width: 30 },
+          { header: 'Start Time', key: 'start', width: 25 },
+          { header: 'End Time', key: 'end', width: 25 },
+          { header: 'Duration', key: 'duration', width: 15 },
+          { header: 'Media Type', key: 'media', width: 15 },
+          { header: 'Direction', key: 'direction', width: 15 },
+          { header: 'Customer Number', key: 'ani', width: 20 },
+          { header: 'Agent', key: 'agent', width: 25 }
+        ];
 
-      function assignNearest(signalsArr, role, field){
-        for(const s of signalsArr){
-          let bestIdx=-1, bestDelta=Infinity;
-          for(let i=0;i<enriched.length;i++){
-            const p=enriched[i];
-            if(p.participantPurpose!==role) continue;
-            const d=Math.abs((p.startTimeMs??0) - (s.startTimeMs??0));
-            if(d<=SIGNAL_ANCHOR_TOL_MS && d<bestDelta){ bestDelta=d; bestIdx=i; }
-          }
-          if(bestIdx>=0){
-            if(enriched[bestIdx][field]==null) enriched[bestIdx][field]=s.value;
+        // Create Transcripts sheet if needed
+        let transcriptsSheet;
+        if (includeTranscripts) {
+          transcriptsSheet = workbook.addWorksheet('Transcripts');
+          transcriptsSheet.columns = [
+            { header: 'Conversation ID', key: 'convId', width: 30 },
+            { header: 'Time (MM:SS)', key: 'time', width: 15 },
+            { header: 'Participant Type', key: 'type', width: 15 },
+            { header: 'Participant', key: 'participant', width: 25 },
+            { header: 'Text', key: 'text', width: 50 },
+            { header: 'Sentiment', key: 'sentiment', width: 15 },
+            { header: 'Empathy', key: 'empathy', width: 15 },
+            { header: 'Confidence', key: 'confidence', width: 15 }
+          ];
+        }
+
+        // Process selected conversations
+        for (const convId of state.selectedConversations) {
+          const conv = state.convIndex[convId];
+          if (!conv) continue;
+
+          // Add to conversations sheet
+          conversationsSheet.addRow({
+            id: conv.conversationId,
+            start: fmt(conv.conversationStart),
+            end: fmt(conv.conversationEnd),
+            duration: formatSeconds(calculateDuration(conv.conversationStart, conv.conversationEnd)),
+            media: getConversationMediaTypes(conv),
+            direction: getDirection(conv),
+            ani: getANI(conv),
+            agent: state.selectedAgent?.name || 'Unknown'
+          });
+
+          // Process transcript if needed
+          if (includeTranscripts) {
+            const transcript = await getTranscriptForConversation(convId);
+            if (transcript) {
+              const phrases = processPhrases(transcript);
+              const nameMap = mapParticipantNames(conv);
+              
+              phrases.forEach(p => {
+                const absolute = p.startTimeMs>1e12;
+                const convStart = new Date(conv.conversationStart).getTime();
+                const rel = absolute ? (p.startTimeMs - convStart) : p.startTimeMs;
+                const timeFormatted = mmss(Math.max(0, rel));
+                
+                let participantName = '';
+                if(p.participantPurpose==='internal'){
+                  if(p.userIds && p.userIds.length){
+                    const id=p.userIds[0];
+                    participantName = nameMap[id] || (state.users.find(u=>u.id===id)?.name) || 'Agent';
+                  } else {
+                    participantName = 'Agent';
+                  }
+                } else {
+                  participantName = 'Customer';
+                }
+
+                transcriptsSheet.addRow({
+                  convId: conv.conversationId,
+                  time: timeFormatted,
+                  type: p.participantPurpose==='internal' ? 'Internal' : 'External',
+                  participant: participantName,
+                  text: p.decoratedText,
+                  sentiment: p.sentimentDirect != null ? p.sentimentDirect.toFixed(3) : '',
+                  empathy: p.empathyDirect != null ? p.empathyDirect.toFixed(3) : '',
+                  confidence: p.confidence != null ? p.confidence.toFixed(3) : ''
+                });
+              });
+            }
           }
         }
-      }
 
-      assignNearest(sentiments,'external','sentiment');
-      assignNearest(empathies,'internal','empathy');
-
-      const nameMap = mapParticipantNames(conversation);
-      const { internal, external } = participantsByType(conversation);
-
-      function sentimentCell(p){
-        if(p.participantPurpose!=='external' || p.sentiment==null) return '-';
-        const {label, css} = sentimentToLabel(Number(p.sentiment));
-        return `<span class="${css}">${label}</span>`;
-      }
-      function empathyCell(p){
-        if(p.participantPurpose!=='internal' || p.empathy==null) return '-';
-        const {label, css} = empathyToLabel(Number(p.empathy));
-        return `<span class="${css}">${label}</span>`;
-      }
-      function confidenceCell(p){
-        const v = (p.confidence!=null) ? Number(p.confidence) : null;
-        if(v==null || isNaN(v)) return '-';
-        const fixed=v.toFixed(3);
-        if(v>=0.8) return `<span class="confidence-high">${fixed}</span>`;
-        if(v>=0.6) return `<span class="confidence-medium">${fixed}</span>`;
-        return `<span class="confidence-low">${fixed}</span>`;
-      }
-      function displayName(p){
-        if(p.participantPurpose==='internal'){
-          if(p.userIds && p.userIds.length){
-            const id=p.userIds[0];
-            return nameMap[id] || (state.users.find(u=>u.id===id)?.name) || internal[0] || 'Agent';
-          }
-          return internal[0] || 'Agent';
+        // Format the sheets
+        conversationsSheet.getRow(1).font = { bold: true };
+        if (includeTranscripts) {
+          transcriptsSheet.getRow(1).font = { bold: true };
         }
-        return external[0] || 'Customer';
+
+        // Generate Excel file
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `conversations_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        setStatus(`Exported ${state.selectedConversations.size} conversation(s)`);
+      } catch (error) {
+        console.error('Export error:', error);
+        setStatus('Error during export: ' + error.message, true);
+      } finally {
+        setLoading(false);
       }
+    }
 
-      const convStart = new Date(conversation.conversationStart).getTime();
+    // ===== Analytics and Word Cloud Functions =====
+    function generateWordCloudData() {
+      // Reset analytics data
+      state.analyticsData = {
+        wordFrequencies: {},
+        transcriptCount: 0,
+        totalWords: 0,
+        uniqueWords: 0
+      };
 
-      let html = '<div class="transcript-summary">';
-      html += '<div class="t-summary-grid">';
-      html += '<div class="t-kv"><span class="k">Interaction Type:</span><span>' + (getConversationMediaTypes(conversation) || 'Voice') + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Conversation Start:</span><span>' + fmt(conversation.conversationStart) + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Conversation End:</span><span>' + fmt(conversation.conversationEnd) + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Interaction ID:</span><span class="mono">' + conversation.conversationId + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Duration:</span><span>' + formatSeconds(calculateDuration(conversation.conversationStart, conversation.conversationEnd)) + '</span></div>';
-      html += '<div class="t-kv"><span class="k">Direction:</span><span>' + (getDirection(conversation) || 'Unknown') + '</span></div>';
-      html += '</div></div>';
+      const selectedAgentId = $('analyticsAgentSelect').value;
+      
+      // Process all transcripts
+      Object.entries(state.transcripts).forEach(([convId, transcript]) => {
+        const conv = state.convIndex[convId];
+        if (!conv) return;
+        
+        // Filter by agent if needed
+        if (selectedAgentId !== 'all') {
+          const hasAgent = conv.participants && conv.participants.some(p => p.userId === selectedAgentId);
+          if (!hasAgent) return;
+        }
 
-      html += '<table class="transcript-table"><thead><tr>';
-      html += '<th>Time (MM:SS)</th>';
-      html += '<th>Participant Type</th>';
-      html += '<th>Participant</th>';
-      html += '<th>Participant Text</th>';
-      html += '<th>Sentiment</th>';
-      html += '<th>Empathy</th>';
-      html += '<th>Confidence</th>';
-      html += '</tr></thead><tbody>';
-
-      enriched.forEach(p=>{
-        const absolute = p.startTimeMs>1e12;
-        const rel = absolute ? (p.startTimeMs - convStart) : p.startTimeMs;
-        const timeFormatted = mmss(Math.max(0, rel));
-        const participantType = p.participantPurpose==='internal' ? 'Internal' : 'External';
-        let row = '<tr>';
-        row += '<td class="mono" style="font-weight:bold;">'+timeFormatted+'</td>';
-        row += '<td>'+participantType+'</td>';
-        row += '<td>'+escapeHtml(displayName(p))+'</td>';
-        row += '<td>'+escapeHtml(p.decoratedText)+'</td>';
-        row += '<td>'+sentimentCell(p)+'</td>';
-        row += '<td>'+empathyCell(p)+'</td>';
-        row += '<td>'+confidenceCell(p)+'</td>';
-        row += '</tr>';
-        html += row;
+        const phrases = processPhrases(transcript);
+        state.analyticsData.transcriptCount++;
+        
+        phrases.forEach(phrase => {
+          const text = phrase.decoratedText || '';
+          const words = text.toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .split(/\s+/)
+            .filter(word => word.length > 3 && !isStopWord(word));
+          
+          state.analyticsData.totalWords += words.length;
+          
+          words.forEach(word => {
+            if (!state.analyticsData.wordFrequencies[word]) {
+              state.analyticsData.wordFrequencies[word] = 0;
+              state.analyticsData.uniqueWords++;
+            }
+            state.analyticsData.wordFrequencies[word]++;
+          });
+        });
       });
 
-      html += '</tbody></table>';
-
-      container.innerHTML = html;
+      // Sort words by frequency
+      const sortedWords = Object.entries(state.analyticsData.wordFrequencies)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, parseInt($('wordCountSlider').value));
+      
+      // Convert to word cloud format
+      state.wordCloudData = sortedWords.map(([text, weight]) => [text, weight * 10]);
+      
+      updateAnalyticsDisplay();
+      renderWordCloud();
+      renderWordList();
     }
 
-    function mapParticipantNames(conv){
-      const map={};
-      for(const p of (conv.participants||[])){
-        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); map[p.participantId||p.userId] = u?u.name:`Agent (${p.userId})`; }
-        else if(p.purpose==='customer'){ map[p.participantId||'customer']='Customer'; }
-        else if(p.purpose==='acd'){ const qid=getQueueIdFromParticipant(p); map[p.participantId||qid||'acd']=qid?(getQueueName(qid)||'Queue'):'Queue'; }
-      } return map;
-    }
-    function participantsByType(conv){
-      const internal=new Set(), external=new Set();
-      for(const p of (conv.participants||[])){
-        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); internal.add(u?u.name:`Agent (${p.userId})`); }
-        else if(p.purpose==='customer'){ external.add(p.participantName||'Customer'); }
-      } return {internal:[...internal], external:[...external]};
-    }
-    function findCommunicationsIdFromDetails(conv){
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.sessionId) return s.sessionId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.communicationId) return s.communicationId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.id) return s.id;
-      return null;
+    function isStopWord(word) {
+      const stopWords = new Set([
+        'that', 'with', 'have', 'this', 'from', 'they', 'what', 'when', 'where',
+        'which', 'would', 'could', 'should', 'them', 'their', 'there', 'were',
+        'been', 'some', 'will', 'also', 'about', 'like', 'just', 'than', 'then',
+        'more', 'most', 'very', 'well', 'good', 'okay', 'hello', 'thank', 'please',
+        'sorry', 'apologize', 'right', 'maybe', 'actually', 'basically', 'literally',
+        'really', 'perhaps', 'probably', 'maybe', 'usually', 'sometimes', 'often',
+        'always', 'never', 'every', 'each', 'both', 'either', 'neither', 'whether'
+      ]);
+      return stopWords.has(word.toLowerCase());
     }
 
-    // ===== Fetch conversations =====
+    function renderWordCloud() {
+      const container = $('wordCloudCanvas');
+      container.innerHTML = ''; // Clear previous canvas
+      
+      if (state.wordCloudData.length === 0) {
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-light);">No word cloud data available. Generate transcripts first.</div>';
+        return;
+      }
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = container.offsetWidth;
+      canvas.height = container.offsetHeight;
+      container.appendChild(canvas);
+      
+      WordCloud(canvas, {
+        list: state.wordCloudData,
+        gridSize: Math.round(16 * container.offsetWidth / 1024),
+        weightFactor: function (size) {
+          return Math.max(size * container.offsetWidth / 1024, 14);
+        },
+        fontFamily: 'Aptos, Segoe UI, Arial, sans-serif',
+        color: function () {
+          const colors = ['#63AB8F', '#4A8C7D', '#2C3E50', '#6C757D'];
+          return colors[Math.floor(Math.random() * colors.length)];
+        },
+        rotateRatio: 0.5,
+        rotationSteps: 2,
+        backgroundColor: '#FFFFFF',
+        shrinkToFit: true
+      });
+    }
+
+    function renderWordList() {
+      const container = $('wordList');
+      const sortedWords = Object.entries(state.analyticsData.wordFrequencies)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 50);
+      
+      container.innerHTML = sortedWords.map(([word, freq], index) => `
+        <div class="word-item">
+          <span>${index + 1}. ${word}</span>
+          <span class="word-frequency">${freq}</span>
+        </div>
+      `).join('');
+    }
+
+    function updateAnalyticsDisplay() {
+      $('totalWords').textContent = state.analyticsData.totalWords;
+      $('uniqueWords').textContent = state.analyticsData.uniqueWords;
+      $('transcriptsProcessed').textContent = state.analyticsData.transcriptCount;
+      
+      const statsContainer = $('transcriptStats');
+      statsContainer.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;">
+          <div>
+            <h4 style="margin:0 0 8px;">Transcript Statistics</h4>
+            <p>Total Transcripts: ${state.analyticsData.transcriptCount}</p>
+            <p>Total Words: ${state.analyticsData.totalWords}</p>
+            <p>Unique Words: ${state.analyticsData.uniqueWords}</p>
+          </div>
+          <div>
+            <h4 style="margin:0 0 8px;">Top Word Categories</h4>
+            ${getTopWordCategories()}
+          </div>
+        </div>
+      `;
+    }
+
+    function getTopWordCategories() {
+      const categories = {
+        question: ['what', 'when', 'where', 'why', 'how', 'which', 'who'],
+        problem: ['problem', 'issue', 'error', 'failed', 'broken', 'not working'],
+        solution: ['solution', 'fixed', 'resolved', 'working', 'help', 'support'],
+        time: ['time', 'today', 'tomorrow', 'yesterday', 'now', 'soon', 'later']
+      };
+      
+      let result = '';
+      Object.entries(categories).forEach(([category, words]) => {
+        const count = words.reduce((sum, word) => sum + (state.analyticsData.wordFrequencies[word] || 0), 0);
+        if (count > 0) {
+          result += `<p>${category}: ${count}</p>`;
+        }
+      });
+      
+      return result || '<p>No category data available</p>';
+    }
+
+    // ===== Fetch conversations with automatic transcript generation =====
     async function fetchConversations(){
       try{
         if(!state.selectedAgent){ setStatus('Please select an agent first', true); return; }
@@ -967,8 +984,15 @@
 
         showProgress();
         state.conversations=[]; state.convIndex={};
-        state.allTransfers = [];
-        state.agentTransfers = [];
+        state.transcripts = {};
+        state.selectedConversations.clear();
+        state.wordCloudData = [];
+        state.analyticsData = {
+          wordFrequencies: {},
+          transcriptCount: 0,
+          totalWords: 0,
+          uniqueWords: 0
+        };
 
         for(let i=0;i<dateChunks.length;i++){
           const ch=dateChunks[i]; updateProgress((i/dateChunks.length)*100, i+1, dateChunks.length);
@@ -980,43 +1004,35 @@
             const data = await res.json(); const convs = data.conversations||[];
             for(const c of convs) state.convIndex[c.conversationId]=c;
             state.conversations = state.conversations.concat(convs);
-            
-            for(const conv of convs) {
-              const transferAnalysis = analyzeTransfers(conv);
-              if(transferAnalysis.transfers.length > 0) {
-                state.allTransfers = state.allTransfers.concat(
-                  transferAnalysis.transfers.map(t => ({
-                    ...t,
-                    conversationId: conv.conversationId,
-                    conversationStart: conv.conversationStart
-                  }))
-                );
-                
-                const agentTransfers = transferAnalysis.transfers.filter(t => 
-                  t.type === 'Agent → Agent'
-                );
-                if (agentTransfers.length > 0) {
-                  state.agentTransfers = state.agentTransfers.concat(
-                    agentTransfers.map(t => ({
-                      ...t,
-                      conversationId: conv.conversationId,
-                      conversationStart: conv.conversationStart
-                    }))
-                  );
-                }
-              }
-            }
           }catch(e){ console.error(e); setStatus('Warning: failed chunk ' + (i+1) + ', continuing…', true); }
           if(i<dateChunks.length-1) await new Promise(r=>setTimeout(r,400));
         }
 
         await warmQueueCache(state.conversations);
 
+        // Auto-fetch transcripts if enabled
+        const autoGenerate = $('autoGenerate').checked;
+        if (autoGenerate && state.conversations.length > 0) {
+          setStatus('Fetching transcripts...');
+          updateProgress(0, 1, state.conversations.length);
+          
+          for (let i = 0; i < state.conversations.length; i++) {
+            const conv = state.conversations[i];
+            updateProgress((i / state.conversations.length) * 100, i + 1, state.conversations.length);
+            setStatus(`Fetching transcript ${i + 1}/${state.conversations.length}`);
+            await getTranscriptForConversation(conv.conversationId);
+            // Add small delay to avoid rate limiting
+            await new Promise(r => setTimeout(r, 100));
+          }
+        }
+
         updateProgress(100, dateChunks.length, dateChunks.length);
         renderResults(state.conversations, from, to);
-        renderTransferReport();
-        renderQueueTransferMatrix();
-        renderAgentTransferMatrix();
+        
+        if (autoGenerate) {
+          generateWordCloudData();
+        }
+        
         setStatus('Found ' + state.conversations.length + ' conversations for the selected period');
         setLoading(false); hideProgress();
       }catch(e){ setStatus('Error fetching conversations: ' + e.message, true); setLoading(false); hideProgress(); }
@@ -1027,6 +1043,7 @@
       $('dateRange').textContent = fmtDMY(from) + ' to ' + fmtDMY(to||from);
       $('selectedAgent').textContent = state.selectedAgent?.name||'-';
       $('totalConversations').textContent = conversations.length;
+      updateSelectedCount();
 
       if(!conversations.length){
         results.innerHTML = '<div class="muted" style="text-align:center;padding:40px"><div style="font-size:48px;margin-bottom:12px">📭</div><div>No conversations found for ' + (state.selectedAgent?.name||'the selected agent') + '.</div></div>';
@@ -1037,8 +1054,33 @@
         const participants = conv.participants ? conv.participants.length : 0;
         const media = getConversationMediaTypes(conv);
         const dir = getDirection(conv);
-        return '<details><summary><strong>' + conv.conversationId + '</strong> - ' + fmt(conv.conversationStart) + '<span class="muted" style="margin-left:8px;font-size:.9em">(' + participants + ' participants) • Media: ' + media + ' • Dir: ' + dir + '</span></summary>' + renderConversationDetails(conv) + '</details>';
+        const isSelected = state.selectedConversations.has(conv.conversationId);
+        const hasTranscript = state.transcripts[conv.conversationId] ? '✓' : '✗';
+        
+        return `
+          <details>
+            <summary>
+              <input type="checkbox" id="check-${conv.conversationId}" class="conversation-checkbox" ${isSelected ? 'checked' : ''}>
+              <label for="check-${conv.conversationId}" class="conversation-checkbox-label"></label>
+              <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
+              <span class="muted" style="margin-left:8px;font-size:.9em">
+                (${participants} participants) • Media: ${media} • Dir: ${dir} • Transcript: ${hasTranscript}
+              </span>
+            </summary>
+            ${renderConversationDetails(conv)}
+          </details>
+        `;
       }).join('');
+
+      // Add event listeners to checkboxes
+      conversations.forEach(conv => {
+        const checkbox = document.getElementById(`check-${conv.conversationId}`);
+        if (checkbox) {
+          checkbox.addEventListener('change', () => {
+            toggleConversationSelection(conv.conversationId);
+          });
+        }
+      });
 
       $('resultsSection').style.display='block';
     }
@@ -1048,7 +1090,6 @@
       const direction = getDirection(conv);
       const ani = getANI(conv);
       const totalDur = calculateDuration(conv.conversationStart, conv.conversationEnd);
-      const transfers = analyzeTransfers(conv);
 
       let html = '<div class="conversation-header">';
       html += '<div class="info-grid">';
@@ -1058,448 +1099,91 @@
       html += '<div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">' + fmt(conv.conversationStart) + '</span></div>';
       html += '<div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">' + fmt(conv.conversationEnd) + '</span></div>';
       html += '<div class="info-item"><span class="info-label">Duration:</span><span class="info-value">' + formatSeconds(totalDur) + '</span></div>';
-      html += '<div class="info-item"><span class="info-label">Agent-Initiated Transfers:</span><span class="info-value"><span class="transfer-count">' + transfers.totalTransfers + '</span></span></div>';
       html += '</div>';
 
       html += '<div class="transcript-actions" style="display:flex;gap:8px;align-items:center;margin-top:8px">';
-      html += '<button id="btn-transcript-' + conv.conversationId + '" onclick="getTranscriptForConversation(\'' + conv.conversationId + '\')">Get Transcript</button>';
-      html += '<span id="transcript-status-' + conv.conversationId + '" class="muted"></span>';
+      if (!state.transcripts[conv.conversationId]) {
+        html += '<button id="btn-transcript-' + conv.conversationId + '" onclick="getTranscriptForConversation(\'' + conv.conversationId + '\').then(() => { alert(\'Transcript loaded\'); location.reload(); })">Get Transcript</button>';
+      }
       html += '</div>';
-      html += '<div id="transcript-' + conv.conversationId + '" style="margin-top:10px;"></div>';
+      if (state.transcripts[conv.conversationId]) {
+        html += '<div id="transcript-' + conv.conversationId + '" style="margin-top:10px;">';
+        html += renderTranscriptPreview(state.transcripts[conv.conversationId], conv);
+        html += '</div>';
+      }
       html += '</div>';
 
-      html += '<h3 style="margin:14px 0 6px;">Customer Journey Timeline</h3>';
-      html += '<div class="journey-timeline">';
-      html += renderJourneyTimeline(conv, transfers);
-      html += '</div>';
-
-      html += '<details><summary>Raw Conversation Data</summary><pre>' + JSON.stringify(conv, null, 2) + '</pre></details>';
-      
       return html;
     }
 
-    function renderJourneyTimeline(conv, transferInfo){
-      if(!conv.participants || !conv.participants.length) return '<p class="muted">No participant data available</p>';
-      const sorted = [...conv.participants].map(function(p){return {p:p,start:getStepStart(p)};})
-        .sort(function(a,b){return (a.start?.getTime()??Infinity)-(b.start?.getTime()??Infinity);})
-        .map(function(x){return x.p;});
+    function renderTranscriptPreview(transcript, conversation) {
+      const phrases = processPhrases(transcript);
+      if (!phrases.length) {
+        return '<div class="muted">No transcript phrases found.</div>';
+      }
 
-      return sorted.map(function(p,idx){
-        const purpose = p.purpose||'unknown';
-        const start = getStepStart(p);
-        const nextStart = idx<sorted.length-1 ? getStepStart(sorted[idx+1]) : null;
-        const queueId = getQueueIdFromParticipant(p);
-        const queueName = queueId ? (getQueueName(queueId)||queueId) : null;
-        const name = purpose==='acd' ? (queueName?'Queue: ' + queueName:'ACD Queue') : getParticipantName(p);
-
-        let durMs = 0;
-        if(p.userId) durMs = getAgentWindow(p).durationMs||0;
-        else if(start && nextStart) durMs = Math.max(0, nextStart - start);
-
-        const alertMs = p.userId ? getAlertMsForAgent(p) : null;
-        const alertTime = p.userId ? (Math.floor((alertMs||0)/1000) + 's') : 'N/A';
-
-        const transfer = transferInfo.transfers.find(function(t){return t.step===idx;});
-
-        let stepHtml = '<div class="journey-step">';
-        stepHtml += '<div class="step-header">Step ' + (idx+1) + ': ' + badge(purpose, name) + (transfer?'<span style="color:#dc2626;margin-left:8px">🔄 TRANSFERRED</span>':'') + '</div>';
-        stepHtml += '<div class="step-details">';
-        if(transfer){
-          stepHtml += '<div class="transfer-info"><strong>Transfer:</strong> ' + transfer.type + '<br>From: ' + transfer.fromName + ' → ' + transfer.toName + '<br>Time: ' + fmt(transfer.time) + '</div>';
-        }
-        stepHtml += '<div class="info-grid">';
-        stepHtml += '<div class="info-item"><span class="info-label">Participant Type:</span><span class="info-value">' + getParticipantType(p) + '</span></div>';
-        stepHtml += '<div class="info-item"><span class="info-label">Start Time:</span><span class="info-value">' + fmt(start) + '</span></div>';
-        if(queueName) stepHtml += '<div class="info-item"><span class="info-label">Queue:</span><span class="info-value">' + queueName + '</span></div>';
-        stepHtml += '<div class="info-item"><span class="info-label">Duration:</span><span class="info-value">' + formatSeconds(durMs) + '</span></div>';
-        stepHtml += '<div class="info-item"><span class="info-label">Alert Time:</span><span class="info-value">' + alertTime + '</span></div>';
-        stepHtml += '<div class="info-item"><span class="info-label">Purpose:</span><span class="info-value">' + purpose + '</span></div>';
-        stepHtml += '<div class="info-item"><span class="info-label">Sessions:</span><span class="info-value">' + ((p.sessions&&p.sessions.length)||1) + '</span></div>';
-        stepHtml += '</div></div></div>';
-        return stepHtml;
+      const preview = phrases.slice(0, 5).map(p => {
+        const text = p.decoratedText || '';
+        const participant = p.participantPurpose === 'internal' ? 'Agent' : 'Customer';
+        return `<div><strong>${participant}:</strong> ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}</div>`;
       }).join('');
-    }
-
-    // ===== Transfer Reporting (agent-initiated only, with fresh queue names) =====
-    function renderTransferReport() {
-      const statsContainer = $('transferStats');
-      const tableContainer = $('transferTableContainer');
-      const noTransfersMessage = $('noTransfersMessage');
-
-      if (state.allTransfers.length === 0) {
-        statsContainer.innerHTML = '';
-        tableContainer.innerHTML = '';
-        noTransfersMessage.style.display = 'block';
-        return;
-      }
-
-      noTransfersMessage.style.display = 'none';
-
-      // Re-apply latest queue names based on IDs
-      const transfers = state.allTransfers.map(t => {
-        const copy = { ...t };
-
-        if (copy.fromType === 'Queue') {
-          const qName = getKnownQueueName(copy.fromId) || getQueueName(copy.fromId);
-          copy.fromName = qName;
-        }
-        if (copy.toType === 'Queue') {
-          const qName = getKnownQueueName(copy.toId) || getQueueName(copy.toId);
-          copy.toName = qName;
-        }
-
-        return copy;
-      });
-
-      // Stats
-      const totalTransfers = transfers.length;
-      const agentToAgent = transfers.filter(t => t.type === 'Agent → Agent').length;
-      const agentToQueue = transfers.filter(t => t.type === 'Agent → Queue').length;
-
-      statsContainer.innerHTML = `
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${totalTransfers}</div>
-          <div class="transfer-stat-label">Agent-Initiated Transfers</div>
-        </div>
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${agentToAgent}</div>
-          <div class="transfer-stat-label">Agent → Agent</div>
-        </div>
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${agentToQueue}</div>
-          <div class="transfer-stat-label">Agent → Queue</div>
+      
+      return `
+        <div style="margin-top:10px;padding:10px;background:var(--light-bg);border-radius:4px;">
+          <strong>Transcript Preview:</strong>
+          ${preview}
+          <div class="muted">${phrases.length} phrases total</div>
         </div>
       `;
-
-      // Filters
-      const filterType = $('transferFilter').value;
-      const searchTerm = $('transferSearch').value.toLowerCase();
-
-      let filteredTransfers = transfers;
-
-      if (filterType === 'agent-to-agent') {
-        filteredTransfers = filteredTransfers.filter(t => t.type === 'Agent → Agent');
-      } else if (filterType === 'agent-to-queue') {
-        filteredTransfers = filteredTransfers.filter(t => t.type === 'Agent → Queue');
-      }
-
-      if (searchTerm) {
-        filteredTransfers = filteredTransfers.filter(t =>
-          t.conversationId.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      // Group by conversation
-      const transfersByConversation = {};
-      filteredTransfers.forEach(transfer => {
-        if (!transfersByConversation[transfer.conversationId]) {
-          transfersByConversation[transfer.conversationId] = [];
-        }
-        transfersByConversation[transfer.conversationId].push(transfer);
-      });
-
-      if (Object.keys(transfersByConversation).length === 0) {
-        tableContainer.innerHTML =
-          '<div style="text-align:center;padding:20px">No transfers match the selected filters</div>';
-        return;
-      }
-
-      // Nested UI
-      let html = '';
-      Object.entries(transfersByConversation).forEach(([conversationId, convTransfers]) => {
-        const sortedTransfers = convTransfers.sort(
-          (a, b) => new Date(a.time) - new Date(b.time)
-        );
-
-        html += `
-          <div class="conversation-transfer-group">
-            <div class="conversation-transfer-header" onclick="this.nextElementSibling.classList.toggle('open')">
-              <span>
-                ${conversationId}
-                <span class="conversation-transfer-count">
-                  ${convTransfers.length} transfer${convTransfers.length > 1 ? 's' : ''}
-                </span>
-              </span>
-              <span>${fmt(sortedTransfers[0].conversationStart)}</span>
-            </div>
-            <div class="conversation-transfer-details">
-        `;
-
-        sortedTransfers.forEach((transfer, index) => {
-          html += `
-            <div class="transfer-leg">
-              <div class="transfer-leg-number">${index + 1}</div>
-              <div class="transfer-leg-content">
-                <strong>${transfer.fromName}</strong>
-                <span class="transfer-leg-arrow">→</span>
-                <strong>${transfer.toName}</strong>
-                <span style="margin-left: 12px; color: var(--text-light);">
-                  ${transfer.type} • ${fmt(transfer.time)}
-                </span>
-              </div>
-            </div>
-          `;
-        });
-
-        html += `
-            </div>
-          </div>
-        `;
-      });
-
-      tableContainer.innerHTML = html;
     }
 
-    // ===== Queue Transfer Matrix: derive from ACD queue participants only =====
-    function computeQueueMatrixTransfers() {
-      const transfers = [];
-      for (const conv of state.conversations) {
-        const queues = [];
-        for (const p of (conv.participants || [])) {
-          if ((p.purpose || '').toLowerCase() !== 'acd') continue;
-          const qid = getQueueIdFromParticipant(p);
-          if (!qid) continue;
-          const qName = getKnownQueueName(qid);
-          if (!qName) continue; // skip unknown queues
-          const start = getStepStart(p);
-          if (!start) continue;
-          queues.push({
-            queueId: qid,
-            time: start.getTime(),
-            conversationId: conv.conversationId,
-            conversationStart: conv.conversationStart
-          });
-        }
-        if (queues.length < 2) continue;
-        queues.sort((a,b)=>a.time-b.time);
-        for (let i=1;i<queues.length;i++) {
-          const prev = queues[i-1], curr = queues[i];
-          if (prev.queueId === curr.queueId) continue;
-          transfers.push({
-            fromId: prev.queueId,
-            toId: curr.queueId,
-            conversationId: conv.conversationId,
-            conversationStart: conv.conversationStart
-          });
-        }
-      }
-      return transfers;
+    function mapParticipantNames(conv){
+      const map={};
+      for(const p of (conv.participants||[])){
+        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); map[p.participantId||p.userId] = u?u.name:`Agent (${p.userId})`; }
+        else if(p.purpose==='customer'){ map[p.participantId||'customer']='Customer'; }
+        else if(p.purpose==='acd'){ const qid=getQueueIdFromParticipant(p); map[p.participantId||qid||'acd']=qid?(getQueueName(qid)||'Queue'):'Queue'; }
+      } return map;
     }
-
-    function renderQueueTransferMatrix() {
-      const statsContainer = $('queueMatrixStats');
-      const matrixContainer = $('queueMatrixContainer');
-      const noMatrixDataMessage = $('noQueueMatrixDataMessage');
-      const selectedAgentId = $('queueMatrixAgentSelect').value;
-      
-      const allQueueTransfers = computeQueueMatrixTransfers();
-      let transfersToShow = allQueueTransfers;
-      
-      if (selectedAgentId !== 'all') {
-        const agentConversations = state.conversations.filter(conv => 
-          conv.participants && conv.participants.some(p => p.userId === selectedAgentId)
-        );
-        const agentConversationIds = new Set(agentConversations.map(c => c.conversationId));
-        transfersToShow = transfersToShow.filter(t => agentConversationIds.has(t.conversationId));
-      }
-      
-      if (transfersToShow.length === 0) {
-        statsContainer.innerHTML = '';
-        matrixContainer.innerHTML = '';
-        noMatrixDataMessage.style.display = 'block';
-        return;
-      }
-      
-      noMatrixDataMessage.style.display = 'none';
-      
-      const totalQueueTransfers = transfersToShow.length;
-      const uniqueFromQueues = [...new Set(transfersToShow.map(t => t.fromId))].length;
-      const uniqueToQueues = [...new Set(transfersToShow.map(t => t.toId))].length;
-      
-      statsContainer.innerHTML = `
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${totalQueueTransfers}</div>
-          <div class="transfer-stat-label">Queue → Queue Transfers</div>
-        </div>
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${uniqueFromQueues}</div>
-          <div class="transfer-stat-label">Source Queues</div>
-        </div>
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${uniqueToQueues}</div>
-          <div class="transfer-stat-label">Target Queues</div>
-        </div>
-      `;
-      
-      const fromQueues = [...new Set(transfersToShow.map(t => t.fromId))];
-      const toQueues = [...new Set(transfersToShow.map(t => t.toId))];
-      const allQueueIds = [...new Set([...fromQueues, ...toQueues])];
-      
-      const matrix = {};
-      allQueueIds.forEach(fromQueueId => {
-        matrix[fromQueueId] = {};
-        allQueueIds.forEach(toQueueId => {
-          matrix[fromQueueId][toQueueId] = 0;
-        });
-      });
-      
-      transfersToShow.forEach(transfer => {
-        if (matrix[transfer.fromId] && matrix[transfer.fromId][transfer.toId] !== undefined) {
-          matrix[transfer.fromId][transfer.toId]++;
-        }
-      });
-      
-      const sortedQueueIds = allQueueIds.sort((a, b) => {
-        const nameA = (getKnownQueueName(a) || '').toLowerCase();
-        const nameB = (getKnownQueueName(b) || '').toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
-      
-      let matrixHtml = '<table class="matrix-table">';
-      matrixHtml += '<thead><tr>';
-      matrixHtml += '<th class="from-header">FROM / TO</th>';
-      sortedQueueIds.forEach(queueId => {
-        const queueName = getKnownQueueName(queueId) || getQueueName(queueId);
-        matrixHtml += `<th class="to-header">${queueName}</th>`;
-      });
-      matrixHtml += '</tr></thead>';
-      
-      matrixHtml += '<tbody>';
-      sortedQueueIds.forEach(fromQueueId => {
-        const fromQueueName = getKnownQueueName(fromQueueId) || getQueueName(fromQueueId);
-        matrixHtml += `<tr><td class="from-label">${fromQueueName}</td>`;
-        
-        sortedQueueIds.forEach(toQueueId => {
-          const count = matrix[fromQueueId][toQueueId];
-          let cellClass = '';
-          if (count > 0) {
-            if (count >= 10) cellClass = 'matrix-high';
-            else if (count >= 5) cellClass = 'matrix-medium';
-            else cellClass = 'matrix-low';
-          }
-          matrixHtml += `<td class="${cellClass}"><span class="matrix-count">${count}</span></td>`;
-        });
-        
-        matrixHtml += '</tr>';
-      });
-      matrixHtml += '</tbody></table>';
-      
-      matrixContainer.innerHTML = matrixHtml;
-    }
-    
-    // ===== Agent Transfer Matrix (Agent→Agent only) =====
-    function renderAgentTransferMatrix() {
-      const statsContainer = $('agentMatrixStats');
-      const matrixContainer = $('agentMatrixContainer');
-      const noMatrixDataMessage = $('noAgentMatrixDataMessage');
-      const selectedAgentId = $('agentMatrixAgentSelect').value;
-      
-      let transfersToShow = state.agentTransfers;
-      
-      if (selectedAgentId !== 'all') {
-        const agentConversations = state.conversations.filter(conv => 
-          conv.participants && conv.participants.some(p => p.userId === selectedAgentId)
-        );
-        const agentConversationIds = new Set(agentConversations.map(c => c.conversationId));
-        transfersToShow = transfersToShow.filter(t => agentConversationIds.has(t.conversationId));
-      }
-      
-      if (transfersToShow.length === 0) {
-        statsContainer.innerHTML = '';
-        matrixContainer.innerHTML = '';
-        noMatrixDataMessage.style.display = 'block';
-        return;
-      }
-      
-      noMatrixDataMessage.style.display = 'none';
-      
-      const totalAgentTransfers = transfersToShow.length;
-      const uniqueFromAgents = [...new Set(transfersToShow.map(t => t.fromId))].length;
-      const uniqueToAgents = [...new Set(transfersToShow.map(t => t.toId))].length;
-      
-      statsContainer.innerHTML = `
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${totalAgentTransfers}</div>
-          <div class="transfer-stat-label">Agent → Agent Transfers</div>
-        </div>
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${uniqueFromAgents}</div>
-          <div class="transfer-stat-label">Source Agents</div>
-        </div>
-        <div class="transfer-stat-card">
-          <div class="transfer-stat-number">${uniqueToAgents}</div>
-          <div class="transfer-stat-label">Target Agents</div>
-        </div>
-      `;
-      
-      const fromAgents = [...new Set(transfersToShow.map(t => t.fromId))];
-      const toAgents = [...new Set(transfersToShow.map(t => t.toId))];
-      const allAgents = [...new Set([...fromAgents, ...toAgents])];
-      
-      const matrix = {};
-      allAgents.forEach(fromAgent => {
-        matrix[fromAgent] = {};
-        allAgents.forEach(toAgent => {
-          matrix[fromAgent][toAgent] = 0;
-        });
-      });
-      
-      transfersToShow.forEach(transfer => {
-        if (matrix[transfer.fromId] && matrix[transfer.fromId][transfer.toId] !== undefined) {
-          matrix[transfer.fromId][transfer.toId]++;
-        }
-      });
-      
-      let matrixHtml = '<table class="matrix-table">';
-      matrixHtml += '<thead><tr>';
-      matrixHtml += '<th class="from-header">FROM / TO</th>';
-      allAgents.forEach(agentId => {
-        const agent = state.users.find(u => u.id === agentId);
-        const agentName = agent ? agent.name : `Agent ${agentId}`;
-        matrixHtml += `<th class="to-header">${agentName}</th>`;
-      });
-      matrixHtml += '</tr></thead>';
-      
-      matrixHtml += '<tbody>';
-      allAgents.forEach(fromAgentId => {
-        const fromAgent = state.users.find(u => u.id === fromAgentId);
-        const fromAgentName = fromAgent ? fromAgent.name : `Agent ${fromAgentId}`;
-        matrixHtml += `<tr><td class="from-label">${fromAgentName}</td>`;
-        
-        allAgents.forEach(toAgentId => {
-          const count = matrix[fromAgentId][toAgentId];
-          let cellClass = '';
-          if (count > 0) {
-            if (count >= 10) cellClass = 'matrix-high';
-            else if (count >= 5) cellClass = 'matrix-medium';
-            else cellClass = 'matrix-low';
-          }
-          
-          matrixHtml += `<td class="${cellClass}"><span class="matrix-count">${count}</span></td>`;
-        });
-        
-        matrixHtml += '</tr>';
-      });
-      matrixHtml += '</tbody></table>';
-      
-      matrixContainer.innerHTML = matrixHtml;
-    }
-    
-    function setupTransferFilters() {
-      $('transferFilter').addEventListener('change', renderTransferReport);
-      $('transferSearch').addEventListener('input', renderTransferReport);
-      $('queueMatrixAgentSelect').addEventListener('change', renderQueueTransferMatrix);
-      $('agentMatrixAgentSelect').addEventListener('change', renderAgentTransferMatrix);
+    function findCommunicationsIdFromDetails(conv){
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.sessionId) return s.sessionId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.communicationId) return s.communicationId;
+      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.id) return s.id;
+      return null;
     }
 
     // ===== Events & Init =====
     $('fetchBtn').addEventListener('click', fetchConversations);
+    $('selectAllBtn').addEventListener('click', selectAllConversations);
+    $('deselectAllBtn').addEventListener('click', deselectAllConversations);
+    $('exportSelectedBtn').addEventListener('click', exportSelectedConversations);
+    $('generateWordCloudBtn').addEventListener('click', generateWordCloudData);
+    $('exportAnalyticsBtn').addEventListener('click', () => {
+      // Export analytics data as JSON
+      const dataStr = JSON.stringify(state.analyticsData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `analytics_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+    
+    $('wordCountSlider').addEventListener('input', function() {
+      $('wordCountValue').textContent = this.value + ' words';
+    });
+    
+    $('analyticsAgentSelect').addEventListener('change', generateWordCloudData);
+
     (function init(){
       const today=new Date(); const weekAgo=new Date(); weekAgo.setDate(today.getDate()-7);
       $('fromDate').value = weekAgo.toISOString().slice(0,10);
       $('toDate').value = today.toISOString().slice(0,10);
       initAuth();
-      setupTransferFilters();
     })();
   </script>
 </body>
