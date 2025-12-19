@@ -11,22 +11,25 @@
       --light-bg:#F8F9FA; --card-bg:#FFFFFF; --text-color:#2C3E50; --text-light:#6C757D;
       --pill:#e9f6f0;
     }
-    body{font-family:"Aptos","Segoe UI",Arial,sans-serif;margin:20px;padding:20px;max-width:1400px;background:var(--light-bg);color:var(--text-color)}
+    body, h1, h2, h3, h4, h5, h6, p, div, span, label, button, input, select, textarea, th, td, li, ul, ol, details, summary, pre, code{
+      font-family:'Aptos','Segoe UI',Arial,sans-serif;
+    }
+    body{margin:20px;padding:20px;max-width:1400px;background:var(--light-bg);color:var(--text-color)}
     #logo-container{text-align:center;margin-bottom:20px} #logo{width:300px}
     h1{margin:0 0 16px}
     .card{background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;margin-top:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
     label{display:block;font-weight:600;margin-bottom:6px}
-    select,input,button{padding:10px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);font-size:14px}
-    button{background:var(--primary-color);color:#fff;font-weight:600;cursor:pointer;transition:background .2s}
+    select,input,button{padding:10px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);font-size:14px;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
+    button{background:var(--primary-color);color:#fff;font-weight:600;cursor:pointer;transition:background .2s;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
     button:hover{background:var(--secondary-color)} button:disabled{background:var(--text-light);cursor:not-allowed}
     .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px 24px;align-items:start}
     .inline{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center} .inline span{color:var(--text-light)}
     .full-width-btn{width:100%;padding:14px 18px;font-size:16px;margin-top:12px}
     .muted{color:var(--text-light)} .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
     .user-info,.conversation-header,.transcript-summary{background:transparent;border:2px solid var(--primary-color);border-radius:10px;padding:16px;margin:12px 0}
-    details{background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:16px;margin:12px 0}
-    details>summary{cursor:pointer;font-weight:600}
-    pre{background:#1f2937;color:#f3f4f6;padding:16px;border-radius:6px;overflow:auto;font-size:12px}
+    details{background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:16px;margin:12px 0;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
+    details>summary{cursor:pointer;font-weight:600;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
+    pre{background:#1f2937;color:#f3f4f6;padding:16px;border-radius:6px;overflow:auto;font-size:12px;font-family:'Monaco','Consolas','Courier New',monospace}
     .stats{display:flex;gap:16px;margin:16px 0}
     .stat-card{flex:1;border:1px solid var(--border-color);border-radius:8px;padding:16px;text-align:center;background:var(--card-bg)}
     .stat-number{font-size:22px;color:#63AB8F;font-weight:700}
@@ -38,7 +41,7 @@
     .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
     .info-item{display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding:6px 0}
     .info-label{font-weight:600;min-width:150px}
-    .participant-badge{display:inline-block;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600;margin:2px;border:1px solid var(--border-color);background:#fff}
+    .participant-badge{display:inline-block;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600;margin:2px;border:1px solid var(--border-color);background:#fff;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
     .badge-customer{border-color:#a7e3c6;color:#1f7255}
     .badge-agent{background:#dbeafe;color:#1e40af}
     .badge-queue{background:#fde7ff;color:#7c3aed}
@@ -49,7 +52,7 @@
     .t-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 16px}
     .t-kv{display:flex;gap:10px;justify-content:space-between}.t-kv .k{font-weight:700}
     .pill{display:inline-block;background:var(--pill);border:1px solid var(--border-color);border-radius:999px;padding:2px 8px;font-size:12px;margin-right:6px}
-    .transcript-table{width:100%;border-collapse:collapse;margin-top:10px}
+    .transcript-table{width:100%;border-collapse:collapse;margin-top:10px;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
     .transcript-table th,.transcript-table td{border-bottom:1px solid var(--border-color);padding:8px 10px;vertical-align:top}
     .transcript-table th{background:var(--primary-color);color:#fff;text-align:left}
     .sentiment-positive{color:#16a34a;font-weight:700}
@@ -65,7 +68,7 @@
     
     .tab-container { margin-top: 20px; }
     .tab-buttons { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
-    .tab-button { padding: 10px 20px; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; }
+    .tab-button { padding: 10px 20px; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
     .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -73,7 +76,7 @@
     .selection-controls { margin: 20px 0; padding: 20px; background: var(--light-bg); border-radius: 8px; }
     .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
     .conversation-checkbox { display: none; }
-    .conversation-checkbox-label { cursor: pointer; padding: 8px 12px; background: white; border: 1px solid var(--border-color); border-radius: 4px; transition: all 0.2s; }
+    .conversation-checkbox-label { cursor: pointer; padding: 8px 12px; background: white; border: 1px solid var(--border-color); border-radius: 4px; transition: all 0.2s; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
     .conversation-checkbox:checked + .conversation-checkbox-label { background: var(--primary-color); color: white; border-color: var(--primary-color); }
     .select-all-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; }
     .export-controls { display: flex; gap: 10px; margin-top: 15px; }
@@ -84,11 +87,29 @@
     .wordcloud-container { width: 100%; height: 400px; background: white; border-radius: 8px; overflow: hidden; position: relative; }
     canvas { display: block; }
     .word-list { max-height: 300px; overflow-y: auto; }
-    .word-item { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-color); }
+    .word-item { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-color); font-family:'Aptos','Segoe UI',Arial,sans-serif; }
     .word-frequency { font-weight: bold; color: var(--primary-color); }
     
     .conv-select-btn { margin-left: 10px; padding: 4px 8px; font-size: 12px; }
     .selected-count { background: var(--primary-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
+    
+    /* --- New Tab Container for Main Tabs --- */
+    .main-tab-container { margin-top: 20px; margin-bottom: 20px; }
+    .main-tab-buttons { display: flex; gap: 12px; }
+    .main-tab-button { padding: 10px 16px; background: #ffffff; border: 2px solid var(--primary-color); border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--primary-color); transition: background .2s, color .2s; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
+    .main-tab-button:hover { background: var(--pill); }
+    .main-tab-button.active { background: var(--primary-color); color: #ffffff; }
+    .main-tab-content { display: none; }
+    .main-tab-content.active { display: block; }
+    
+    .help-text { background: #f8f9fa; border-left: 3px solid var(--primary-color); padding: 12px; margin: 12px 0; font-size: 14px; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
+    .help-text ul, .help-text ol { margin: 8px 0; padding-left: 20px; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
+    .help-text li { margin-bottom: 4px; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
+    .help-text p, .help-text strong, .help-text code { font-family:'Aptos','Segoe UI',Arial,sans-serif; }
+    .help-text code { background: var(--light-bg); padding: 2px 6px; border-radius: 3px; font-family: 'Monaco', 'Consolas', 'Courier New', monospace; }
+    
+    .guide-section { margin: 20px 0; }
+    .guide-section h3 { color: var(--secondary-color); margin-bottom: 10px; }
   </style>
 </head>
 <body>
@@ -102,142 +123,295 @@
   </div>
 
   <div id="mainContent" style="display:none;">
-    <div class="card">
-      <h2 style="margin:0 0 12px;">Select Agent & Date Range</h2>
-      <div class="controls">
-        <div>
-          <label for="agentSelect">Select Agent</label>
-          <select id="agentSelect"><option>Loading users…</option></select>
-          <input id="agentFilter" type="text" placeholder="Filter users by name" style="margin-top:8px"/>
-          <div class="user-info" id="selectedAgentInfo" style="display:none;">
-            <strong>Selected Agent:</strong> <span id="selectedAgentName">None</span>
-          </div>
-        </div>
-        <div>
-          <label>Date Range</label>
-          <div class="inline">
-            <input id="fromDate" type="date"/>
-            <span>to</span>
-            <input id="toDate" type="date"/>
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-            <input id="autoChunk" type="checkbox" checked/> Auto-split large date ranges (recommended)
-          </label>
-        </div>
-      </div>
-      <button id="fetchBtn" class="full-width-btn">Fetch Conversations</button>
-    </div>
-
-    <div id="statusMessage" class="muted" style="margin-top:10px;"></div>
-    <div id="errorMessage" style="color:#dc2626;margin-top:6px;"></div>
-
-    <div id="progressSection" style="display:none;">
-      <div class="card">
-        <h3 style="margin:0 0 8px;">Fetching Conversations & Transcripts</h3>
-        <div class="muted" id="chunkInfo">Processing date range in smaller chunks…</div>
-        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-        <div style="display:flex;justify-content:space-between;font-size:14px" class="muted">
-          <span id="progressText">0%</span><span id="chunkText">Chunk 0/0</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="tab-container">
-      <div class="tab-buttons">
-        <button class="tab-button active" data-tab="conversations">Conversations</button>
-        <button class="tab-button" data-tab="analytics">Analytics & Word Cloud</button>
+    
+    <div class="main-tab-container">
+      <div class="main-tab-buttons">
+        <button class="main-tab-button active" data-tab="main-tab-explorer">Conversation Explorer</button>
+        <button class="main-tab-button" data-tab="main-tab-guide">How to Use</button>
       </div>
       
-      <div id="conversations-tab" class="tab-content active">
-        <div id="resultsSection" style="display:none;">
-          <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-              <h2 style="margin:0;">Conversation Results</h2>
-              <div style="display:flex;align-items:center;">
-                <span id="selectedCount" class="selected-count">0 selected</span>
-              </div>
-            </div>
-            
-            <div class="selection-controls">
-              <div class="select-all-controls">
-                <button id="selectAllBtn" class="conv-select-btn">Select All</button>
-                <button id="deselectAllBtn" class="conv-select-btn">Deselect All</button>
-                <button id="exportSelectedBtn" style="background:var(--secondary-color);">Export Selected Conversations</button>
-              </div>
-              
-              <div class="export-options">
-                <label style="display:flex;align-items:center;gap:8px;">
-                  <input type="checkbox" id="includeTranscripts" checked/> Include Transcripts
-                </label>
-                <label style="display:flex;align-items:center;gap:8px;">
-                  <input type="checkbox" id="includeAnalytics" checked/> Include Analytics
-                </label>
-              </div>
-            </div>
-            
-            <div class="stats">
-              <div class="stat-card"><div class="stat-number" id="totalConversations">0</div><div class="stat-label">Total Conversations</div></div>
-              <div class="stat-card"><div class="stat-number" id="dateRange">-</div><div class="stat-label">Date Range</div></div>
-              <div class="stat-card"><div class="stat-number" id="selectedAgent">-</div><div class="stat-label">Selected Agent</div></div>
-            </div>
-            <div id="results"></div>
-          </div>
-        </div>
-      </div>
-      
-      <div id="analytics-tab" class="tab-content">
+      <!-- Main Tab: CONVERSATION EXPLORER -->
+      <div id="main-tab-explorer" class="main-tab-content active">
         <div class="card">
-          <h2 style="margin:0 0 12px;">Analytics & Word Cloud</h2>
-          
-          <div class="analytics-controls">
+          <h2 style="margin:0 0 12px;">Select Agent & Date Range</h2>
+          <div class="controls">
             <div>
-              <label>Agent Filter</label>
-              <select id="analyticsAgentSelect">
-                <option value="all">All Agents</option>
-              </select>
+              <label for="agentSelect">Select Agent</label>
+              <select id="agentSelect"><option>Loading users…</option></select>
+              <input id="agentFilter" type="text" placeholder="Filter users by name" style="margin-top:8px"/>
+              <div class="user-info" id="selectedAgentInfo" style="display:none;">
+                <strong>Selected Agent:</strong> <span id="selectedAgentName">None</span>
+              </div>
             </div>
             <div>
-              <label>Word Cloud Settings</label>
-              <div style="display:flex;gap:10px;align-items:center;">
-                <input type="range" id="wordCountSlider" min="20" max="200" value="50" style="flex:1;">
-                <span id="wordCountValue">50 words</span>
+              <label>Date Range</label>
+              <div class="inline">
+                <input id="fromDate" type="date"/>
+                <span>to</span>
+                <input id="toDate" type="date"/>
               </div>
               <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                <input type="checkbox" id="autoGenerate" checked/> Auto-generate transcripts on fetch
+                <input id="autoChunk" type="checkbox" checked/> Auto-split large date ranges (recommended)
               </label>
             </div>
-            <div>
-              <button id="generateWordCloudBtn" style="width:100%;margin-top:24px;">Generate Word Cloud</button>
-              <button id="exportAnalyticsBtn" style="width:100%;margin-top:10px;background:var(--secondary-color);">Export Analytics Data</button>
-            </div>
           </div>
-          
-          <div class="stats" style="margin-top:20px;">
-            <div class="stat-card"><div class="stat-number" id="totalWords">0</div><div class="stat-label">Total Words</div></div>
-            <div class="stat-card"><div class="stat-number" id="uniqueWords">0</div><div class="stat-label">Unique Words</div></div>
-            <div class="stat-card"><div class="stat-number" id="transcriptsProcessed">0</div><div class="stat-label">Transcripts</div></div>
-          </div>
-          
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
-            <div class="analytics-card">
-              <h3 style="margin:0 0 15px;">Word Cloud</h3>
-              <div id="wordCloudCanvas" class="wordcloud-container"></div>
+          <button id="fetchBtn" class="full-width-btn">Fetch Conversations</button>
+        </div>
+
+        <div id="statusMessage" class="muted" style="margin-top:10px;"></div>
+        <div id="errorMessage" style="color:#dc2626;margin-top:6px;"></div>
+
+        <div id="progressSection" style="display:none;">
+          <div class="card">
+            <h3 style="margin:0 0 8px;">Fetching Conversations & Transcripts</h3>
+            <div class="muted" id="chunkInfo">Processing date range in smaller chunks…</div>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:14px" class="muted">
+              <span id="progressText">0%</span><span id="chunkText">Chunk 0/0</span>
             </div>
-            
-            <div class="analytics-card">
-              <h3 style="margin:0 0 15px;">Top Words</h3>
-              <div id="wordList" class="word-list"></div>
-            </div>
-          </div>
-          
-          <div class="analytics-card" style="margin-top:20px;">
-            <h3 style="margin:0 0 15px;">Transcript Analytics</h3>
-            <div id="transcriptStats"></div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
+
+        <div class="tab-container">
+          <div class="tab-buttons">
+            <button class="tab-button active" data-tab="conversations">Conversations</button>
+            <button class="tab-button" data-tab="analytics">Analytics & Word Cloud</button>
+          </div>
+          
+          <div id="conversations-tab" class="tab-content active">
+            <div id="resultsSection" style="display:none;">
+              <div class="card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                  <h2 style="margin:0;">Conversation Results</h2>
+                  <div style="display:flex;align-items:center;">
+                    <span id="selectedCount" class="selected-count">0 selected</span>
+                  </div>
+                </div>
+                
+                <div class="selection-controls">
+                  <div class="select-all-controls">
+                    <button id="selectAllBtn" class="conv-select-btn">Select All</button>
+                    <button id="deselectAllBtn" class="conv-select-btn">Deselect All</button>
+                    <button id="exportSelectedBtn" style="background:var(--secondary-color);">Export Selected Conversations</button>
+                  </div>
+                  
+                  <div class="export-options">
+                    <label style="display:flex;align-items:center;gap:8px;">
+                      <input type="checkbox" id="includeTranscripts" checked/> Include Transcripts
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;">
+                      <input type="checkbox" id="includeAnalytics" checked/> Include Analytics
+                    </label>
+                  </div>
+                </div>
+                
+                <div class="stats">
+                  <div class="stat-card"><div class="stat-number" id="totalConversations">0</div><div class="stat-label">Total Conversations</div></div>
+                  <div class="stat-card"><div class="stat-number" id="dateRange">-</div><div class="stat-label">Date Range</div></div>
+                  <div class="stat-card"><div class="stat-number" id="selectedAgent">-</div><div class="stat-label">Selected Agent</div></div>
+                </div>
+                <div id="results"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div id="analytics-tab" class="tab-content">
+            <div class="card">
+              <h2 style="margin:0 0 12px;">Analytics & Word Cloud</h2>
+              
+              <div class="analytics-controls">
+                <div>
+                  <label>Agent Filter</label>
+                  <select id="analyticsAgentSelect">
+                    <option value="all">All Agents</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Word Cloud Settings</label>
+                  <div style="display:flex;gap:10px;align-items:center;">
+                    <input type="range" id="wordCountSlider" min="20" max="200" value="50" style="flex:1;">
+                    <span id="wordCountValue">50 words</span>
+                  </div>
+                  <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <input type="checkbox" id="autoGenerate" checked/> Auto-generate transcripts on fetch
+                  </label>
+                </div>
+                <div>
+                  <button id="generateWordCloudBtn" style="width:100%;margin-top:24px;">Generate Word Cloud</button>
+                  <button id="exportAnalyticsBtn" style="width:100%;margin-top:10px;background:var(--secondary-color);">Export Analytics Data</button>
+                </div>
+              </div>
+              
+              <div class="stats" style="margin-top:20px;">
+                <div class="stat-card"><div class="stat-number" id="totalWords">0</div><div class="stat-label">Total Words</div></div>
+                <div class="stat-card"><div class="stat-number" id="uniqueWords">0</div><div class="stat-label">Unique Words</div></div>
+                <div class="stat-card"><div class="stat-number" id="transcriptsProcessed">0</div><div class="stat-label">Transcripts</div></div>
+              </div>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
+                <div class="analytics-card">
+                  <h3 style="margin:0 0 15px;">Word Cloud</h3>
+                  <div id="wordCloudCanvas" class="wordcloud-container"></div>
+                </div>
+                
+                <div class="analytics-card">
+                  <h3 style="margin:0 0 15px;">Top Words</h3>
+                  <div id="wordList" class="word-list"></div>
+                </div>
+              </div>
+              
+              <div class="analytics-card" style="margin-top:20px;">
+                <h3 style="margin:0 0 15px;">Transcript Analytics</h3>
+                <div id="transcriptStats"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div> <!-- end main-tab-explorer -->
+      
+      <!-- Main Tab: HOW TO USE -->
+      <div id="main-tab-guide" class="main-tab-content">
+        <div class="card">
+          <h2 style="margin:0 0 12px;">How to Use Conversation Explorer</h2>
+          
+          <div class="guide-section">
+            <div class="help-text">
+              <strong>Overview</strong>
+              <p>This tool allows you to explore and analyze agent conversations from Genesys Cloud. You can fetch conversations, view transcripts, generate word clouds, and export data for analysis.</p>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Step 1: Authentication</h3>
+            <div class="help-text">
+              <p>The app automatically authenticates with Genesys Cloud using OAuth. You'll be redirected to login if not already authenticated.</p>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Step 2: Select Agent & Date Range</h3>
+            <div class="help-text">
+              <ul>
+                <li><strong>Select Agent:</strong> Choose an agent from the dropdown list. Use the filter box to search for specific agents by name.</li>
+                <li><strong>Date Range:</strong> Select the start and end dates for the conversation search.</li>
+                <li><strong>Auto-split large date ranges:</strong> Recommended for date ranges longer than 7 days. The tool automatically splits large ranges into smaller chunks for better performance.</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Step 3: Fetch Conversations</h3>
+            <div class="help-text">
+              <ul>
+                <li>Click "Fetch Conversations" to retrieve conversations for the selected agent and date range.</li>
+                <li>The tool shows progress as it fetches conversations and transcripts.</li>
+                <li>Results are displayed in the "Conversations" tab.</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Step 4: Work with Conversations</h3>
+            <div class="help-text">
+              <p>In the Conversations tab, you can:</p>
+              <ul>
+                <li><strong>Select Conversations:</strong> Use checkboxes to select individual conversations or use "Select All"/"Deselect All" buttons.</li>
+                <li><strong>View Details:</strong> Click on any conversation to expand and view detailed information including participants, duration, and media type.</li>
+                <li><strong>Get Transcripts:</strong> Click "Get Transcript" to load conversation transcripts (if available).</li>
+                <li><strong>Export Data:</strong> Select conversations and click "Export Selected Conversations" to download data in Excel format.</li>
+              </ul>
+              <p><strong>Export Options:</strong></p>
+              <ul>
+                <li><code>Include Transcripts</code>: Export conversation transcripts in the Excel file.</li>
+                <li><code>Include Analytics</code>: Include sentiment, empathy, and confidence scores in the export.</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Step 5: Analytics & Word Cloud</h3>
+            <div class="help-text">
+              <p>Switch to the "Analytics & Word Cloud" tab to analyze conversation data:</p>
+              <ul>
+                <li><strong>Agent Filter:</strong> Analyze conversations for a specific agent or all agents.</li>
+                <li><strong>Word Cloud:</strong> Visual representation of frequently used words in transcripts.</li>
+                <li><strong>Word Count Slider:</strong> Adjust how many words appear in the word cloud (20-200 words).</li>
+                <li><strong>Auto-generate transcripts:</strong> When checked, transcripts are automatically fetched when conversations are loaded.</li>
+                <li><strong>Generate Word Cloud:</strong> Create a word cloud from the available transcripts.</li>
+                <li><strong>Export Analytics Data:</strong> Download analytics data as JSON for further analysis.</li>
+              </ul>
+              <p><strong>Analytics Statistics:</strong></p>
+              <ul>
+                <li>Total Words: Count of all words in transcripts</li>
+                <li>Unique Words: Count of distinct words used</li>
+                <li>Transcripts: Number of transcripts processed</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Understanding Conversation Details</h3>
+            <div class="help-text">
+              <p>When you expand a conversation, you'll see:</p>
+              <ul>
+                <li><strong>Media Type:</strong> Type of conversation (voice, email, chat, etc.)</li>
+                <li><strong>Customer Number:</strong> Phone number or contact information</li>
+                <li><strong>Interaction Direction:</strong> Inbound or outbound</li>
+                <li><strong>Timestamps:</strong> Start and end times</li>
+                <li><strong>Duration:</strong> Total conversation duration</li>
+                <li><strong>Participants:</strong> List of all participants (customer, agents, queues)</li>
+                <li><strong>Transcript Preview:</strong> First few lines of the conversation transcript</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Tips & Best Practices</h3>
+            <div class="help-text">
+              <ul>
+                <li>For large date ranges, always enable "Auto-split large date ranges" to avoid timeouts.</li>
+                <li>Start with smaller date ranges (1-7 days) when first testing the tool.</li>
+                <li>Use the agent filter in the Analytics tab to focus on specific agents.</li>
+                <li>Export data regularly to avoid losing your selections if you refresh the page.</li>
+                <li>Word clouds are generated from available transcripts - ensure transcripts are loaded before generating.</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Troubleshooting</h3>
+            <div class="help-text">
+              <ul>
+                <li><strong>No conversations found:</strong> Check that the agent was active during the selected date range.</li>
+                <li><strong>Authentication errors:</strong> Refresh the page to re-authenticate.</li>
+                <li><strong>Transcript errors:</strong> Not all conversations have transcripts available. Transcripts are only available for conversations where speech analytics is enabled.</li>
+                <li><strong>Slow performance:</strong> Reduce the date range or disable auto-transcript generation for faster loading.</li>
+                <li><strong>Export issues:</strong> Ensure you have selected conversations before attempting to export.</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div class="guide-section">
+            <h3>Features Summary</h3>
+            <div class="help-text">
+              <ul>
+                <li>✅ Multi-agent conversation exploration</li>
+                <li>✅ Date range selection with auto-chunking</li>
+                <li>✅ Transcript viewing and export</li>
+                <li>✅ Word cloud generation</li>
+                <li>✅ Conversation analytics (sentiment, empathy, confidence)</li>
+                <li>✅ Bulk export to Excel format</li>
+                <li>✅ JSON analytics data export</li>
+                <li>✅ Automatic authentication</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div> <!-- end main-tab-guide -->
+      
+    </div> <!-- end main-tab-container -->
+    
+  </div> <!-- end mainContent -->
 
   <script>
     // ===== Config (Ireland) =====
@@ -295,6 +469,21 @@
       });
     }
 
+    // ===== Main Tabs =====
+    function setupMainTabs() {
+      const mainTabButtons = document.querySelectorAll('.main-tab-button');
+      const mainTabContents = document.querySelectorAll('.main-tab-content');
+      mainTabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          mainTabButtons.forEach(btn => btn.classList.remove('active'));
+          mainTabContents.forEach(content => content.classList.remove('active'));
+          button.classList.add('active');
+          const tabId = button.getAttribute('data-tab');
+          document.getElementById(tabId).classList.add('active');
+        });
+      });
+    }
+
     // ===== Tabs =====
     function setupTabs() {
       const tabButtons = document.querySelectorAll('.tab-button');
@@ -324,7 +513,7 @@
 
       if(token){
         sessionStorage.removeItem('gc_auto_auth_attempted');
-        state.token = token; showMain(); setupDateLimits(); setupTabs(); fetchAllUsers();
+        state.token = token; showMain(); setupDateLimits(); setupMainTabs(); setupTabs(); fetchAllUsers();
         return;
       }
 
