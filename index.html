@@ -1,29 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-GB">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Quick Capacity</title>
-
-  <!-- Charts (no APIs; just a CDN for drawing) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
   <style>
     :root{
-      /* Teal + white */
-      --primary-color:#14b8a6;         /* teal */
-      --secondary-color:#0f766e;       /* deep teal */
-      --border-color:#DEE2E6;
-      --light-bg:#F8F9FA;
-      --card-bg:#FFFFFF;
-      --text-color:#0f172a;
-      --text-light:#64748b;
-      --pill:#e6fffb;
-      --danger:#dc2626;
+      /* Teal + White */
+      --primary:#1aa6a6;
+      --primary-2:#128787;
+      --border:#DEE2E6;
+      --bg:#F6F8FA;
+      --card:#FFFFFF;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --pill:#e7fbfb;
       --warn:#f59e0b;
-      --ok:#16a34a;
+      --bad:#dc2626;
+      --good:#16a34a;
     }
 
+    /* App-wide font */
     body, h1, h2, h3, h4, h5, h6, p, div, span, label, button, input, select, textarea, th, td, li, ul, ol, details, summary, pre, code{
       font-family:'Aptos','Segoe UI',Arial,sans-serif;
     }
@@ -32,1166 +29,1340 @@
       margin:20px;
       padding:20px;
       max-width:1400px;
-      background:var(--light-bg);
-      color:var(--text-color);
+      background:var(--bg);
+      color:var(--text);
     }
 
+    /* Header */
     .topbar{
       display:flex;
-      justify-content:space-between;
       align-items:center;
-      gap:16px;
-      margin-bottom:12px;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
     }
-
     .brand{
       display:flex;
-      align-items:center;
-      gap:12px;
+      align-items:baseline;
+      gap:10px;
     }
-
-    .logoMark{
-      width:44px;height:44px;border-radius:12px;
-      background:linear-gradient(135deg,var(--primary-color),var(--secondary-color));
-      box-shadow:0 6px 18px rgba(20,184,166,.25);
-      display:flex;align-items:center;justify-content:center;
-      color:white;font-weight:800;
-      user-select:none;
+    .brand h1{
+      margin:0;
+      font-size:28px;
+      letter-spacing:.2px;
     }
-
-    h1{margin:0;font-size:26px;letter-spacing:.2px}
-    .muted{color:var(--text-light)}
-    .pill{
-      display:inline-block;background:var(--pill);
-      border:1px solid var(--border-color);
-      border-radius:999px;
-      padding:4px 10px;
-      font-size:12px;
-      color:var(--secondary-color);
-      font-weight:700;
-      white-space:nowrap;
+    .brand .sub{
+      color:var(--muted);
+      font-weight:600;
+      font-size:13px;
     }
 
     .card{
-      background:var(--card-bg);
-      border:1px solid var(--border-color);
+      background:var(--card);
+      border:1px solid var(--border);
       border-radius:12px;
       padding:24px;
       margin-top:16px;
       box-shadow:0 1px 3px rgba(0,0,0,.08);
     }
 
-    label{display:block;font-weight:600;margin-bottom:6px}
+    .layout{
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap:16px;
+      align-items:start;
+    }
+    @media (max-width: 1100px){
+      .layout{ grid-template-columns:1fr; }
+    }
+
+    label{
+      display:block;
+      font-weight:600;
+      margin-bottom:6px;
+    }
+
     select,input,button{
       padding:10px;
-      border:1px solid var(--border-color);
+      border:1px solid var(--border);
       border-radius:8px;
-      background:var(--card-bg);
+      background:var(--card);
       font-size:14px;
-      font-family:'Aptos','Segoe UI',Arial,sans-serif;
     }
-    input[type="file"]{padding:8px}
+
     button{
-      background:var(--primary-color);
-      color:#fff;
+      background:var(--primary);
+      border-color:transparent;
+      color:white;
       font-weight:700;
       cursor:pointer;
-      transition:background .2s;
+      transition:background .15s ease;
     }
-    button:hover{background:var(--secondary-color)}
+    button:hover{ background:var(--primary-2); }
     button.secondary{
-      background:var(--secondary-color);
+      background:white;
+      color:var(--primary);
+      border:2px solid var(--primary);
     }
-    button.ghost{
-      background:#fff;
-      color:var(--secondary-color);
-      border:2px solid var(--primary-color);
-    }
-    button.ghost:hover{
-      background:var(--pill);
-    }
-    button:disabled{
-      background:var(--text-light);
-      cursor:not-allowed;
-      opacity:.65;
-    }
+    button.secondary:hover{ background:var(--pill); }
+    button:disabled{ opacity:.6; cursor:not-allowed; }
 
     .controls{
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
-      gap:20px 24px;
-      align-items:start;
+      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+      gap:14px 14px;
+      align-items:end;
     }
-
-    .inline{
+    .controls .row2{
+      grid-column:1/-1;
       display:grid;
-      grid-template-columns:1fr auto 1fr;
-      gap:16px;
-      align-items:center;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
     }
-    .inline span{color:var(--text-light)}
+    @media (max-width:520px){
+      .controls .row2{ grid-template-columns:1fr; }
+    }
 
-    .full-width-btn{
-      width:100%;
-      padding:14px 18px;
-      font-size:16px;
+    .muted{ color:var(--muted); }
+    .pill{
+      display:inline-block;
+      background:var(--pill);
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:2px 10px;
+      font-size:12px;
+      font-weight:700;
+      color:var(--primary-2);
+      margin-left:8px;
+      vertical-align:middle;
+    }
+
+    .section-title{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin:0 0 12px;
+    }
+    .section-title h2{
+      margin:0;
+      font-size:18px;
+    }
+
+    .btn-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
       margin-top:12px;
     }
 
-    .stats{
-      display:flex;
-      gap:16px;
-      margin:16px 0 0;
-      flex-wrap:wrap;
-    }
-    .stat-card{
-      flex:1;
-      min-width:200px;
-      border:1px solid var(--border-color);
-      border-radius:10px;
-      padding:16px;
-      text-align:center;
-      background:var(--card-bg);
-    }
-    .stat-number{
-      font-size:22px;
-      color:var(--secondary-color);
-      font-weight:800;
-    }
-    .stat-label{color:var(--text-light);font-weight:600;font-size:13px}
-
-    .tabs{display:flex;gap:12px;flex-wrap:wrap}
-    .tab-button{
-      padding:10px 16px;
-      background:#fff;
-      border:2px solid var(--primary-color);
-      border-radius:10px;
-      cursor:pointer;
-      font-weight:800;
-      color:var(--secondary-color);
-      transition:background .2s, color .2s;
-    }
-    .tab-button:hover{background:var(--pill)}
-    .tab-button.active{
-      background:var(--primary-color);
-      color:#fff;
-    }
-    .tab-content{display:none}
-    .tab-content.active{display:block}
-
-    .help-text{
-      background:#f8f9fa;
-      border-left:3px solid var(--primary-color);
-      padding:12px;
-      margin:12px 0;
-      font-size:14px;
-    }
-    .help-text code{
-      background:var(--light-bg);
-      padding:2px 6px;
-      border-radius:6px;
-      font-family:ui-monospace,Consolas,Menlo,monospace;
-      font-size:12px;
-    }
-
-    .grid-2{
+    /* Output tiles */
+    .tiles{
       display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:20px;
+      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+      gap:12px;
+      margin-top:12px;
     }
-    @media (max-width: 980px){
-      .grid-2{grid-template-columns:1fr}
+    .tile{
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:14px 14px;
+      background:var(--card);
+    }
+    .tile .k{
+      color:var(--muted);
+      font-weight:700;
+      font-size:12px;
+      letter-spacing:.2px;
+      text-transform:uppercase;
+    }
+    .tile .v{
+      font-size:22px;
+      font-weight:800;
+      margin-top:6px;
+      color:var(--primary-2);
+    }
+    .tile .s{
+      margin-top:6px;
+      font-size:12px;
+      color:var(--muted);
     }
 
-    .table-wrap{
-      overflow:auto;
-      border:1px solid var(--border-color);
+    /* Chart */
+    .chart-wrap{
+      border:1px solid var(--border);
       border-radius:12px;
+      padding:12px;
+      overflow:hidden;
+      background:#fff;
     }
+    canvas{ display:block; width:100%; height:260px; }
+
+    /* Table */
     table{
       width:100%;
       border-collapse:collapse;
+      margin-top:12px;
       font-size:13px;
     }
     thead th{
-      position:sticky; top:0;
-      background:var(--primary-color);
-      color:#fff;
+      background:var(--primary);
+      color:white;
       text-align:left;
-      padding:10px 12px;
-      font-weight:800;
+      padding:10px;
+      border-bottom:1px solid var(--border);
+      position:sticky;
+      top:0;
+      z-index:1;
     }
     tbody td{
-      border-bottom:1px solid var(--border-color);
-      padding:10px 12px;
+      padding:9px 10px;
+      border-bottom:1px solid var(--border);
       vertical-align:top;
-      background:#fff;
     }
-    tbody tr:hover td{background:#fbfffe}
-    .right{text-align:right}
+    tbody tr:hover{ background:#f8ffff; }
+    .right{ text-align:right; }
+    .center{ text-align:center; }
     .badge{
       display:inline-block;
       padding:2px 8px;
       border-radius:999px;
-      font-weight:800;
       font-size:12px;
-      border:1px solid var(--border-color);
-      background:#fff;
+      font-weight:800;
+      border:1px solid var(--border);
     }
-    .badge.ok{color:var(--ok); border-color: rgba(22,163,74,.25); background: rgba(22,163,74,.06)}
-    .badge.warn{color:var(--warn); border-color: rgba(245,158,11,.25); background: rgba(245,158,11,.08)}
-    .badge.danger{color:var(--danger); border-color: rgba(220,38,38,.25); background: rgba(220,38,38,.07)}
+    .b-good{ color:var(--good); background:#ecfdf5; border-color:#bbf7d0; }
+    .b-warn{ color:var(--warn); background:#fffbeb; border-color:#fde68a; }
+    .b-bad{  color:var(--bad);  background:#fef2f2; border-color:#fecaca; }
 
-    .notice{
-      border:2px solid var(--primary-color);
+    /* Health check box */
+    .health{
+      border:2px solid var(--primary);
       border-radius:12px;
-      padding:14px 16px;
-      margin-top:14px;
+      padding:16px;
       background:transparent;
+      margin-top:12px;
     }
-    .notice strong{color:var(--secondary-color)}
-    .kpiRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-    .kpiChip{
-      border:1px solid var(--border-color);
-      background:#fff;
-      border-radius:999px;
-      padding:6px 10px;
-      font-weight:800;
+    .health h3{ margin:0 0 10px; color:var(--primary-2); }
+    .health ul{ margin:8px 0 0; padding-left:18px; }
+    .health li{ margin:6px 0; }
+    .mini{
       font-size:12px;
+      color:var(--muted);
     }
 
-    .small{font-size:12px}
-    .dangerText{color:var(--danger);font-weight:800}
+    /* File input style */
+    input[type="file"]{
+      padding:8px;
+      background:white;
+    }
+
+    /* Small hint box */
+    .hint{
+      background:#f8ffff;
+      border-left:4px solid var(--primary);
+      border-radius:10px;
+      padding:12px 12px;
+      margin-top:10px;
+      font-size:13px;
+    }
+
+    .footer-note{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+    }
   </style>
 </head>
 
 <body>
   <div class="topbar">
     <div class="brand">
-      <div class="logoMark">QC</div>
-      <div>
-        <h1>Quick Capacity</h1>
-        <div class="muted">Capacity maths without the “AI magic”. (Your overtime calculator won’t unionise.)</div>
-      </div>
-    </div>
-    <div class="pill">Teal • White • Aptos</div>
-  </div>
-
-  <div class="card">
-    <div class="tabs">
-      <button class="tab-button active" data-tab="tab-planner">Planner</button>
-      <button class="tab-button" data-tab="tab-health">Health Check (Overtime)</button>
-      <button class="tab-button" data-tab="tab-guide">How to Use</button>
+      <h1>Quick Capacity</h1>
+      <span class="sub">Capacity planner + overtime health check</span>
     </div>
   </div>
 
-  <!-- ===================== PLANNER TAB ===================== -->
-  <div id="tab-planner" class="tab-content active">
-    <div class="card">
-      <h2 style="margin:0 0 10px;">1) Inputs</h2>
-      <div class="muted">Upload your interval forecast, choose your interval length, tweak volume, and calculate SL/ASA/ABD & required agents.</div>
-
-      <div class="controls" style="margin-top:14px;">
-        <div>
-          <label>Interval granularity</label>
-          <select id="intervalSelect">
-            <option value="15">15 minutes</option>
-            <option value="30" selected>30 minutes</option>
-            <option value="45">45 minutes</option>
-            <option value="60">60 minutes</option>
-            <option value="1440">Daily</option>
-          </select>
-          <div class="help-text small" style="margin-top:10px;">
-            If your upload is already interval-based, we’ll align it. If it’s messy, we’ll still try not to cry.
+  <div class="layout">
+    <!-- LEFT: Inputs -->
+    <div>
+      <div class="card">
+        <div class="section-title">
+          <h2>1) Business schedule</h2>
+          <span class="pill">Opening hours</span>
+        </div>
+        <div class="controls">
+          <div>
+            <label for="openDays">Open days / week</label>
+            <input id="openDays" type="number" min="1" max="7" value="7">
+          </div>
+          <div>
+            <label for="openHours">Open hours / day</label>
+            <input id="openHours" type="number" min="1" max="24" value="24">
+          </div>
+          <div class="row2">
+            <div>
+              <label for="openingTime">Opening time (24h)</label>
+              <input id="openingTime" type="time" value="00:00">
+            </div>
+            <div>
+              <label for="timezoneNote">Timezone</label>
+              <input id="timezoneNote" type="text" value="Local (browser)" disabled>
+            </div>
           </div>
         </div>
 
-        <div>
-          <label>Forecast upload (CSV)</label>
-          <input id="forecastFile" type="file" accept=".csv"/>
-          <div class="muted small" style="margin-top:8px;">
-            Expected columns: <code>datetime,volume</code> (datetime can be ISO like <code>2025-01-02T09:00:00</code> or <code>2025-01-02 09:00</code>).
-          </div>
-          <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;">
-            <button class="ghost" id="loadSampleBtn" type="button">Load sample data</button>
-            <button class="ghost" id="clearDataBtn" type="button">Clear</button>
-          </div>
-        </div>
-
-        <div>
-          <label>Forecast modifiers</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-            <div>
-              <label class="small">± % change</label>
-              <input id="pctChange" type="number" step="0.1" value="0" />
-              <div class="muted small">e.g. <code>10</code> = +10%, <code>-5</code> = -5%</div>
-            </div>
-            <div>
-              <label class="small">± volume change</label>
-              <input id="volChange" type="number" step="1" value="0" />
-              <div class="muted small">Adds/subtracts per interval</div>
-            </div>
-          </div>
-          <button id="applyModsBtn" class="full-width-btn" type="button">Apply modifiers to forecast</button>
+        <div class="hint">
+          Upload a forecast (CSV), pick your interval, then we’ll calculate staffing, SL/ASA/ABD and an overtime “uh-oh” list.
         </div>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--border-color);margin:18px 0">
-
-      <div class="controls">
-        <div>
-          <h3 style="margin:0 0 10px;">Service assumptions</h3>
-
-          <label for="aht">AHT (seconds)</label>
-          <input id="aht" type="number" min="1" step="1" value="300"/>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
-            <div>
-              <label for="slPct">Service Level target (%)</label>
-              <input id="slPct" type="number" min="1" max="99.9" step="0.1" value="80"/>
-            </div>
-            <div>
-              <label for="slSecs">Service Level time (seconds)</label>
-              <input id="slSecs" type="number" min="1" step="1" value="120"/>
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
-            <div>
-              <label for="shrinkPct">Shrinkage / offline time (%)</label>
-              <input id="shrinkPct" type="number" min="0" max="60" step="0.1" value="10"/>
-            </div>
-            <div>
-              <label for="occCap">Occupancy cap (%)</label>
-              <input id="occCap" type="number" min="50" max="99.9" step="0.1" value="85"/>
-            </div>
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
-            <div>
-              <label for="patience">Customer patience (seconds) <span class="muted small">(optional)</span></label>
-              <input id="patience" type="number" min="0" step="1" value="0"/>
-              <div class="muted small">Used for a simple ABD estimate (not Erlang-A). Set 0 to ignore.</div>
-            </div>
-            <div>
-              <label for="maxAgents">Max agents to search</label>
-              <input id="maxAgents" type="number" min="1" step="1" value="500"/>
-              <div class="muted small">Safety cap for calculations</div>
-            </div>
-          </div>
-
-          <button id="calcBtn" class="full-width-btn" type="button">Calculate requirements</button>
-          <div id="plannerMsg" class="muted" style="margin-top:10px;"></div>
+      <div class="card">
+        <div class="section-title">
+          <h2>2) Forecast upload & shaping</h2>
+          <span class="pill">Your data</span>
         </div>
 
-        <div>
-          <h3 style="margin:0 0 10px;">Calculated forecast</h3>
-          <div class="notice">
-            <div><strong>What you’ll see:</strong> interval volume, required agents, occupancy, SL, ASA and an ABD estimate.</div>
-            <div class="kpiRow">
-              <div class="kpiChip">Erlang C for SL/ASA</div>
-              <div class="kpiChip">Shrinkage + occupancy cap</div>
-              <div class="kpiChip">ABD estimate (patience-based)</div>
+        <div class="controls">
+          <div style="grid-column:1/-1">
+            <label for="forecastFile">Upload forecast CSV</label>
+            <input id="forecastFile" type="file" accept=".csv">
+            <div class="mini" style="margin-top:6px;">
+              Expected columns (any of these names are fine):<br>
+              <span class="mono">datetime / timestamp / interval_start</span> and <span class="mono">volume</span>
+              (optional: <span class="mono">aht_seconds</span> per row).
             </div>
           </div>
 
-          <div class="stats">
-            <div class="stat-card">
-              <div class="stat-number" id="kpiIntervals">0</div>
-              <div class="stat-label">Intervals loaded</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number" id="kpiTotalVol">0</div>
-              <div class="stat-label">Total volume</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number" id="kpiPeakReq">-</div>
-              <div class="stat-label">Peak agents required</div>
-            </div>
+          <div>
+            <label for="intervalSelect">Interval level</label>
+            <select id="intervalSelect">
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60" selected>60 minutes</option>
+              <option value="1440">Day</option>
+            </select>
           </div>
 
-          <div class="card" style="padding:16px;margin-top:16px;">
-            <h4 style="margin:0 0 10px;">Hourly staffing vs requirement</h4>
-            <canvas id="reqChart" height="120"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-        <h2 style="margin:0;">2) Interval output</h2>
-        <div class="muted small">Tip: daily view is great for exec decks. Interval view is great for reality.</div>
-      </div>
-
-      <div class="table-wrap" style="margin-top:14px;">
-        <table>
-          <thead>
-            <tr>
-              <th>Interval</th>
-              <th class="right">Volume</th>
-              <th class="right">Agents Required</th>
-              <th class="right">Occupancy</th>
-              <th class="right">SL</th>
-              <th class="right">ASA</th>
-              <th class="right">ABD (est.)</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="outRows">
-            <tr><td colspan="8" class="muted">No data yet. Upload a forecast or load the sample.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="muted small" style="margin-top:10px;">
-        <strong>ABD note:</strong> This is a simple estimate using your “patience” input and calculated ASA (not a full abandonment model). If you need Erlang-A later, we can upgrade.
-      </div>
-    </div>
-  </div>
-
-  <!-- ===================== HEALTH CHECK TAB ===================== -->
-  <div id="tab-health" class="tab-content">
-    <div class="card">
-      <h2 style="margin:0 0 10px;">Health Check (Overtime)</h2>
-      <div class="muted">Compare required agents vs scheduled agents to spot understaffing and estimate overtime by interval.</div>
-
-      <div class="controls" style="margin-top:14px;">
-        <div>
-          <h3 style="margin:0 0 10px;">Scheduled staffing input</h3>
-
-          <label>Option A: Constant scheduled agents</label>
-          <input id="schedConst" type="number" min="0" step="1" value="10"/>
-          <div class="muted small" style="margin-top:6px;">Applies to every interval</div>
-
-          <div style="height:12px"></div>
-
-          <label>Option B: Upload schedule CSV <span class="muted small">(optional)</span></label>
-          <input id="scheduleFile" type="file" accept=".csv"/>
-          <div class="muted small" style="margin-top:8px;">
-            Expected columns: <code>datetime,agents</code> aligned to your chosen interval length.
+          <div>
+            <label for="ahtGlobal">AHT (seconds) if missing</label>
+            <input id="ahtGlobal" type="number" min="1" value="300">
           </div>
 
-          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
-            <button class="ghost" id="useConstBtn" type="button">Use constant schedule</button>
-            <button class="ghost" id="clearScheduleBtn" type="button">Clear schedule upload</button>
+          <div>
+            <label for="pctChange">Adjust forecast by %</label>
+            <input id="pctChange" type="number" step="0.1" value="0">
+          </div>
+
+          <div>
+            <label for="volDelta">Adjust forecast by volume (add/sub)</label>
+            <input id="volDelta" type="number" step="1" value="0">
           </div>
         </div>
 
-        <div>
-          <h3 style="margin:0 0 10px;">Overtime rules</h3>
-          <label>Overtime rounding</label>
-          <select id="otRounding">
-            <option value="0">No rounding</option>
-            <option value="0.25" selected>Round to 15 mins</option>
-            <option value="0.5">Round to 30 mins</option>
-            <option value="1">Round to 60 mins</option>
-          </select>
-
-          <label style="margin-top:12px;">Max overtime per agent (hours) <span class="muted small">(optional)</span></label>
-          <input id="maxOtPerAgent" type="number" min="0" step="0.25" value="0"/>
-          <div class="muted small" style="margin-top:6px;">
-            If set, we’ll also show how many agents you’d need to cover the overtime hours (rough estimate).
-          </div>
-
-          <button id="runHealthBtn" class="full-width-btn" type="button">Run health check</button>
-          <div id="healthMsg" class="muted" style="margin-top:10px;"></div>
+        <div class="btn-row">
+          <button id="applyForecastBtn">Apply changes</button>
+          <button id="resetForecastBtn" class="secondary">Reset to uploaded</button>
+          <button id="downloadForecastBtn" class="secondary" disabled>Download modified CSV</button>
         </div>
 
-        <div>
-          <h3 style="margin:0 0 10px;">Summary</h3>
-          <div class="stats">
-            <div class="stat-card">
-              <div class="stat-number" id="kpiUnderHours">0</div>
-              <div class="stat-label">Overtime hours needed</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number" id="kpiWorstGap">0</div>
-              <div class="stat-label">Worst interval gap (agents)</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number" id="kpiOtAgents">-</div>
-              <div class="stat-label">Agents needed (est.)</div>
-            </div>
+        <div id="forecastStatus" class="footer-note"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <h2>3) Staffing model</h2>
+          <span class="pill">Supply</span>
+        </div>
+
+        <div class="controls">
+          <div>
+            <label for="shiftLen">Agent shift length (hrs)</label>
+            <input id="shiftLen" type="number" min="1" max="12" value="8">
+          </div>
+          <div>
+            <label for="daysPerWeek">Agent days / week</label>
+            <input id="daysPerWeek" type="number" min="1" max="7" value="5">
+          </div>
+          <div>
+            <label for="shrinkPct">Total shrinkage (%)</label>
+            <input id="shrinkPct" type="number" min="0" max="80" step="0.5" value="30">
+          </div>
+          <div>
+            <label for="offlinePct">Offline time (%)</label>
+            <input id="offlinePct" type="number" min="0" max="80" step="0.5" value="10">
           </div>
 
-          <div class="card" style="padding:16px;margin-top:16px;">
-            <h4 style="margin:0 0 10px;">Scheduled vs required</h4>
-            <canvas id="healthChart" height="120"></canvas>
+          <div style="grid-column:1/-1">
+            <label for="staffingMode">Staffing input mode</label>
+            <select id="staffingMode">
+              <option value="fte">Constant FTE across opening hours</option>
+              <option value="interval">Upload/enter staff per interval (CSV)</option>
+            </select>
           </div>
+
+          <div id="fteBlock" style="grid-column:1/-1;">
+            <label for="fteInput">FTE available (within opening hours)</label>
+            <input id="fteInput" type="number" min="0" step="0.25" value="15">
+            <div class="mini" style="margin-top:6px;">We’ll treat this as agents “on phones” before shrink/offline adjustments.</div>
+          </div>
+
+          <div id="staffFileBlock" style="grid-column:1/-1; display:none;">
+            <label for="staffFile">Upload staffing CSV</label>
+            <input id="staffFile" type="file" accept=".csv">
+            <div class="mini" style="margin-top:6px;">
+              Columns: <span class="mono">datetime</span>, <span class="mono">staff</span>. Interval should match your chosen interval.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <h2>4) Targets</h2>
+          <span class="pill">SLA</span>
+        </div>
+
+        <div class="controls">
+          <div>
+            <label for="slTarget">Service level (%)</label>
+            <input id="slTarget" type="number" min="0" max="100" step="1" value="80">
+          </div>
+          <div>
+            <label for="slSeconds">SL seconds goal</label>
+            <input id="slSeconds" type="number" min="1" step="1" value="120">
+          </div>
+          <div>
+            <label for="maxWait">Max wait cap (sec)</label>
+            <input id="maxWait" type="number" min="10" step="10" value="3600">
+          </div>
+          <div>
+            <label for="abandonRateAssumption">Abandon rate model</label>
+            <select id="abandonRateAssumption">
+              <option value="simple" selected>Simple (based on ASA vs patience)</option>
+              <option value="none">Assume 0 abandon</option>
+            </select>
+          </div>
+          <div style="grid-column:1/-1">
+            <label for="patienceSec">Customer patience (sec) (used for ABD estimate)</label>
+            <input id="patienceSec" type="number" min="10" step="10" value="180">
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="calcBtn">Calculate requirements</button>
+          <button id="clearBtn" class="secondary">Clear</button>
         </div>
       </div>
     </div>
 
-    <div class="card">
-      <h2 style="margin:0 0 12px;">Interval overtime detail</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Interval</th>
-              <th class="right">Required</th>
-              <th class="right">Scheduled</th>
-              <th class="right">Gap</th>
-              <th class="right">Overtime hours</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="healthRows">
-            <tr><td colspan="6" class="muted">Run the health check after calculating requirements.</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="muted small" style="margin-top:10px;">
-        Overtime hours = <code>max(0, Required - Scheduled) × intervalHours</code> (then rounded based on your setting).
+    <!-- RIGHT: Outputs -->
+    <div>
+      <div class="card">
+        <div class="section-title">
+          <h2>Calculated forecast</h2>
+          <span class="pill" id="periodPill">No data</span>
+        </div>
+
+        <div class="tiles" id="summaryTiles">
+          <div class="tile">
+            <div class="k">Total volume</div>
+            <div class="v" id="tVol">—</div>
+            <div class="s muted">Opening hours only</div>
+          </div>
+          <div class="tile">
+            <div class="k">Occupancy</div>
+            <div class="v" id="tOcc">—</div>
+            <div class="s muted">Workload / staffed time</div>
+          </div>
+          <div class="tile">
+            <div class="k">Service level</div>
+            <div class="v" id="tSL">—</div>
+            <div class="s muted">Targeted interval calc</div>
+          </div>
+          <div class="tile">
+            <div class="k">ASA</div>
+            <div class="v" id="tASA">—</div>
+            <div class="s muted">Average speed of answer</div>
+          </div>
+          <div class="tile">
+            <div class="k">ABD</div>
+            <div class="v" id="tABD">—</div>
+            <div class="s muted">Estimated abandon rate</div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1.2fr .8fr; gap:12px; margin-top:12px;">
+          <div class="chart-wrap">
+            <div class="mini" style="margin:4px 0 8px;">
+              Staffing vs requirement (opening hours)
+            </div>
+            <canvas id="barChart" width="900" height="260" aria-label="Staffing chart"></canvas>
+          </div>
+
+          <div class="health">
+            <h3>Overtime health check</h3>
+            <div class="mini" id="healthHeadline">Upload a forecast and hit “Calculate requirements”.</div>
+            <ul id="healthList"></ul>
+            <div class="footer-note" id="healthTotals"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div class="mini">
+            Table shows <strong>opening hours only</strong>. Closed intervals are excluded (we’re not paying agents to stare at a closed phone line… usually).
+          </div>
+          <div class="btn-row" style="margin-top:0;">
+            <button id="downloadResultsBtn" class="secondary" disabled>Download results CSV</button>
+          </div>
+        </div>
+
+        <div style="max-height:520px; overflow:auto; border:1px solid var(--border); border-radius:12px; margin-top:12px;">
+          <table id="resultsTable">
+            <thead>
+              <tr>
+                <th style="min-width:170px;">Interval</th>
+                <th class="right">Volume</th>
+                <th class="right">AHT (s)</th>
+                <th class="right">Workload (hrs)</th>
+                <th class="right">Staff available</th>
+                <th class="right">Staff required</th>
+                <th class="center">Status</th>
+                <th class="right">Occ</th>
+                <th class="right">SL</th>
+                <th class="right">ASA (s)</th>
+                <th class="right">ABD</th>
+                <th class="right">Overtime (hrs)</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody">
+              <tr><td colspan="12" class="muted" style="padding:16px;">No results yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="footer-note" id="calcNotes"></div>
       </div>
     </div>
   </div>
 
-  <!-- ===================== GUIDE TAB ===================== -->
-  <div id="tab-guide" class="tab-content">
-    <div class="card">
-      <h2 style="margin:0 0 12px;">How to use Quick Capacity</h2>
+<script>
+/* ---------------------------
+   Quick Capacity (no APIs)
+   - Upload forecast CSV
+   - Aggregate to interval
+   - Apply % / volume deltas
+   - Opening hours filter
+   - Erlang C queue maths for SL/ASA
+   - ABD estimate (optional)
+   - Overtime health check
+---------------------------- */
 
-      <div class="help-text">
-        <strong>CSV format</strong>
-        <ul>
-          <li><strong>Forecast CSV:</strong> <code>datetime,volume</code></li>
-          <li><strong>Schedule CSV (optional):</strong> <code>datetime,agents</code></li>
-        </ul>
-        Datetime can be <code>YYYY-MM-DD HH:MM</code> or ISO. We treat it as local time.
-      </div>
+const $ = (id)=>document.getElementById(id);
 
-      <div class="help-text">
-        <strong>Workflow</strong>
-        <ol>
-          <li>Pick interval granularity (15/30/45/60/day).</li>
-          <li>Upload forecast (or load sample), optionally apply modifiers.</li>
-          <li>Set AHT + targets, then click <em>Calculate requirements</em>.</li>
-          <li>Go to <em>Health Check</em>, set scheduled agents (constant or upload), run health check.</li>
-        </ol>
-      </div>
+const state = {
+  rawForecast: [],      // uploaded rows (datetime, volume, ahtSeconds?)
+  baseSeries: [],       // normalised to selected interval before adjustments
+  series: [],           // adjusted series
+  staffSeries: null,    // optional staff per interval
+  lastResults: [],      // computed output per interval
+  lastSummary: null
+};
 
-      <div class="help-text">
-        <strong>Metrics</strong>
-        <ul>
-          <li><strong>SL</strong> and <strong>ASA</strong> are calculated using Erlang C.</li>
-          <li><strong>Occupancy</strong> is <code>offeredLoad / agents</code> and we enforce your occupancy cap when finding the required agents.</li>
-          <li><strong>ABD</strong> is a simple estimate based on patience vs ASA (so it’s directionally useful, not gospel).</li>
-        </ul>
-      </div>
+function parseCSV(text){
+  // simple CSV parser (handles commas, trims, ignores empty lines)
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length) return {headers:[], rows:[]};
 
-      <div class="help-text">
-        <strong>GitHub Pages tip</strong>
-        <p class="muted">
-          Put this file in the repo root as <code>index.html</code>, then enable GitHub Pages (Deploy from branch). That’s it.
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // ===================== State =====================
-    const state = {
-      intervalMins: 30,
-      rawForecast: [],     // {dt: Date, volume: number}
-      forecast: [],        // modified/normalised to interval
-      results: [],         // per-interval computed outputs
-      schedule: null,      // Map(key -> agents) if uploaded
-      reqChart: null,
-      healthChart: null
-    };
-
-    const $ = (id) => document.getElementById(id);
-
-    // ===================== Tabs =====================
-    function setupTabs(){
-      const buttons = document.querySelectorAll('.tab-button');
-      const contents = document.querySelectorAll('.tab-content');
-      buttons.forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          buttons.forEach(b=>b.classList.remove('active'));
-          contents.forEach(c=>c.classList.remove('active'));
-          btn.classList.add('active');
-          document.getElementById(btn.dataset.tab).classList.add('active');
-        });
-      });
+  const splitLine = (line)=>{
+    // minimal quote handling
+    const out=[];
+    let cur="", inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch === '"' ){
+        if(inQ && line[i+1] === '"'){ cur+='"'; i++; }
+        else inQ = !inQ;
+      } else if(ch === ',' && !inQ){
+        out.push(cur.trim()); cur="";
+      } else cur+=ch;
     }
+    out.push(cur.trim());
+    return out;
+  };
 
-    // ===================== CSV Parsing =====================
-    function parseCSV(text){
-      const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-      if(!lines.length) return [];
-      const header = lines[0].split(',').map(h=>h.trim().toLowerCase());
-      const idxDt = header.findIndex(h=>['datetime','date','time','timestamp'].includes(h));
-      const idxVol = header.findIndex(h=>['volume','contacts','calls','offered','demand'].includes(h));
-      const idxAgents = header.findIndex(h=>['agents','staff','scheduled'].includes(h));
+  const headers = splitLine(lines[0]).map(h=>h.toLowerCase());
+  const rows = [];
+  for(let i=1;i<lines.length;i++){
+    const cols = splitLine(lines[i]);
+    if(cols.every(c=>c==="")) continue;
+    const obj={};
+    headers.forEach((h,idx)=>obj[h]= (cols[idx] ?? "").trim());
+    rows.push(obj);
+  }
+  return {headers, rows};
+}
 
-      const out = [];
-      for(let i=1;i<lines.length;i++){
-        const parts = lines[i].split(',').map(p=>p.trim());
-        const dtStr = parts[idxDt] ?? parts[0];
-        const dt = parseDateLoose(dtStr);
-        if(!dt) continue;
+function pick(obj, names){
+  for(const n of names){
+    if(obj[n] != null && obj[n] !== "") return obj[n];
+  }
+  return null;
+}
 
-        const volume = idxVol>=0 ? Number(parts[idxVol]) : NaN;
-        const agents = idxAgents>=0 ? Number(parts[idxAgents]) : NaN;
+function parseDateSmart(s){
+  // supports ISO, "YYYY-MM-DD HH:mm", etc.
+  if(!s) return null;
+  const d = new Date(s);
+  if(!isNaN(+d)) return d;
+  // try replacing space with T
+  const d2 = new Date(String(s).replace(" ", "T"));
+  if(!isNaN(+d2)) return d2;
+  return null;
+}
 
-        out.push({ dt, volume, agents });
-      }
-      return out;
+function toISOMinute(d){
+  const z = (n)=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+
+function floorToInterval(date, minutes){
+  const ms = minutes*60*1000;
+  return new Date(Math.floor(+date/ms)*ms);
+}
+
+function addMinutes(date, minutes){
+  return new Date(+date + minutes*60*1000);
+}
+
+function businessWindowForDate(date){
+  const openHours = clampNum(+$('openHours').value, 1, 24);
+  const openingTime = $('openingTime').value || "00:00";
+  const [hh, mm] = openingTime.split(':').map(x=>+x||0);
+
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), hh, mm, 0, 0);
+  const end = addMinutes(start, openHours*60);
+  return {start, end};
+}
+
+function isOpen(date){
+  const openDays = clampNum(+$('openDays').value, 1, 7);
+  // JS: 0 Sun ... 6 Sat. We'll treat "openDays" as first N days starting Mon.
+  // Simpler: if openDays = 7 -> always open. If <7 -> closed on last (7-openDays) days of week (Sat/Sun first?).
+  // We'll do: open days are Mon..(Mon+openDays-1). i.e. openDays=5 => Mon-Fri.
+  if(openDays < 7){
+    const dow = (date.getDay()+6)%7; // 0 Mon ... 6 Sun
+    if(dow >= openDays) return false;
+  }
+  const {start, end} = businessWindowForDate(date);
+  return (+date >= +start && +date < +end);
+}
+
+function clampNum(n, min, max){
+  if(!isFinite(n)) return min;
+  return Math.min(max, Math.max(min, n));
+}
+
+function pct(n){ return (n*100).toFixed(1) + '%'; }
+
+function fmtNum(n, dp=0){
+  if(n==null || !isFinite(n)) return '—';
+  return n.toLocaleString(undefined, {maximumFractionDigits:dp, minimumFractionDigits:dp});
+}
+
+function fmtSecs(n){
+  if(n==null || !isFinite(n)) return '—';
+  return fmtNum(Math.max(0,n), 0);
+}
+
+function badgeForStatus(status){
+  if(status==='OK') return `<span class="badge b-good">OK</span>`;
+  if(status==='Tight') return `<span class="badge b-warn">Tight</span>`;
+  return `<span class="badge b-bad">Deficit</span>`;
+}
+
+/* ---------------------------
+   Erlang C / Queue maths
+   Based on M/M/c with offered load a = λ * AHT
+---------------------------- */
+function erlangB(a, c){
+  // recursive stable
+  let b = 1.0;
+  for(let i=1;i<=c;i++){
+    b = (a*b) / (i + a*b);
+  }
+  return b;
+}
+
+function erlangC(a, c){
+  if(c <= 0) return 1;
+  if(a <= 0) return 0;
+  if(a >= c) return 1; // overloaded => infinite queue in theory; treat as 1
+  // Use standard formulation:
+  // P(wait) = ( (a^c / c!) * (c/(c-a)) ) / ( sum_{k=0}^{c-1} a^k/k! + (a^c/c!) * (c/(c-a)) )
+  // We'll compute recursively for sum to avoid factorial blowups.
+  let sum = 1.0;
+  let term = 1.0;
+  for(let k=1;k<=c-1;k++){
+    term *= a/k;
+    sum += term;
+  }
+  // term is now a^(c-1)/(c-1)!
+  const termC = term * (a / c); // a^c / c!
+  const top = termC * (c / (c - a));
+  const bottom = sum + top;
+  return top / bottom;
+}
+
+function serviceLevel(a, c, tSec, ahtSec){
+  if(c<=0) return 0;
+  if(a<=0) return 1;
+  const pw = erlangC(a, c);
+  if(pw >= 1) return 0;
+  const expo = - (c - a) * (tSec / ahtSec);
+  return 1 - (pw * Math.exp(expo));
+}
+
+function asaSeconds(a, c, ahtSec, maxWaitSec){
+  if(c<=0) return maxWaitSec;
+  if(a<=0) return 0;
+  const pw = erlangC(a, c);
+  if(pw >= 1) return maxWaitSec;
+  const wq = (pw * ahtSec) / (c - a); // expected waiting time in queue
+  return Math.min(maxWaitSec, Math.max(0, wq));
+}
+
+function requiredAgentsForSL(a, ahtSec, slTarget, slSec, capC=500){
+  // Find smallest c meeting SL. Bounded search.
+  if(a<=0) return 0;
+  const target = slTarget;
+  let c = Math.max(1, Math.ceil(a)); // start around load
+  // push up until stable-ish or meets target
+  for(let i=0;i<capC;i++){
+    const sl = serviceLevel(a, c, slSec, ahtSec);
+    if(sl >= target) return c;
+    c++;
+  }
+  return c;
+}
+
+function estimateAbandonRate(asaSec, patienceSec){
+  // Simple proxy: P(abandon) ≈ 1 - e^(-ASA/patience)
+  // (Not a real-world law; useful as a quick directional “health check”.)
+  if(patienceSec<=0) return 0;
+  return 1 - Math.exp(-Math.max(0,asaSec)/patienceSec);
+}
+
+/* ---------------------------
+   Forecast normalisation
+---------------------------- */
+function normaliseForecastToInterval(rows, intervalMin){
+  // group by floored interval
+  const map = new Map(); // key -> {dt, vol, ahtW, ahtSum}
+  for(const r of rows){
+    const dtRaw = pick(r, ['datetime','timestamp','interval_start','start','date','time']);
+    const volRaw = pick(r, ['volume','vol','calls','contacts','demand']);
+    const ahtRaw = pick(r, ['aht_seconds','aht','ahts','handle_time_seconds','handle_time']);
+
+    const dt = parseDateSmart(dtRaw);
+    if(!dt) continue;
+    const vol = Number(volRaw);
+    if(!isFinite(vol)) continue;
+
+    const bucket = floorToInterval(dt, intervalMin);
+    const key = +bucket;
+
+    const ahtSec = isFinite(Number(ahtRaw)) ? Number(ahtRaw) : null;
+
+    if(!map.has(key)){
+      map.set(key, { dt: bucket, volume: 0, ahtWeightedSum: 0, ahtWeight: 0 });
     }
+    const obj = map.get(key);
+    obj.volume += vol;
 
-    function parseDateLoose(s){
-      if(!s) return null;
-      // Try native parse first
-      let d = new Date(s);
-      if(!isNaN(+d)) return d;
-
-      // Try "YYYY-MM-DD HH:MM"
-      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
-      if(m){
-        const [_,Y,M,D,h,mm,ss] = m;
-        d = new Date(Number(Y), Number(M)-1, Number(D), Number(h), Number(mm), Number(ss||0));
-        if(!isNaN(+d)) return d;
-      }
-      return null;
+    if(ahtSec!=null){
+      // weight by volume (reasonable default)
+      obj.ahtWeightedSum += ahtSec * vol;
+      obj.ahtWeight += vol;
     }
+  }
 
-    function keyForInterval(dt, intervalMins){
-      const ms = dt.getTime();
-      const bucket = Math.floor(ms / (intervalMins*60*1000)) * (intervalMins*60*1000);
-      return bucket;
+  const ahtFallback = clampNum(+$('ahtGlobal').value, 1, 999999);
+
+  const series = [...map.values()]
+    .sort((a,b)=>+a.dt - +b.dt)
+    .map(x=>({
+      dt: x.dt,
+      volume: x.volume,
+      ahtSec: x.ahtWeight>0 ? (x.ahtWeightedSum/x.ahtWeight) : ahtFallback
+    }));
+
+  return series;
+}
+
+function applyForecastAdjustments(baseSeries){
+  const pctChange = Number($('pctChange').value) || 0;
+  const volDelta = Number($('volDelta').value) || 0;
+
+  const mult = 1 + (pctChange/100);
+
+  return baseSeries.map(p=>{
+    const v = Math.max(0, (p.volume * mult) + volDelta);
+    return { ...p, volume: v };
+  });
+}
+
+function filterToOpeningHours(series){
+  return series.filter(p=>isOpen(p.dt));
+}
+
+/* ---------------------------
+   Staffing series
+---------------------------- */
+function normaliseStaffToInterval(rows, intervalMin){
+  const map = new Map();
+  for(const r of rows){
+    const dtRaw = pick(r, ['datetime','timestamp','interval_start','start','date','time']);
+    const staffRaw = pick(r, ['staff','fte','agents','scheduled']);
+    const dt = parseDateSmart(dtRaw);
+    if(!dt) continue;
+    const staff = Number(staffRaw);
+    if(!isFinite(staff)) continue;
+    const bucket = floorToInterval(dt, intervalMin);
+    const key = +bucket;
+    map.set(key, { dt: bucket, staff });
+  }
+  return [...map.values()].sort((a,b)=>+a.dt - +b.dt);
+}
+
+function staffForInterval(dt, intervalMin){
+  const mode = $('staffingMode').value;
+  if(mode === 'fte'){
+    return clampNum(+$('fteInput').value, 0, 999999);
+  }
+  // interval mode
+  if(!state.staffSeries) return 0;
+  const key = +floorToInterval(dt, intervalMin);
+  const hit = state.staffSeries.find(x=>+x.dt === key);
+  return hit ? (hit.staff || 0) : 0;
+}
+
+function effectiveStaff(staff){
+  // Apply shrink and offline as reductions to “available to take contacts”
+  const shrink = clampNum(+$('shrinkPct').value, 0, 95) / 100;
+  const offline = clampNum(+$('offlinePct').value, 0, 95) / 100;
+  const eff = staff * (1 - shrink) * (1 - offline);
+  return Math.max(0, eff);
+}
+
+/* ---------------------------
+   Core calculation
+---------------------------- */
+function compute(){
+  const intervalMin = Number($('intervalSelect').value);
+
+  if(!state.rawForecast.length){
+    setStatus('Please upload a forecast CSV first.', true);
+    return;
+  }
+
+  // normalise + apply adjustments
+  state.baseSeries = normaliseForecastToInterval(state.rawForecast, intervalMin);
+  state.series = applyForecastAdjustments(state.baseSeries);
+
+  const openSeries = filterToOpeningHours(state.series);
+  if(!openSeries.length){
+    setStatus('No forecast intervals fall within opening hours/days. Check schedule settings.', true);
+    return;
+  }
+
+  const slTarget = clampNum((+$('slTarget').value)/100, 0, 1);
+  const slSeconds = clampNum(+$('slSeconds').value, 1, 999999);
+  const maxWait = clampNum(+$('maxWait').value, 10, 999999);
+  const patience = clampNum(+$('patienceSec').value, 10, 999999);
+  const abdMode = $('abandonRateAssumption').value;
+
+  const intervalSec = intervalMin * 60;
+
+  const results = [];
+  let totalVol=0, totalWorkSec=0, totalStaffedSec=0;
+  let slWeighted=0, slWeight=0;
+  let asaWeighted=0, asaWeight=0;
+  let abdWeighted=0, abdWeight=0;
+
+  for(const p of openSeries){
+    const vol = p.volume;
+    const ahtSec = Math.max(1, p.ahtSec);
+
+    const lambda = vol / intervalSec;              // arrivals per second
+    const a = lambda * ahtSec;                     // offered load in erlangs
+    const staffRaw = staffForInterval(p.dt, intervalMin);
+    const staffEff = effectiveStaff(staffRaw);
+    const cAvail = Math.max(0, Math.floor(staffEff + 1e-9)); // integer agents for queue calc
+
+    const cReq = requiredAgentsForSL(a, ahtSec, slTarget, slSeconds);
+    const cReqEff = cReq; // requirement in heads
+
+    const sl = (cAvail>0) ? serviceLevel(a, cAvail, slSeconds, ahtSec) : 0;
+    const asa = (cAvail>0) ? asaSeconds(a, cAvail, ahtSec, maxWait) : maxWait;
+
+    const abd = (abdMode==='none') ? 0 : estimateAbandonRate(asa, patience);
+
+    const workSec = vol * ahtSec;
+    const staffedSec = staffEff * intervalSec;
+
+    const occ = staffedSec>0 ? Math.min(1, workSec / staffedSec) : 1;
+
+    const deficit = Math.max(0, cReqEff - staffEff);
+    const overtimeHrs = deficit * (intervalSec/3600);
+
+    let status = 'OK';
+    if(deficit > 0.0001) status = 'Deficit';
+    else if(occ > 0.85 || sl < slTarget) status = 'Tight';
+
+    results.push({
+      dt: p.dt,
+      volume: vol,
+      ahtSec,
+      workloadHrs: workSec/3600,
+      staffRaw,
+      staffEff,
+      staffReq: cReqEff,
+      status,
+      occ,
+      sl,
+      asa,
+      abd,
+      overtimeHrs
+    });
+
+    totalVol += vol;
+    totalWorkSec += workSec;
+    totalStaffedSec += staffedSec;
+
+    // weighted metrics (by volume)
+    slWeighted += sl * vol; slWeight += vol;
+    asaWeighted += asa * vol; asaWeight += vol;
+    abdWeighted += abd * vol; abdWeight += vol;
+  }
+
+  const periodOcc = totalStaffedSec>0 ? Math.min(1, totalWorkSec/totalStaffedSec) : 1;
+  const periodSL = slWeight>0 ? (slWeighted/slWeight) : 0;
+  const periodASA = asaWeight>0 ? (asaWeighted/asaWeight) : 0;
+  const periodABD = abdWeight>0 ? (abdWeighted/abdWeight) : 0;
+
+  state.lastResults = results;
+  state.lastSummary = {
+    totalVol,
+    occ: periodOcc,
+    sl: periodSL,
+    asa: periodASA,
+    abd: periodABD,
+    from: results[0].dt,
+    to: results[results.length-1].dt,
+    intervalMin
+  };
+
+  renderAll();
+  setStatus(`Calculated ${results.length} intervals (${intervalMin} min) within opening hours.`);
+}
+
+function renderAll(){
+  renderSummaryTiles();
+  renderTable();
+  renderChart();
+  renderHealthCheck();
+  renderNotes();
+  $('downloadResultsBtn').disabled = !(state.lastResults && state.lastResults.length);
+}
+
+function renderSummaryTiles(){
+  const s = state.lastSummary;
+  if(!s) return;
+
+  $('periodPill').textContent = `${toISOMinute(s.from)} → ${toISOMinute(s.to)} (${s.intervalMin}m)`;
+
+  $('tVol').textContent = fmtNum(s.totalVol, 0);
+  $('tOcc').textContent = pct(s.occ);
+  $('tSL').textContent  = pct(s.sl);
+  $('tASA').textContent = fmtSecs(s.asa);
+  $('tABD').textContent = pct(s.abd);
+}
+
+function renderTable(){
+  const body = $('resultsBody');
+  const rows = state.lastResults || [];
+  if(!rows.length){
+    body.innerHTML = `<tr><td colspan="12" class="muted" style="padding:16px;">No results yet.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = rows.map(r=>{
+    const dtEnd = addMinutes(r.dt, state.lastSummary.intervalMin);
+    const label = `${toISOMinute(r.dt)} → ${toISOMinute(dtEnd)}`;
+
+    const statusBadge = badgeForStatus(r.status);
+
+    return `
+      <tr>
+        <td>${label}</td>
+        <td class="right">${fmtNum(r.volume,0)}</td>
+        <td class="right">${fmtNum(r.ahtSec,0)}</td>
+        <td class="right">${fmtNum(r.workloadHrs,2)}</td>
+        <td class="right">${fmtNum(r.staffEff,2)}</td>
+        <td class="right">${fmtNum(r.staffReq,0)}</td>
+        <td class="center">${statusBadge}</td>
+        <td class="right">${pct(r.occ)}</td>
+        <td class="right">${pct(r.sl)}</td>
+        <td class="right">${fmtSecs(r.asa)}</td>
+        <td class="right">${pct(r.abd)}</td>
+        <td class="right">${fmtNum(r.overtimeHrs,2)}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderChart(){
+  const canvas = $('barChart');
+  const ctx = canvas.getContext('2d');
+  const rows = state.lastResults || [];
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0,0,W,H);
+
+  if(!rows.length){
+    ctx.fillStyle = '#6b7280';
+    ctx.font = '14px Aptos, Segoe UI, Arial, sans-serif';
+    ctx.fillText('No data to chart.', 16, 28);
+    return;
+  }
+
+  // Build series for chart: staffEff vs staffReq
+  const staff = rows.map(r=>r.staffEff);
+  const req = rows.map(r=>r.staffReq);
+
+  const maxY = Math.max(1, ...staff, ...req) * 1.15;
+
+  const pad = {l:38, r:16, t:14, b:28};
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+  const n = rows.length;
+  const barW = innerW / Math.max(1, n);
+  const line = (x1,y1,x2,y2, stroke)=>{ ctx.strokeStyle=stroke; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
+
+  // axes
+  ctx.lineWidth = 1;
+  line(pad.l, pad.t, pad.l, pad.t + innerH, '#cbd5e1');
+  line(pad.l, pad.t + innerH, pad.l + innerW, pad.t + innerH, '#cbd5e1');
+
+  // y labels (0, 50%, 100% of max)
+  ctx.fillStyle = '#6b7280';
+  ctx.font = '11px Aptos, Segoe UI, Arial, sans-serif';
+  for(let i=0;i<=4;i++){
+    const v = (maxY*i/4);
+    const y = pad.t + innerH - (v/maxY)*innerH;
+    ctx.fillText(String(Math.round(v)), 6, y+4);
+    line(pad.l, y, pad.l+innerW, y, '#eef2f7');
+  }
+
+  // bars for staff (teal), line for req (dark teal)
+  for(let i=0;i<n;i++){
+    const x = pad.l + i*barW;
+    const staffH = (staff[i]/maxY)*innerH;
+    const y0 = pad.t + innerH - staffH;
+
+    // staff bar
+    ctx.fillStyle = '#1aa6a6';
+    ctx.fillRect(x + barW*0.12, y0, barW*0.55, staffH);
+
+    // requirement tick/line point
+    const reqY = pad.t + innerH - (req[i]/maxY)*innerH;
+    ctx.fillStyle = '#0f4c4c';
+    ctx.beginPath();
+    ctx.arc(x + barW*0.4, reqY, 2.3, 0, Math.PI*2);
+    ctx.fill();
+
+    // connect req points
+    if(i>0){
+      const prevX = pad.l + (i-1)*barW + barW*0.4;
+      const prevY = pad.t + innerH - (req[i-1]/maxY)*innerH;
+      const curX  = x + barW*0.4;
+      ctx.strokeStyle = '#0f4c4c';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(prevX, prevY);
+      ctx.lineTo(curX, reqY);
+      ctx.stroke();
+      ctx.lineWidth = 1;
     }
-
-    function normaliseForecastToInterval(rows, intervalMins){
-      // Sum volumes into buckets
-      const m = new Map();
-      rows.forEach(r=>{
-        const k = keyForInterval(r.dt, intervalMins);
-        const v = Number(r.volume);
-        if(!isFinite(v)) return;
-        m.set(k, (m.get(k)||0) + v);
-      });
-      const out = [...m.entries()]
-        .sort((a,b)=>a[0]-b[0])
-        .map(([k,vol])=>({ dt: new Date(Number(k)), volume: vol }));
-      return out;
-    }
-
-    function normaliseScheduleToInterval(rows, intervalMins){
-      // If multiple rows per bucket, take average (or last non-null)
-      const m = new Map();
-      const c = new Map();
-      rows.forEach(r=>{
-        const k = keyForInterval(r.dt, intervalMins);
-        const a = Number(r.agents);
-        if(!isFinite(a)) return;
-        m.set(k, (m.get(k)||0) + a);
-        c.set(k, (c.get(k)||0) + 1);
-      });
-      const out = new Map();
-      for(const [k,sum] of m.entries()){
-        out.set(k, sum / (c.get(k)||1));
-      }
-      return out;
-    }
-
-    // ===================== Erlang C =====================
-    // Offered load a = lambda * AHT (in Erlangs), where lambda is arrivals per second.
-    function erlangCProbWait(a, n){
-      if(n <= a) return 1; // unstable
-      // Use recursion to avoid huge factorials:
-      // sum_{k=0..n-1} (a^k / k!) + (a^n/n!) * (n/(n-a))
-      let term = 1; // a^0/0!
-      let sum = 1;
-      for(let k=1;k<=n-1;k++){
-        term *= a / k;
-        sum += term;
-      }
-      // term is now a^(n-1)/(n-1)!
-      term *= a / n; // a^n/n!
-      const last = term * (n/(n-a));
-      const pw = last / (sum + last);
-      return Math.max(0, Math.min(1, pw));
-    }
-
-    function erlangCASASeconds(a, n, ahtSec){
-      if(n <= a) return Infinity;
-      const pw = erlangCProbWait(a, n);
-      const asa = (pw * ahtSec) / (n - a);
-      return asa;
-    }
-
-    function erlangCServiceLevel(a, n, ahtSec, tSec){
-      if(n <= a) return 0;
-      const pw = erlangCProbWait(a, n);
-      // SL(t) = 1 - Pw * exp(-(n-a) * (t/AHT))
-      const expTerm = Math.exp(-(n - a) * (tSec / ahtSec));
-      const sl = 1 - (pw * expTerm);
-      return Math.max(0, Math.min(1, sl));
-    }
-
-    function findRequiredAgentsForTargets(volume, intervalMins, ahtSec, slTarget, slSecs, occCap, maxAgents){
-      const intervalSec = intervalMins * 60;
-      const arrivalsPerSec = volume / intervalSec;
-      const a = arrivalsPerSec * ahtSec; // Erlangs
-
-      if(volume <= 0 || a <= 0){
-        return { agents: 0, a, sl: 1, asa: 0, occ: 0, pw: 0 };
-      }
-
-      // Start at ceil(a) and increment
-      let n = Math.max(1, Math.ceil(a));
-      let best = null;
-
-      for(; n<=maxAgents; n++){
-        const occ = a / n;
-        if(occ > occCap) continue; // enforce cap
-
-        const sl = erlangCServiceLevel(a, n, ahtSec, slSecs);
-        if(sl < slTarget) continue;
-
-        const asa = erlangCASASeconds(a, n, ahtSec);
-        const pw = erlangCProbWait(a, n);
-
-        best = { agents: n, a, sl, asa, occ, pw };
-        break;
-      }
-
-      if(!best){
-        // If we can't meet target within maxAgents, return "max" with computed metrics
-        const n2 = maxAgents;
-        const occ = a / n2;
-        const sl = (n2<=a) ? 0 : erlangCServiceLevel(a, n2, ahtSec, slSecs);
-        const asa = (n2<=a) ? Infinity : erlangCASASeconds(a, n2, ahtSec);
-        const pw = (n2<=a) ? 1 : erlangCProbWait(a, n2);
-        best = { agents: n2, a, sl, asa, occ, pw, capped:true };
-      }
-
-      return best;
-    }
-
-    // Simple ABD estimate (NOT Erlang-A):
-    // If patience > 0, and ASA > patience, estimate abandons increasing with how far ASA exceeds patience.
-    function estimateABD(asaSec, patienceSec){
-      if(!patienceSec || patienceSec <= 0) return null;
-      if(!isFinite(asaSec)) return 100;
-      if(asaSec <= patienceSec) return 0;
-
-      // Smooth-ish curve: ABD ~ 1 - (patience/ASA) capped
-      const abd = (1 - (patienceSec / Math.max(asaSec, 1))) * 100;
-      return Math.max(0, Math.min(100, abd));
-    }
-
-    // ===================== Planner =====================
-    function updatePlannerKPIs(){
-      $('kpiIntervals').textContent = state.forecast.length;
-      $('kpiTotalVol').textContent = Math.round(state.forecast.reduce((s,r)=>s+r.volume,0));
-      const peak = state.results.length ? Math.max(...state.results.map(r=>r.agentsRequired||0)) : null;
-      $('kpiPeakReq').textContent = (peak==null) ? '-' : peak;
-    }
-
-    function fmtInterval(dt){
-      const mins = state.intervalMins;
-      if(mins === 1440){
-        // daily
-        return dt.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'2-digit' });
-      }
-      return dt.toLocaleString(undefined, { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
-    }
-
-    function pct(x){ return (x*100).toFixed(1) + '%'; }
-
-    function renderPlannerTable(){
-      const tbody = $('outRows');
-      if(!state.results.length){
-        tbody.innerHTML = `<tr><td colspan="8" class="muted">No results yet. Calculate requirements first.</td></tr>`;
-        return;
-      }
-
-      const slTarget = Number($('slPct').value)/100;
-
-      tbody.innerHTML = state.results.map(r=>{
-        const slOk = r.sl >= slTarget;
-        const occOk = r.occ <= (Number($('occCap').value)/100);
-        const status = (!slOk || !occOk || r.capped)
-          ? {t:'Needs attention', cls:'warn'}
-          : {t:'OK', cls:'ok'};
-
-        const abdTxt = (r.abd==null) ? '-' : (r.abd.toFixed(1) + '%');
-
-        return `
-          <tr>
-            <td>${fmtInterval(r.dt)}</td>
-            <td class="right">${Math.round(r.volume)}</td>
-            <td class="right">${r.agentsRequired}</td>
-            <td class="right">${isFinite(r.occ)?pct(r.occ):'-'}</td>
-            <td class="right">${pct(r.sl)}</td>
-            <td class="right">${isFinite(r.asa)?Math.round(r.asa)+'s':'∞'}</td>
-            <td class="right">${abdTxt}</td>
-            <td><span class="badge ${status.cls}">${status.t}</span>${r.capped?` <span class="muted small">(cap)</span>`:''}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function buildReqChart(){
-      const ctx = $('reqChart');
-      const labels = state.results.map(r=> {
-        if(state.intervalMins===1440) return r.dt.toLocaleDateString(undefined,{month:'short',day:'2-digit'});
-        return r.dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
-      });
-      const data = state.results.map(r=>r.agentsRequired);
-
-      if(state.reqChart) state.reqChart.destroy();
-      state.reqChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Agents required',
-            data
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: true }
-          },
-          scales: {
-            y: { beginAtZero: true }
-          }
-        }
-      });
-    }
-
-    function calculateRequirements(){
-      const msg = $('plannerMsg');
-      msg.textContent = '';
-
-      if(!state.forecast.length){
-        msg.innerHTML = `<span class="dangerText">No forecast loaded.</span> Upload a CSV or click “Load sample data”.`;
-        return;
-      }
-
-      const intervalMins = state.intervalMins;
-      const ahtSec = Number($('aht').value);
-      const slTarget = Number($('slPct').value)/100;
-      const slSecs = Number($('slSecs').value);
-      const shrink = Number($('shrinkPct').value)/100;
-      const occCap = Number($('occCap').value)/100;
-      const patience = Number($('patience').value);
-      const maxAgents = Math.max(1, Number($('maxAgents').value));
-
-      if(!isFinite(ahtSec) || ahtSec<=0){
-        msg.innerHTML = `<span class="dangerText">AHT must be > 0.</span>`;
-        return;
-      }
-
-      // Compute per interval
-      state.results = state.forecast.map(row=>{
-        const base = findRequiredAgentsForTargets(
-          row.volume, intervalMins, ahtSec, slTarget, slSecs, occCap, maxAgents
-        );
-
-        // Apply shrinkage uplift
-        // Required paid agents = required productive / (1 - shrink)
-        const productive = base.agents;
-        const paid = (productive<=0) ? 0 : Math.ceil(productive / Math.max(1 - shrink, 0.0001));
-
-        const abd = estimateABD(base.asa, patience);
-
-        return {
-          dt: row.dt,
-          volume: row.volume,
-          agentsRequired: paid,
-          productiveAgents: productive,
-          sl: base.sl,
-          asa: base.asa,
-          occ: base.occ,
-          abd,
-          capped: !!base.capped
-        };
-      });
-
-      updatePlannerKPIs();
-      renderPlannerTable();
-      buildReqChart();
-
-      const cappedCount = state.results.filter(r=>r.capped).length;
-      msg.textContent = cappedCount
-        ? `Calculated with ${cappedCount} interval(s) hitting the “max agents” cap. Increase the cap if you want it to search higher.`
-        : `Done. Requirements calculated across ${state.results.length} interval(s).`;
-    }
-
-    // ===================== Modifiers & Loading =====================
-    function applyModifiers(){
-      if(!state.rawForecast.length && !state.forecast.length){
-        $('plannerMsg').innerHTML = `<span class="dangerText">Nothing to modify.</span> Load a forecast first.`;
-        return;
-      }
-
-      const pctChange = Number($('pctChange').value) || 0;
-      const volChange = Number($('volChange').value) || 0;
-
-      // Apply to current forecast (not raw), so you can stack changes if you want
-      const base = state.forecast.length ? state.forecast : state.rawForecast;
-      const factor = 1 + (pctChange/100);
-
-      state.forecast = base.map(r=>({
-        dt: r.dt,
-        volume: Math.max(0, (r.volume * factor) + volChange)
-      }));
-
-      state.results = [];
-      updatePlannerKPIs();
-      renderPlannerTable();
-      if(state.reqChart) state.reqChart.destroy();
-
-      $('plannerMsg').textContent = `Applied modifiers: ${pctChange}% and ${volChange} per interval. Recalculate requirements.`;
-    }
-
-    function clearAll(){
-      state.rawForecast = [];
-      state.forecast = [];
-      state.results = [];
-      state.schedule = null;
-
-      $('forecastFile').value = '';
-      $('scheduleFile').value = '';
-      $('plannerMsg').textContent = '';
-      $('healthMsg').textContent = '';
-
-      updatePlannerKPIs();
-      renderPlannerTable();
-      $('healthRows').innerHTML = `<tr><td colspan="6" class="muted">Run the health check after calculating requirements.</td></tr>`;
-
-      if(state.reqChart) { state.reqChart.destroy(); state.reqChart=null; }
-      if(state.healthChart) { state.healthChart.destroy(); state.healthChart=null; }
-
-      $('kpiUnderHours').textContent = '0';
-      $('kpiWorstGap').textContent = '0';
-      $('kpiOtAgents').textContent = '-';
-    }
-
-    function loadSample(){
-      // Simple 1-day sample starting at 08:00, with a lunchtime spike
-      const intervalMins = state.intervalMins;
-      const start = new Date();
-      start.setHours(8,0,0,0);
-
-      const points = [];
-      const n = (intervalMins===1440) ? 7 : Math.floor((12*60)/intervalMins); // 12h sample for intraday
-      for(let i=0;i<n;i++){
-        const dt = new Date(start.getTime() + i*intervalMins*60*1000);
-        let base = 10;
-        const hour = dt.getHours() + dt.getMinutes()/60;
-        if(hour >= 10 && hour < 12) base = 22;
-        if(hour >= 12 && hour < 14) base = 35;
-        if(hour >= 14 && hour < 16) base = 26;
-        if(hour >= 16 && hour < 18) base = 18;
-        const jitter = (Math.random()*6)-3;
-        points.push({ dt, volume: Math.max(0, base + jitter) });
-      }
-
-      state.rawForecast = points;
-      state.forecast = normaliseForecastToInterval(points, intervalMins);
-      state.results = [];
-      updatePlannerKPIs();
-      renderPlannerTable();
-      if(state.reqChart) { state.reqChart.destroy(); state.reqChart=null; }
-      $('plannerMsg').textContent = 'Loaded sample forecast. Click “Calculate requirements”.';
-    }
-
-    // ===================== Health Check =====================
-    function getScheduledAgentsForInterval(dt){
-      const k = keyForInterval(dt, state.intervalMins);
-      if(state.schedule && state.schedule.has(k)){
-        return state.schedule.get(k);
-      }
-      return Number($('schedConst').value) || 0;
-    }
-
-    function roundHours(hours, rounding){
-      if(!rounding || rounding <= 0) return hours;
-      return Math.ceil(hours / rounding) * rounding;
-    }
-
-    function runHealthCheck(){
-      const msg = $('healthMsg');
-      msg.textContent = '';
-
-      if(!state.results.length){
-        msg.innerHTML = `<span class="dangerText">No requirements to compare.</span> Go to Planner and calculate requirements first.`;
-        return;
-      }
-
-      const intervalHours = state.intervalMins / 60;
-      const rounding = Number($('otRounding').value) || 0;
-      const maxOtPerAgent = Number($('maxOtPerAgent').value) || 0;
-
-      let totalUnderHours = 0;
-      let worstGap = 0;
-
-      const rows = state.results.map(r=>{
-        const required = r.agentsRequired || 0;
-        const scheduled = getScheduledAgentsForInterval(r.dt);
-        const gap = required - scheduled;
-
-        worstGap = Math.max(worstGap, gap);
-
-        let otHours = 0;
-        if(gap > 0){
-          otHours = gap * intervalHours;
-          otHours = roundHours(otHours, rounding);
-          totalUnderHours += otHours;
-        }
-
-        const status = gap > 0 ? {t:'Under', cls:'danger'} :
-                       gap === 0 ? {t:'Even', cls:'ok'} :
-                                  {t:'Over', cls:'warn'};
-
-        return { dt:r.dt, required, scheduled, gap, otHours, status };
-      });
-
-      // Summary KPIs
-      $('kpiUnderHours').textContent = totalUnderHours.toFixed(2);
-      $('kpiWorstGap').textContent = Math.max(0, Math.round(worstGap));
-
-      let otAgents = '-';
-      if(maxOtPerAgent > 0){
-        otAgents = totalUnderHours > 0 ? Math.ceil(totalUnderHours / maxOtPerAgent) : 0;
-      }
-      $('kpiOtAgents').textContent = otAgents;
-
-      // Render table
-      $('healthRows').innerHTML = rows.map(r=>`
-        <tr>
-          <td>${fmtInterval(r.dt)}</td>
-          <td class="right">${r.required}</td>
-          <td class="right">${r.scheduled.toFixed(1).replace(/\.0$/,'')}</td>
-          <td class="right">${r.gap.toFixed(1).replace(/\.0$/,'')}</td>
-          <td class="right">${r.otHours ? r.otHours.toFixed(2) : '0.00'}</td>
-          <td><span class="badge ${r.status.cls}">${r.status.t}</span></td>
-        </tr>
-      `).join('');
-
-      // Chart
-      const labels = rows.map(r=>{
-        if(state.intervalMins===1440) return r.dt.toLocaleDateString(undefined,{month:'short',day:'2-digit'});
-        return r.dt.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
-      });
-      const req = rows.map(r=>r.required);
-      const sch = rows.map(r=>r.scheduled);
-
-      if(state.healthChart) state.healthChart.destroy();
-      state.healthChart = new Chart($('healthChart'), {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            { label: 'Required', data: req, tension: 0.25 },
-            { label: 'Scheduled', data: sch, tension: 0.25 }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { display: true } },
-          scales: { y: { beginAtZero: true } }
-        }
-      });
-
-      msg.textContent = `Health check complete. Total overtime hours needed: ${totalUnderHours.toFixed(2)}.`;
-    }
-
-    // ===================== Event wiring =====================
-    function wireEvents(){
-      $('intervalSelect').addEventListener('change', ()=>{
-        state.intervalMins = Number($('intervalSelect').value);
-        // Re-normalise current raw forecast/schedule
-        if(state.rawForecast.length){
-          state.forecast = normaliseForecastToInterval(state.rawForecast, state.intervalMins);
-          state.results = [];
-        }
-        if(state.schedule && state.schedule.__rawRows){
-          state.schedule = normaliseScheduleToInterval(state.schedule.__rawRows, state.intervalMins);
-          state.schedule.__rawRows = state.schedule.__rawRows; // keep reference if needed
-        }
-        updatePlannerKPIs();
-        renderPlannerTable();
-        if(state.reqChart) { state.reqChart.destroy(); state.reqChart=null; }
-        $('plannerMsg').textContent = 'Interval updated. Recalculate requirements.';
-      });
-
-      $('forecastFile').addEventListener('change', async (e)=>{
-        const file = e.target.files?.[0];
-        if(!file) return;
-        const text = await file.text();
-        const rows = parseCSV(text);
-
-        // Convert to forecast rows (ignore agents col)
-        const fc = rows
-          .filter(r=>isFinite(r.volume))
-          .map(r=>({ dt:r.dt, volume:Number(r.volume) }));
-
-        state.rawForecast = fc;
-        state.forecast = normaliseForecastToInterval(fc, state.intervalMins);
-        state.results = [];
-
-        updatePlannerKPIs();
-        renderPlannerTable();
-        if(state.reqChart) { state.reqChart.destroy(); state.reqChart=null; }
-
-        $('plannerMsg').textContent = `Loaded forecast: ${state.forecast.length} interval(s). Click “Calculate requirements”.`;
-      });
-
-      $('scheduleFile').addEventListener('change', async (e)=>{
-        const file = e.target.files?.[0];
-        if(!file) return;
-        const text = await file.text();
-        const rows = parseCSV(text).filter(r=>isFinite(r.agents));
-
-        const sched = normaliseScheduleToInterval(rows, state.intervalMins);
-        // Keep raw for possible re-normalisation on interval changes
-        sched.__rawRows = rows;
-        state.schedule = sched;
-
-        $('healthMsg').textContent = `Loaded schedule upload (${sched.size} interval(s)). Run the health check.`;
-      });
-
-      $('applyModsBtn').addEventListener('click', applyModifiers);
-      $('calcBtn').addEventListener('click', calculateRequirements);
-
-      $('loadSampleBtn').addEventListener('click', loadSample);
-      $('clearDataBtn').addEventListener('click', clearAll);
-
-      $('useConstBtn').addEventListener('click', ()=>{
-        state.schedule = null;
-        $('scheduleFile').value = '';
-        $('healthMsg').textContent = 'Using constant schedule input.';
-      });
-
-      $('clearScheduleBtn').addEventListener('click', ()=>{
-        state.schedule = null;
-        $('scheduleFile').value = '';
-        $('healthMsg').textContent = 'Cleared schedule upload.';
-      });
-
-      $('runHealthBtn').addEventListener('click', runHealthCheck);
-    }
-
-    // ===================== Init =====================
-    (function init(){
-      setupTabs();
-      wireEvents();
-      state.intervalMins = Number($('intervalSelect').value);
-      updatePlannerKPIs();
-    })();
-  </script>
+  }
+
+  // legend
+  ctx.fillStyle = '#111827';
+  ctx.font = '12px Aptos, Segoe UI, Arial, sans-serif';
+  ctx.fillText('Staff scheduled (effective)', pad.l + 8, pad.t + 12);
+  ctx.fillStyle = '#1aa6a6';
+  ctx.fillRect(pad.l + 200, pad.t + 4, 10, 10);
+
+  ctx.fillStyle = '#111827';
+  ctx.fillText('Staff required (SL)', pad.l + 228, pad.t + 12);
+  ctx.fillStyle = '#0f4c4c';
+  ctx.beginPath(); ctx.arc(pad.l + 354, pad.t + 9, 3, 0, Math.PI*2); ctx.fill();
+}
+
+function renderHealthCheck(){
+  const list = $('healthList');
+  const headline = $('healthHeadline');
+  const totals = $('healthTotals');
+
+  const rows = state.lastResults || [];
+  if(!rows.length){
+    headline.textContent = 'Upload a forecast and hit “Calculate requirements”.';
+    list.innerHTML = '';
+    totals.textContent = '';
+    return;
+  }
+
+  const deficits = rows
+    .filter(r=>r.overtimeHrs > 0.0001)
+    .sort((a,b)=>b.overtimeHrs - a.overtimeHrs);
+
+  if(!deficits.length){
+    headline.innerHTML = `✅ No overtime required (based on your inputs).`;
+    list.innerHTML = '';
+    totals.textContent = '';
+    return;
+  }
+
+  const intervalMin = state.lastSummary.intervalMin;
+  const intervalHours = intervalMin/60;
+
+  const totalOT = deficits.reduce((s,r)=>s+r.overtimeHrs,0);
+  const worst = deficits[0];
+
+  headline.innerHTML = `⚠️ Overtime needed in <strong>${deficits.length}</strong> interval(s). Biggest gap: <strong>${fmtNum(worst.overtimeHrs,2)}h</strong>.`;
+  totals.textContent = `Total overtime across period: ${fmtNum(totalOT,2)}h (approx).`;
+
+  const top = deficits.slice(0,8).map(r=>{
+    const dtEnd = addMinutes(r.dt, intervalMin);
+    const label = `${toISOMinute(r.dt)} → ${toISOMinute(dtEnd)}`;
+    const needHeads = Math.max(0, r.staffReq - r.staffEff);
+    return `<li><strong>${label}</strong>: need +${fmtNum(needHeads,2)} staff (~${fmtNum(r.overtimeHrs,2)}h)</li>`;
+  }).join('');
+
+  list.innerHTML = top + (deficits.length>8 ? `<li class="muted">…and ${deficits.length-8} more interval(s).</li>` : '');
+}
+
+function renderNotes(){
+  const rows = state.lastResults || [];
+  if(!rows.length){ $('calcNotes').textContent=''; return; }
+
+  const mode = $('staffingMode').value;
+  const shrink = clampNum(+$('shrinkPct').value, 0, 95);
+  const offline = clampNum(+$('offlinePct').value, 0, 95);
+  const sl = clampNum(+$('slTarget').value, 0, 100);
+  const slSec = clampNum(+$('slSeconds').value, 1, 999999);
+
+  $('calcNotes').innerHTML =
+    `Assumptions: Erlang C (M/M/c). Staffing shown is <strong>effective staff</strong> after shrink (${shrink}%) and offline (${offline}%). `
+    + `SL target is <strong>${sl}%</strong> within <strong>${slSec}s</strong>. ABD is a simple estimate using customer patience.`;
+}
+
+/* ---------------------------
+   Status / UX
+---------------------------- */
+function setStatus(msg, isErr=false){
+  const el = $('forecastStatus');
+  el.style.color = isErr ? 'var(--bad)' : 'var(--muted)';
+  el.textContent = msg || '';
+}
+
+/* ---------------------------
+   File uploads
+---------------------------- */
+$('forecastFile').addEventListener('change', async (e)=>{
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  const text = await f.text();
+  const parsed = parseCSV(text);
+
+  // keep original objects, but ensure we can pick keys
+  state.rawForecast = parsed.rows;
+  state.baseSeries = [];
+  state.series = [];
+  state.lastResults = [];
+  state.lastSummary = null;
+
+  $('downloadForecastBtn').disabled = true;
+  $('downloadResultsBtn').disabled = true;
+
+  setStatus(`Loaded forecast rows: ${parsed.rows.length}. Pick interval + click “Apply changes”, then “Calculate requirements”.`);
+});
+
+$('staffFile').addEventListener('change', async (e)=>{
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  const text = await f.text();
+  const parsed = parseCSV(text);
+  const intervalMin = Number($('intervalSelect').value);
+  state.staffSeries = normaliseStaffToInterval(parsed.rows, intervalMin);
+  setStatus(`Loaded staffing rows: ${parsed.rows.length}.`);
+});
+
+$('staffingMode').addEventListener('change', ()=>{
+  const mode = $('staffingMode').value;
+  $('fteBlock').style.display = (mode==='fte') ? 'block' : 'none';
+  $('staffFileBlock').style.display = (mode==='interval') ? 'block' : 'none';
+});
+
+$('intervalSelect').addEventListener('change', ()=>{
+  // if staffing CSV loaded, re-normalise staffing series by re-reading not possible.
+  // We'll just warn; user can re-upload.
+  if(state.staffSeries && $('staffingMode').value==='interval'){
+    setStatus('Interval changed. If you uploaded staffing per interval, please re-upload the staffing CSV to match.', true);
+  }
+});
+
+/* ---------------------------
+   Forecast shaping buttons
+---------------------------- */
+$('applyForecastBtn').addEventListener('click', ()=>{
+  if(!state.rawForecast.length){
+    setStatus('Upload a forecast CSV first.', true);
+    return;
+  }
+  const intervalMin = Number($('intervalSelect').value);
+  state.baseSeries = normaliseForecastToInterval(state.rawForecast, intervalMin);
+  state.series = applyForecastAdjustments(state.baseSeries);
+  const openSeries = filterToOpeningHours(state.series);
+
+  $('downloadForecastBtn').disabled = !(state.series && state.series.length);
+
+  const from = openSeries[0]?.dt;
+  const to = openSeries[openSeries.length-1]?.dt;
+  setStatus(`Forecast prepared: ${state.series.length} interval(s) total, ${openSeries.length} within opening hours.` + (from && to ? ` (${toISOMinute(from)} → ${toISOMinute(to)})` : ''));
+});
+
+$('resetForecastBtn').addEventListener('click', ()=>{
+  $('pctChange').value = 0;
+  $('volDelta').value = 0;
+  if(state.baseSeries.length){
+    state.series = state.baseSeries.map(x=>({...x}));
+    $('downloadForecastBtn').disabled = false;
+    setStatus('Forecast adjustments reset to uploaded baseline.');
+  } else if(state.rawForecast.length){
+    setStatus('Click “Apply changes” to rebuild the baseline series from the uploaded file.');
+  } else {
+    setStatus('Nothing to reset yet.');
+  }
+});
+
+$('downloadForecastBtn').addEventListener('click', ()=>{
+  if(!state.series || !state.series.length) return;
+  const intervalMin = Number($('intervalSelect').value);
+  const lines = ['datetime,volume,aht_seconds'];
+  for(const r of state.series){
+    lines.push(`${toISOMinute(r.dt)},${(r.volume ?? 0)},${Math.round(r.ahtSec ?? +$('ahtGlobal').value)}`);
+  }
+  downloadText(lines.join('\n'), `quick_capacity_forecast_${intervalMin}m.csv`);
+});
+
+/* ---------------------------
+   Calculate / clear / downloads
+---------------------------- */
+$('calcBtn').addEventListener('click', ()=>{
+  // ensure we have series built (if user forgot)
+  if(state.rawForecast.length && !state.series.length){
+    const intervalMin = Number($('intervalSelect').value);
+    state.baseSeries = normaliseForecastToInterval(state.rawForecast, intervalMin);
+    state.series = applyForecastAdjustments(state.baseSeries);
+  }
+  compute();
+});
+
+$('clearBtn').addEventListener('click', ()=>{
+  state.rawForecast = [];
+  state.baseSeries = [];
+  state.series = [];
+  state.staffSeries = null;
+  state.lastResults = [];
+  state.lastSummary = null;
+
+  $('forecastFile').value = '';
+  $('staffFile').value = '';
+  $('downloadForecastBtn').disabled = true;
+  $('downloadResultsBtn').disabled = true;
+
+  $('resultsBody').innerHTML = `<tr><td colspan="12" class="muted" style="padding:16px;">No results yet.</td></tr>`;
+  $('periodPill').textContent = 'No data';
+  $('tVol').textContent = '—';
+  $('tOcc').textContent = '—';
+  $('tSL').textContent = '—';
+  $('tASA').textContent = '—';
+  $('tABD').textContent = '—';
+  $('healthHeadline').textContent = 'Upload a forecast and hit “Calculate requirements”.';
+  $('healthList').innerHTML = '';
+  $('healthTotals').textContent = '';
+  $('calcNotes').textContent = '';
+
+  const ctx = $('barChart').getContext('2d');
+  ctx.clearRect(0,0,$('barChart').width,$('barChart').height);
+
+  setStatus('Cleared.');
+});
+
+$('downloadResultsBtn').addEventListener('click', ()=>{
+  if(!state.lastResults || !state.lastResults.length) return;
+  const lines = [
+    'interval_start,interval_end,volume,aht_seconds,workload_hours,staff_effective,staff_required,status,occupancy,service_level,asa_seconds,abd,ot_hours'
+  ];
+  for(const r of state.lastResults){
+    const start = toISOMinute(r.dt);
+    const end = toISOMinute(addMinutes(r.dt, state.lastSummary.intervalMin));
+    lines.push([
+      start, end,
+      roundSafe(r.volume, 0),
+      roundSafe(r.ahtSec, 0),
+      roundSafe(r.workloadHrs, 4),
+      roundSafe(r.staffEff, 4),
+      roundSafe(r.staffReq, 0),
+      r.status,
+      roundSafe(r.occ, 6),
+      roundSafe(r.sl, 6),
+      roundSafe(r.asa, 2),
+      roundSafe(r.abd, 6),
+      roundSafe(r.overtimeHrs, 4)
+    ].join(','));
+  }
+  downloadText(lines.join('\n'), `quick_capacity_results_${state.lastSummary.intervalMin}m.csv`);
+});
+
+function roundSafe(x, dp){
+  if(x==null || !isFinite(x)) return '';
+  const p = Math.pow(10, dp);
+  return Math.round(x*p)/p;
+}
+
+function downloadText(text, filename){
+  const blob = new Blob([text], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------------------
+   Little niceties
+---------------------------- */
+(function init(){
+  // Just so it matches your other apps: calm defaults, no extra corner labels. 🙂
+  setStatus('Ready. Upload a forecast CSV to begin.');
+})();
+</script>
 </body>
 </html>
