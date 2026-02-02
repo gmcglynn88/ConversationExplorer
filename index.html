@@ -3,118 +3,264 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/wordcloud@1.2.2/src/wordcloud2.min.js"></script>
+  <title>Genesys Cloud - Hourly Billing Calculator</title>
   <style>
     :root{
       --primary-color:#63AB8F; --secondary-color:#4A8C7D; --border-color:#DEE2E6;
       --light-bg:#F8F9FA; --card-bg:#FFFFFF; --text-color:#2C3E50; --text-light:#6C757D;
-      --pill:#e9f6f0;
+      --pill:#e9f6f0; --filter-bg:#f0f7f3; --warning:#ffc107; --danger:#dc3545;
+      --success:#28a745; --info:#17a2b8;
     }
-    body, h1, h2, h3, h4, h5, h6, p, div, span, label, button, input, select, textarea, th, td, li, ul, ol, details, summary, pre, code{
-      font-family:'Aptos','Segoe UI',Arial,sans-serif;
+
+    body{
+      font-family:'Aptos','Segoe UI',system-ui,-apple-system,Arial,sans-serif;
+      margin:20px;padding:20px;max-width:1800px;
+      background:var(--light-bg);color:var(--text-color);
+      line-height:1.6;
     }
-    body{margin:20px;padding:20px;max-width:1400px;background:var(--light-bg);color:var(--text-color)}
-    #logo-container{text-align:center;margin-bottom:20px} #logo{width:300px}
-    h1{margin:0 0 16px}
-    .card{background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:24px;margin-top:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
-    label{display:block;font-weight:600;margin-bottom:6px}
-    select,input,button{padding:10px;border:1px solid var(--border-color);border-radius:6px;background:var(--card-bg);font-size:14px;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
-    button{background:var(--primary-color);color:#fff;font-weight:600;cursor:pointer;transition:background .2s;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
-    button:hover{background:var(--secondary-color)} button:disabled{background:var(--text-light);cursor:not-allowed}
-    .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px 24px;align-items:start}
-    .inline{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center} .inline span{color:var(--text-light)}
-    .full-width-btn{width:100%;padding:14px 18px;font-size:16px;margin-top:12px}
-    .muted{color:var(--text-light)} .mono{font-family:ui-monospace,Consolas,Menlo,monospace}
-    .user-info,.conversation-header,.transcript-summary{background:transparent;border:2px solid var(--primary-color);border-radius:10px;padding:16px;margin:12px 0}
-    details{background:var(--light-bg);border:1px solid var(--border-color);border-radius:8px;padding:16px;margin:12px 0;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
-    details>summary{cursor:pointer;font-weight:600;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
-    pre{background:#1f2937;color:#f3f4f6;padding:16px;border-radius:6px;overflow:auto;font-size:12px;font-family:'Monaco','Consolas','Courier New',monospace}
-    .stats{display:flex;gap:16px;margin:16px 0}
-    .stat-card{flex:1;border:1px solid var(--border-color);border-radius:8px;padding:16px;text-align:center;background:var(--card-bg)}
-    .stat-number{font-size:22px;color:#63AB8F;font-weight:700}
-    .journey-timeline{margin:20px 0 8px;padding-left:20px;border-left:3px solid var(--primary-color)}
-    .journey-step{margin-bottom:18px;position:relative}
-    .journey-step:before{content:'';position:absolute;left:-26px;top:0;width:16px;height:16px;border-radius:50%;background:var(--primary-color)}
-    .step-header{font-weight:700;color:var(--secondary-color);margin-bottom:8px}
-    .step-details{background:var(--card-bg);border:1px solid var(--border-color);border-radius:6px;padding:12px}
-    .info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
-    .info-item{display:flex;justify-content:space-between;border-bottom:1px solid var(--border-color);padding:6px 0}
-    .info-label{font-weight:600;min-width:150px}
-    .participant-badge{display:inline-block;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600;margin:2px;border:1px solid var(--border-color);background:#fff;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
-    .badge-customer{border-color:#a7e3c6;color:#1f7255}
-    .badge-agent{background:#dbeafe;color:#1e40af}
-    .badge-queue{background:#fde7ff;color:#7c3aed}
-    .transfer-info{background:#fff7ed;border:1px solid var(--border-color);border-radius:6px;padding:8px;margin:8px 0}
-    .transfer-count{background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:6px;font-weight:700}
-    .progress-bar{width:100%;height:8px;background:var(--border-color);border-radius:4px;overflow:hidden;margin:10px 0}
-    .progress-fill{height:100%;background:var(--primary-color);transition:width .3s}
-    .t-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px 16px}
-    .t-kv{display:flex;gap:10px;justify-content:space-between}.t-kv .k{font-weight:700}
-    .pill{display:inline-block;background:var(--pill);border:1px solid var(--border-color);border-radius:999px;padding:2px 8px;font-size:12px;margin-right:6px}
-    .transcript-table{width:100%;border-collapse:collapse;margin-top:10px;font-family:'Aptos','Segoe UI',Arial,sans-serif;}
-    .transcript-table th,.transcript-table td{border-bottom:1px solid var(--border-color);padding:8px 10px;vertical-align:top}
-    .transcript-table th{background:var(--primary-color);color:#fff;text-align:left}
-    .sentiment-positive{color:#16a34a;font-weight:700}
-    .sentiment-negative{color:#dc2626;font-weight:700}
-    .sentiment-neutral{color:#f59e0b;font-weight:700}
-    .empathy-positive{color:#16a34a;font-weight:700}
-    .empathy-negative{color:#dc2626;font-weight:700}
-    .confidence-high{color:#16a34a;font-weight:700}
-    .confidence-medium{color:#f59e0b;font-weight:700}
-    .confidence-low{color:#dc2626;font-weight:700}
-    .loading{opacity:.6;pointer-events:none}
-    .future-date{color:#ccc;cursor:not-allowed}
+
+    .container{max-width:1400px;margin:0 auto}
+    header{
+      background:var(--card-bg);border-radius:12px;padding:24px 32px;
+      margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.1);
+      border-left:5px solid var(--primary-color);border:1px solid var(--border-color);
+    }
+
+    h1{color:var(--text-color);margin-bottom:8px;font-size:28px}
+    .subtitle{color:var(--text-light);font-size:16px}
+    .main-grid{display:grid;grid-template-columns:350px 1fr;gap:24px}
+    @media(max-width:1024px){.main-grid{grid-template-columns:1fr}}
+
+    /* Card Styling */
+    .card{
+      background:var(--card-bg);border:1px solid var(--border-color);
+      border-radius:12px;padding:24px;margin-bottom:16px;
+      box-shadow:0 1px 3px rgba(0,0,0,.1);
+    }
+
+    .card h2{
+      color:var(--primary-color);margin-bottom:20px;font-size:20px;
+      padding-bottom:12px;border-bottom:2px solid var(--light-bg);
+      display:flex;align-items:center;gap:10px;
+    }
+
+    /* Form Controls */
+    .form-group{margin-bottom:20px}
+    label{display:block;font-weight:600;margin-bottom:6px;color:var(--text-color)}
+    select,input,button{
+      padding:10px;border:1px solid var(--border-color);
+      border-radius:6px;background:var(--card-bg);font-size:14px;width:100%;
+    }
+
+    button{
+      background:var(--primary-color);color:#fff;font-weight:600;
+      cursor:pointer;transition:background .2s;border:none;
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    }
     
-    .tab-container { margin-top: 20px; }
-    .tab-buttons { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
-    .tab-button { padding: 10px 20px; background: none; border: none; cursor: pointer; font-weight: 600; color: var(--text-light); border-bottom: 3px solid transparent; transition: all 0.2s; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
-    .tab-button.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    
-    .selection-controls { margin: 20px 0; padding: 20px; background: var(--light-bg); border-radius: 8px; }
-    .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-    .conversation-checkbox { display: none; }
-    .conversation-checkbox-label { cursor: pointer; padding: 8px 12px; background: white; border: 1px solid var(--border-color); border-radius: 4px; transition: all 0.2s; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
-    .conversation-checkbox:checked + .conversation-checkbox-label { background: var(--primary-color); color: white; border-color: var(--primary-color); }
-    .select-all-controls { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; }
-    .export-controls { display: flex; gap: 10px; margin-top: 15px; }
-    .export-options { display: flex; gap: 15px; align-items: center; margin-top: 10px; }
-    
-    .analytics-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin: 20px 0; }
-    .analytics-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .wordcloud-container { width: 100%; height: 400px; background: white; border-radius: 8px; overflow: hidden; position: relative; }
-    canvas { display: block; }
-    .word-list { max-height: 300px; overflow-y: auto; }
-    .word-item { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border-color); font-family:'Aptos','Segoe UI',Arial,sans-serif; }
-    .word-frequency { font-weight: bold; color: var(--primary-color); }
-    
-    .conv-select-btn { margin-left: 10px; padding: 4px 8px; font-size: 12px; }
-    .selected-count { background: var(--primary-color); color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 8px; }
-    
-    /* --- New Tab Container for Main Tabs --- */
-    .main-tab-container { margin-top: 20px; margin-bottom: 20px; }
-    .main-tab-buttons { display: flex; gap: 12px; }
-    .main-tab-button { padding: 10px 16px; background: #ffffff; border: 2px solid var(--primary-color); border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--primary-color); transition: background .2s, color .2s; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
-    .main-tab-button:hover { background: var(--pill); }
-    .main-tab-button.active { background: var(--primary-color); color: #ffffff; }
-    .main-tab-content { display: none; }
-    .main-tab-content.active { display: block; }
-    
-    .help-text { background: #f8f9fa; border-left: 3px solid var(--primary-color); padding: 12px; margin: 12px 0; font-size: 14px; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
-    .help-text ul, .help-text ol { margin: 8px 0; padding-left: 20px; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
-    .help-text li { margin-bottom: 4px; font-family:'Aptos','Segoe UI',Arial,sans-serif; }
-    .help-text p, .help-text strong, .help-text code { font-family:'Aptos','Segoe UI',Arial,sans-serif; }
-    .help-text code { background: var(--light-bg); padding: 2px 6px; border-radius: 3px; font-family: 'Monaco', 'Consolas', 'Courier New', monospace; }
-    
-    .guide-section { margin: 20px 0; }
-    .guide-section h3 { color: var(--secondary-color); margin-bottom: 10px; }
+    button:hover{background:var(--secondary-color)}
+    button:disabled{background:var(--text-light);cursor:not-allowed}
+    .btn-block{width:100%;padding:12px}
+    .btn-success{background:var(--success)}.btn-success:hover{background:#218838}
+    .btn-secondary{background:var(--text-light)}.btn-secondary:hover{background:#5a6268}
+
+    /* Auth Section */
+    .auth-card{
+      background:linear-gradient(135deg,var(--primary-color),var(--secondary-color));
+      color:white;padding:32px;border-radius:12px;margin-bottom:16px;
+      text-align:center;
+    }
+
+    .auth-card h3{margin-bottom:16px;font-size:20px;color:white}
+    .auth-card p{margin-bottom:24px;opacity:0.9}
+
+    /* Status Display */
+    .status-container{
+      position:fixed;top:20px;right:20px;z-index:1000;
+      display:flex;flex-direction:column;gap:10px;
+      max-width:400px;
+    }
+
+    .status-message{
+      background:white;padding:16px;border-radius:8px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.15);border-left:4px solid var(--primary-color);
+      animation:slideIn 0.3s ease-out;display:flex;align-items:center;gap:12px;
+    }
+
+    @keyframes slideIn{
+      from{transform:translateX(100%);opacity:0}
+      to{transform:translateX(0);opacity:1}
+    }
+
+    /* Stats Cards */
+    .stats-grid{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+      gap:16px;margin-top:20px;
+    }
+
+    .stat-card{
+      background:var(--pill);border-radius:12px;padding:20px;
+      border:1px solid var(--border-color);text-align:center;
+      transition:all 0.3s;
+    }
+
+    .stat-card:hover{
+      transform:translateY(-2px);box-shadow:0 8px 16px rgba(0,0,0,0.1);
+      border-color:var(--primary-color);
+    }
+
+    .stat-value{
+      font-size:36px;font-weight:700;color:var(--primary-color);
+      margin:10px 0;
+    }
+
+    .stat-label{
+      font-size:14px;color:var(--text-light);
+      text-transform:uppercase;letter-spacing:1px;
+    }
+
+    /* Table */
+    .table-container{
+      overflow-x:auto;margin-top:20px;border-radius:8px;
+      border:1px solid var(--border-color);background:var(--card-bg);
+      max-height:500px;overflow-y:auto;
+    }
+
+    table{width:100%;border-collapse:collapse}
+    th{
+      background-color:var(--primary-color);color:white;font-weight:600;
+      position:sticky;top:0;z-index:10;white-space:nowrap;padding:16px;text-align:left;
+    }
+    td{padding:14px 16px;border-bottom:1px solid var(--border-color)}
+    tr:hover{background-color:var(--pill)}
+
+    /* Status Badges */
+    .status-badge{
+      display:inline-block;padding:4px 12px;border-radius:20px;
+      font-size:12px;font-weight:600;text-transform:uppercase;
+    }
+
+    .status-named{background:rgba(99,171,143,0.15);color:var(--primary-color);border:1px solid rgba(99,171,143,0.3)}
+    .status-hi{background:rgba(40,167,69,0.15);color:var(--success);border:1px solid rgba(40,167,69,0.3)}
+    .status-supervisor{background:rgba(255,193,7,0.15);color:#d39e00;border:1px solid rgba(255,193,7,0.3)}
+    .status-nologin{background:rgba(108,117,125,0.15);color:var(--text-light);border:1px solid rgba(108,117,125,0.3)}
+
+    /* Tabs */
+    .tabs{
+      display:flex;border-bottom:2px solid var(--border-color);
+      margin-bottom:24px;background:white;border-radius:8px 8px 0 0;
+    }
+
+    .tab{
+      padding:16px 24px;background:none;border:none;
+      border-bottom:2px solid transparent;font-size:15px;
+      font-weight:600;color:var(--text-light);cursor:pointer;
+      transition:all 0.3s;flex:1;text-align:center;
+    }
+
+    .tab:hover{color:var(--primary-color)}
+    .tab.active{
+      color:var(--primary-color);border-bottom-color:var(--primary-color);
+      background:rgba(99,171,143,0.05);
+    }
+
+    .tab-content{display:none;animation:fadeIn 0.3s ease}
+    .tab-content.active{display:block}
+
+    @keyframes fadeIn{
+      from{opacity:0;transform:translateY(10px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+
+    /* Loading */
+    .loading-overlay{
+      position:fixed;top:0;left:0;right:0;bottom:0;
+      background:rgba(255,255,255,0.95);display:flex;
+      flex-direction:column;justify-content:center;align-items:center;
+      z-index:9999;display:none;
+    }
+
+    .loading-overlay.active{display:flex}
+    .spinner{
+      width:60px;height:60px;border:5px solid #f3f3f3;
+      border-top:5px solid var(--primary-color);border-radius:50%;
+      animation:spin 1s linear infinite;margin-bottom:20px;
+    }
+
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* Progress Bar */
+    .progress-container{
+      width:100%;max-width:400px;margin:20px auto;
+    }
+
+    .progress-bar{
+      height:8px;background:var(--light-bg);border-radius:4px;
+      overflow:hidden;margin-top:10px;
+    }
+
+    .progress-fill{
+      height:100%;background:linear-gradient(90deg,var(--primary-color),var(--secondary-color));
+      border-radius:4px;transition:width 0.3s ease;
+      width:0%;
+    }
+
+    .progress-text{
+      display:flex;justify-content:space-between;font-size:14px;
+      color:var(--text-light);margin-bottom:5px;
+    }
+
+    /* Hour Bucket Display */
+    .bucket-container{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+      gap:10px;margin-top:20px;
+    }
+
+    .bucket-card{
+      background:white;border-radius:8px;padding:12px;
+      border:1px solid var(--border-color);text-align:center;
+    }
+
+    .bucket-count{
+      font-size:24px;font-weight:700;color:var(--primary-color);
+    }
+
+    .bucket-label{
+      font-size:12px;color:var(--text-light);margin-top:5px;
+    }
+
+    /* Date Range Quick Select */
+    .quick-select-buttons{
+      display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px;
+    }
+
+    .quick-select-btn{
+      padding:8px;background:var(--light-bg);border:1px solid var(--border-color);
+      border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;
+      transition:all 0.3s;text-align:center;
+    }
+
+    .quick-select-btn:hover{
+      background:var(--pill);border-color:var(--primary-color);
+    }
+
+    @media(max-width:768px){
+      body{margin:10px;padding:10px}
+      .card{padding:16px}
+      header{padding:16px}
+      h1{font-size:24px}
+      .btn-block{padding:10px 16px;font-size:14px}
+      .stat-value{font-size:28px}
+      .main-grid{grid-template-columns:1fr}
+      .status-container{max-width:300px}
+    }
   </style>
 </head>
 <body>
+  <!-- Sign In Button (Hidden initially) -->
   <button id="signinBtn" style="display:none;margin-bottom:12px;">Sign in to Genesys Cloud</button>
 
+  <!-- Auth Status Card -->
   <div id="authStatus" class="card" style="display:none;">
     <div style="text-align:center;padding:20px;">
       <div style="font-size:18px;color:var(--secondary-color);margin-bottom:8px;">🔐 Authenticating…</div>
@@ -122,1258 +268,1174 @@
     </div>
   </div>
 
+  <!-- Status Messages Container -->
+  <div class="status-container" id="statusContainer"></div>
+
+  <!-- Main Content -->
   <div id="mainContent" style="display:none;">
-    
-    <div class="main-tab-container">
-      <div class="main-tab-buttons">
-        <button class="main-tab-button active" data-tab="main-tab-explorer">Conversation Explorer</button>
-        <button class="main-tab-button" data-tab="main-tab-guide">How to Use</button>
-      </div>
-      
-      <!-- Main Tab: CONVERSATION EXPLORER -->
-      <div id="main-tab-explorer" class="main-tab-content active">
-        <div class="card">
-          <h2 style="margin:0 0 12px;">Select Agent & Date Range</h2>
-          <div class="controls">
-            <div>
-              <label for="agentSelect">Select Agent</label>
-              <select id="agentSelect"><option>Loading users…</option></select>
-              <input id="agentFilter" type="text" placeholder="Filter users by name" style="margin-top:8px"/>
-              <div class="user-info" id="selectedAgentInfo" style="display:none;">
-                <strong>Selected Agent:</strong> <span id="selectedAgentName">None</span>
-              </div>
+    <div class="container">
+      <header>
+        <h1>📊 Genesys Cloud - Hourly Billing Calculator</h1>
+        <p class="subtitle">Calculate optimal license distribution based on user interaction data</p>
+      </header>
+
+      <div class="main-grid">
+        <!-- Left Column: Controls -->
+        <div class="left-column">
+          <!-- Connection Status -->
+          <div class="card" id="connectionCard">
+            <h2>🔌 Connection Status</h2>
+            <div class="form-group">
+              <label>Environment</label>
+              <input type="text" value="EU West (London) - euw2.pure.cloud" readonly style="background:var(--filter-bg);">
             </div>
-            <div>
-              <label>Date Range</label>
-              <div class="inline">
-                <input id="fromDate" type="date"/>
-                <span>to</span>
-                <input id="toDate" type="date"/>
+            <div class="form-group">
+              <label>Status</label>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div id="statusIndicator" style="width:12px;height:12px;border-radius:50%;background:#6c757d;"></div>
+                <span id="statusText">Not Connected</span>
               </div>
-              <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                <input id="autoChunk" type="checkbox" checked/> Auto-split large date ranges (recommended)
-              </label>
             </div>
           </div>
-          <button id="fetchBtn" class="full-width-btn">Fetch Conversations</button>
-        </div>
 
-        <div id="statusMessage" class="muted" style="margin-top:10px;"></div>
-        <div id="errorMessage" style="color:#dc2626;margin-top:6px;"></div>
-
-        <div id="progressSection" style="display:none;">
+          <!-- Date Range -->
           <div class="card">
-            <h3 style="margin:0 0 8px;">Fetching Conversations & Transcripts</h3>
-            <div class="muted" id="chunkInfo">Processing date range in smaller chunks…</div>
-            <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
-            <div style="display:flex;justify-content:space-between;font-size:14px" class="muted">
-              <span id="progressText">0%</span><span id="chunkText">Chunk 0/0</span>
+            <h2>📅 Analysis Period</h2>
+            <div class="form-group">
+              <label>From Date</label>
+              <input type="date" id="dateFrom">
+            </div>
+            <div class="form-group">
+              <label>To Date</label>
+              <input type="date" id="dateTo">
+            </div>
+            <div class="quick-select-buttons">
+              <button class="quick-select-btn" data-days="30">📅 Last 30 days</button>
+              <button class="quick-select-btn" data-days="7">📅 Last 7 days</button>
+              <button class="quick-select-btn" data-days="1">📅 Yesterday</button>
+              <button class="quick-select-btn" data-days="0">📅 Today</button>
             </div>
           </div>
-        </div>
 
-        <div class="tab-container">
-          <div class="tab-buttons">
-            <button class="tab-button active" data-tab="conversations">Conversations</button>
-            <button class="tab-button" data-tab="analytics">Analytics & Word Cloud</button>
-          </div>
-          
-          <div id="conversations-tab" class="tab-content active">
-            <div id="resultsSection" style="display:none;">
-              <div class="card">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                  <h2 style="margin:0;">Conversation Results</h2>
-                  <div style="display:flex;align-items:center;">
-                    <span id="selectedCount" class="selected-count">0 selected</span>
-                  </div>
-                </div>
-                
-                <div class="selection-controls">
-                  <div class="select-all-controls">
-                    <button id="selectAllBtn" class="conv-select-btn">Select All</button>
-                    <button id="deselectAllBtn" class="conv-select-btn">Deselect All</button>
-                    <button id="exportSelectedBtn" style="background:var(--secondary-color);">Export Selected Conversations</button>
-                  </div>
-                  
-                  <div class="export-options">
-                    <label style="display:flex;align-items:center;gap:8px;">
-                      <input type="checkbox" id="includeTranscripts" checked/> Include Transcripts
-                    </label>
-                    <label style="display:flex;align-items:center;gap:8px;">
-                      <input type="checkbox" id="includeAnalytics" checked/> Include Analytics
-                    </label>
-                  </div>
-                </div>
-                
-                <div class="stats">
-                  <div class="stat-card"><div class="stat-number" id="totalConversations">0</div><div class="stat-label">Total Conversations</div></div>
-                  <div class="stat-card"><div class="stat-number" id="dateRange">-</div><div class="stat-label">Date Range</div></div>
-                  <div class="stat-card"><div class="stat-number" id="selectedAgent">-</div><div class="stat-label">Selected Agent</div></div>
-                </div>
-                <div id="results"></div>
+          <!-- Business Rules -->
+          <div class="card">
+            <h2>⚙️ Business Rules</h2>
+            <div class="form-group">
+              <label for="thresholdHours">HI Threshold (hours/month)</label>
+              <input type="number" id="thresholdHours" value="40" min="1" max="200">
+              <div style="font-size:12px;color:var(--text-light);margin-top:5px;">
+                Users below this threshold get HI licenses
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="includeNologin">Include NOLOGIN Users</label>
+              <select id="includeNologin">
+                <option value="true">Yes - Include in totals</option>
+                <option value="false">No - Exclude from analysis</option>
+              </select>
+            </div>
+            <div style="background:rgba(99,171,143,0.05);padding:12px;border-radius:6px;margin-top:10px;">
+              <div style="font-size:12px;color:var(--primary-color);font-weight:600;margin-bottom:5px;">📋 Business Logic:</div>
+              <div style="font-size:11px;color:var(--text-light);">
+                • Interacting time > 0 but < threshold = HI License<br>
+                • Interacting time ≥ threshold = Named License<br>
+                • Admins/Supervisors = Named (always)<br>
+                • NOLOGIN = No license consumption
               </div>
             </div>
           </div>
-          
-          <div id="analytics-tab" class="tab-content">
+
+          <!-- Actions -->
+          <div class="card">
+            <h2>🚀 Actions</h2>
+            <button id="btnFetchData" class="btn btn-block" disabled>
+              <span>📥 Fetch User Data</span>
+            </button>
+            <div style="height:12px;"></div>
+            <button id="btnAnalyze" class="btn btn-success btn-block" disabled>
+              <span>🧮 Analyze & Calculate</span>
+            </button>
+            <div style="height:12px;"></div>
+            <button id="btnExport" class="btn btn-secondary btn-block" disabled>
+              <span>📊 Export Report</span>
+            </button>
+            <div style="height:12px;"></div>
+            <button id="btnReset" class="btn btn-block" style="background:var(--danger);">
+              <span>🔄 Reset Session</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Column: Results -->
+        <div class="right-column">
+          <!-- Tabs -->
+          <div class="tabs">
+            <button class="tab active" data-tab="dashboard">📊 Dashboard</button>
+            <button class="tab" data-tab="users">👥 Users</button>
+            <button class="tab" data-tab="analysis">📈 Analysis</button>
+            <button class="tab" data-tab="logs">📝 Logs</button>
+          </div>
+
+          <!-- Dashboard Tab -->
+          <div id="tab-dashboard" class="tab-content active">
+            <!-- Summary Stats -->
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">Total Users</div>
+                <div class="stat-value" id="statTotalUsers">0</div>
+                <div style="font-size:11px;color:var(--text-light);">Setup in org</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Active Users</div>
+                <div class="stat-value" id="statActiveUsers">0</div>
+                <div style="font-size:11px;color:var(--text-light);">Logged in period</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Named Users</div>
+                <div class="stat-value" id="statNamedUsers">0</div>
+                <div style="font-size:11px;color:var(--text-light);">Recommended</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">HI Users</div>
+                <div class="stat-value" id="statHiUsers">0</div>
+                <div style="font-size:11px;color:var(--text-light);">Hourly Interacting</div>
+              </div>
+            </div>
+
+            <!-- Hour Distribution -->
+            <div class="card" style="margin-top:20px;">
+              <h2>⏱️ Hour Distribution</h2>
+              <div class="bucket-container" id="hourBuckets">
+                <!-- Hour buckets will be populated here -->
+              </div>
+            </div>
+
+            <!-- Progress Display -->
+            <div class="card" style="margin-top:20px;">
+              <h2>📈 Analysis Progress</h2>
+              <div class="progress-container">
+                <div class="progress-text">
+                  <span id="progressLabel">Ready to analyze</span>
+                  <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill" id="progressFill"></div>
+                </div>
+              </div>
+              <div style="text-align:center;margin-top:15px;">
+                <button id="btnRunAnalysis" class="btn" style="width:200px;" disabled>
+                  <span>▶️ Run Analysis</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Users Tab -->
+          <div id="tab-users" class="tab-content">
             <div class="card">
-              <h2 style="margin:0 0 12px;">Analytics & Word Cloud</h2>
-              
-              <div class="analytics-controls">
-                <div>
-                  <label>Agent Filter</label>
-                  <select id="analyticsAgentSelect">
-                    <option value="all">All Agents</option>
-                  </select>
-                </div>
-                <div>
-                  <label>Word Cloud Settings</label>
-                  <div style="display:flex;gap:10px;align-items:center;">
-                    <input type="range" id="wordCountSlider" min="20" max="200" value="50" style="flex:1;">
-                    <span id="wordCountValue">50 words</span>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 style="margin:0;">👥 User Details</h2>
+                <div style="display:flex;gap:10px;align-items:center;">
+                  <input type="text" id="userSearch" placeholder="🔍 Search users..." style="width:250px;padding:10px;">
+                  <div style="font-size:12px;color:var(--text-light);">
+                    <span id="visibleCount">0</span>/<span id="totalCount">0</span> users
                   </div>
-                  <label style="display:flex;align-items:center;gap:8px;margin-top:8px;">
-                    <input type="checkbox" id="autoGenerate" checked/> Auto-generate transcripts on fetch
-                  </label>
-                </div>
-                <div>
-                  <button id="generateWordCloudBtn" style="width:100%;margin-top:24px;">Generate Word Cloud</button>
-                  <button id="exportAnalyticsBtn" style="width:100%;margin-top:10px;background:var(--secondary-color);">Export Analytics Data</button>
                 </div>
               </div>
               
-              <div class="stats" style="margin-top:20px;">
-                <div class="stat-card"><div class="stat-number" id="totalWords">0</div><div class="stat-label">Total Words</div></div>
-                <div class="stat-card"><div class="stat-number" id="uniqueWords">0</div><div class="stat-label">Unique Words</div></div>
-                <div class="stat-card"><div class="stat-number" id="transcriptsProcessed">0</div><div class="stat-label">Transcripts</div></div>
-              </div>
-              
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
-                <div class="analytics-card">
-                  <h3 style="margin:0 0 15px;">Word Cloud</h3>
-                  <div id="wordCloudCanvas" class="wordcloud-container"></div>
-                </div>
-                
-                <div class="analytics-card">
-                  <h3 style="margin:0 0 15px;">Top Words</h3>
-                  <div id="wordList" class="word-list"></div>
-                </div>
-              </div>
-              
-              <div class="analytics-card" style="margin-top:20px;">
-                <h3 style="margin:0 0 15px;">Transcript Analytics</h3>
-                <div id="transcriptStats"></div>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>User Name</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Hours</th>
+                      <th>License</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersTableBody">
+                    <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-light);">
+                      No data loaded. Connect and fetch data first.
+                    </td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
-        </div>
-      </div> <!-- end main-tab-explorer -->
-      
-      <!-- Main Tab: HOW TO USE -->
-      <div id="main-tab-guide" class="main-tab-content">
-        <div class="card">
-          <h2 style="margin:0 0 12px;">How to Use Conversation Explorer</h2>
-          
-          <div class="guide-section">
-            <div class="help-text">
-              <strong>Overview</strong>
-              <p>This tool allows you to explore and analyze agent conversations from Genesys Cloud. You can fetch conversations, view transcripts, generate word clouds, and export data for analysis.</p>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Step 1: Authentication</h3>
-            <div class="help-text">
-              <p>The app automatically authenticates with Genesys Cloud using OAuth. You'll be redirected to login if not already authenticated.</p>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Step 2: Select Agent & Date Range</h3>
-            <div class="help-text">
-              <ul>
-                <li><strong>Select Agent:</strong> Choose an agent from the dropdown list. Use the filter box to search for specific agents by name.</li>
-                <li><strong>Date Range:</strong> Select the start and end dates for the conversation search.</li>
-                <li><strong>Auto-split large date ranges:</strong> Recommended for date ranges longer than 7 days. The tool automatically splits large ranges into smaller chunks for better performance.</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Step 3: Fetch Conversations</h3>
-            <div class="help-text">
-              <ul>
-                <li>Click "Fetch Conversations" to retrieve conversations for the selected agent and date range.</li>
-                <li>The tool shows progress as it fetches conversations and transcripts.</li>
-                <li>Results are displayed in the "Conversations" tab.</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Step 4: Work with Conversations</h3>
-            <div class="help-text">
-              <p>In the Conversations tab, you can:</p>
-              <ul>
-                <li><strong>Select Conversations:</strong> Use checkboxes to select individual conversations or use "Select All"/"Deselect All" buttons.</li>
-                <li><strong>View Details:</strong> Click on any conversation to expand and view detailed information including participants, duration, and media type.</li>
-                <li><strong>Get Transcripts:</strong> Click "Get Transcript" to load conversation transcripts (if available).</li>
-                <li><strong>Export Data:</strong> Select conversations and click "Export Selected Conversations" to download data in Excel format.</li>
-              </ul>
-              <p><strong>Export Options:</strong></p>
-              <ul>
-                <li><code>Include Transcripts</code>: Export conversation transcripts in the Excel file.</li>
-                <li><code>Include Analytics</code>: Include sentiment, empathy, and confidence scores in the export.</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Step 5: Analytics & Word Cloud</h3>
-            <div class="help-text">
-              <p>Switch to the "Analytics & Word Cloud" tab to analyze conversation data:</p>
-              <ul>
-                <li><strong>Agent Filter:</strong> Analyze conversations for a specific agent or all agents.</li>
-                <li><strong>Word Cloud:</strong> Visual representation of frequently used words in transcripts.</li>
-                <li><strong>Word Count Slider:</strong> Adjust how many words appear in the word cloud (20-200 words).</li>
-                <li><strong>Auto-generate transcripts:</strong> When checked, transcripts are automatically fetched when conversations are loaded.</li>
-                <li><strong>Generate Word Cloud:</strong> Create a word cloud from the available transcripts.</li>
-                <li><strong>Export Analytics Data:</strong> Download analytics data as JSON for further analysis.</li>
-              </ul>
-              <p><strong>Analytics Statistics:</strong></p>
-              <ul>
-                <li>Total Words: Count of all words in transcripts</li>
-                <li>Unique Words: Count of distinct words used</li>
-                <li>Transcripts: Number of transcripts processed</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Understanding Conversation Details</h3>
-            <div class="help-text">
-              <p>When you expand a conversation, you'll see:</p>
-              <ul>
-                <li><strong>Media Type:</strong> Type of conversation (voice, email, chat, etc.)</li>
-                <li><strong>Customer Number:</strong> Phone number or contact information</li>
-                <li><strong>Interaction Direction:</strong> Inbound or outbound</li>
-                <li><strong>Timestamps:</strong> Start and end times</li>
-                <li><strong>Duration:</strong> Total conversation duration</li>
-                <li><strong>Participants:</strong> List of all participants (customer, agents, queues)</li>
-                <li><strong>Transcript Preview:</strong> First few lines of the conversation transcript</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Tips & Best Practices</h3>
-            <div class="help-text">
-              <ul>
-                <li>For large date ranges, always enable "Auto-split large date ranges" to avoid timeouts.</li>
-                <li>Start with smaller date ranges (1-7 days) when first testing the tool.</li>
-                <li>Use the agent filter in the Analytics tab to focus on specific agents.</li>
-                <li>Export data regularly to avoid losing your selections if you refresh the page.</li>
-                <li>Word clouds are generated from available transcripts - ensure transcripts are loaded before generating.</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Troubleshooting</h3>
-            <div class="help-text">
-              <ul>
-                <li><strong>No conversations found:</strong> Check that the agent was active during the selected date range.</li>
-                <li><strong>Authentication errors:</strong> Refresh the page to re-authenticate.</li>
-                <li><strong>Transcript errors:</strong> Not all conversations have transcripts available. Transcripts are only available for conversations where speech analytics is enabled.</li>
-                <li><strong>Slow performance:</strong> Reduce the date range or disable auto-transcript generation for faster loading.</li>
-                <li><strong>Export issues:</strong> Ensure you have selected conversations before attempting to export.</li>
-              </ul>
-            </div>
-          </div>
-          
-          <div class="guide-section">
-            <h3>Features Summary</h3>
-            <div class="help-text">
-              <ul>
-                <li>✅ Multi-agent conversation exploration</li>
-                <li>✅ Date range selection with auto-chunking</li>
-                <li>✅ Transcript viewing and export</li>
-                <li>✅ Word cloud generation</li>
-                <li>✅ Conversation analytics (sentiment, empathy, confidence)</li>
-                <li>✅ Bulk export to Excel format</li>
-                <li>✅ JSON analytics data export</li>
-                <li>✅ Automatic authentication</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div> <!-- end main-tab-guide -->
-      
-    </div> <!-- end main-tab-container -->
-    
-  </div> <!-- end mainContent -->
 
+          <!-- Analysis Tab -->
+          <div id="tab-analysis" class="tab-content">
+            <div class="card">
+              <h2>📊 License Distribution</h2>
+              <div style="height:300px;position:relative;margin-top:20px;">
+                <canvas id="licenseChart"></canvas>
+              </div>
+            </div>
+            
+            <div class="stats-grid" style="margin-top:20px;">
+              <div class="card">
+                <h3 style="margin:0 0 15px;">💰 Cost Analysis</h3>
+                <div style="text-align:center;padding:20px;">
+                  <div style="font-size:32px;font-weight:700;color:var(--primary-color);" id="totalCost">$0</div>
+                  <div style="font-size:14px;color:var(--text-light);">Monthly Cost</div>
+                  <div style="margin-top:15px;font-size:12px;color:var(--success);" id="savings">0% savings</div>
+                </div>
+              </div>
+              
+              <div class="card">
+                <h3 style="margin:0 0 15px;">📋 Recommendation</h3>
+                <div style="text-align:center;padding:20px;">
+                  <div style="font-size:24px;font-weight:700;color:var(--primary-color);margin:10px 0;" id="licenseModel">Hybrid</div>
+                  <div style="font-size:14px;color:var(--text-light);">Optimal Model</div>
+                  <div style="margin-top:15px;font-size:12px;color:var(--text-light);">
+                    Based on hour distribution and business rules
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Logs Tab -->
+          <div id="tab-logs" class="tab-content">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 style="margin:0;">📝 System Logs</h2>
+                <div>
+                  <button id="btnClearLogs" class="btn" style="padding:8px 16px;">Clear Logs</button>
+                  <button id="btnCopyLogs" class="btn" style="padding:8px 16px;">Copy Logs</button>
+                </div>
+              </div>
+              
+              <div class="table-container" style="max-height:400px;">
+                <table>
+                  <thead>
+                    <tr>
+                      <th width="100">Time</th>
+                      <th width="100">Level</th>
+                      <th>Message</th>
+                      <th width="150">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody id="logsTableBody">
+                    <tr>
+                      <td>--:--:--</td>
+                      <td>🔵 INFO</td>
+                      <td>System initialized</td>
+                      <td>Ready for connection</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div id="loadingText" style="font-size:18px;font-weight:600;margin-bottom:10px;">Connecting...</div>
+    <div id="loadingSubtext" style="font-size:14px;color:var(--text-light);text-align:center;max-width:400px;"></div>
+    <div class="progress-container" style="margin-top:20px;">
+      <div class="progress-bar">
+        <div class="progress-fill" id="loadingProgressFill"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    // ===== Config (Ireland) =====
+    // ==============================================
+    // CONFIGURATION
+    // ==============================================
     const CONFIG = {
       clientId: 'fe305808-b368-4547-8af9-325d28d552bb',
-      redirectUri: 'https://gmcglynn88.github.io/ConversationExplorer/',
+      redirectUri: 'https://gmcglynn88.github.io/HourlyBilling/',
       loginHost: 'https://login.mypurecloud.ie',
       apiHost: 'https://api.mypurecloud.ie'
     };
 
-    // ===== State =====
-    const state = { 
-      token:null, 
-      users:[], 
-      queues:{}, 
-      conversations:[], 
-      selectedAgent:null, 
-      convIndex:{},
-      selectedConversations: new Set(),
-      transcripts: {}, // Store transcripts by conversation ID
-      wordCloudData: [],
-      analyticsData: {
-        wordFrequencies: {},
-        transcriptCount: 0,
-        totalWords: 0,
-        uniqueWords: 0
-      }
+    // ==============================================
+    // APPLICATION STATE
+    // ==============================================
+    let appState = {
+      token: null,
+      isConnected: false,
+      userData: [],
+      analysisResults: null,
+      isAnalyzing: false,
+      currentTab: 'dashboard',
+      logs: [],
+      chartInstances: {}
     };
 
-    // ===== Utils =====
-    const $ = id => document.getElementById(id);
-    const setStatus = (msg,err=false)=>{ $('statusMessage').textContent = err?'':(msg||''); $('errorMessage').textContent = err?(msg||''):''; };
-    const fmt = d => { if(!d) return 'N/A'; try{return new Date(d).toLocaleString()}catch{return 'N/A'} };
-    const fmtDMY = s => { if(!s||s.length<10) return s||''; const [y,m,d]=s.slice(0,10).split('-'); return `${d}-${m}-${y}`; };
-    const formatSeconds = ms => { if(!ms) return '0s'; const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60); if(h) return `${h}h ${m%60}m ${s%60}s`; if(m) return `${m}m ${s%60}s`; return `${s}s`; };
-    const mmss = ms => { const totalSeconds = Math.max(0, Math.floor((+ms||0)/1000)); const minutes = Math.floor(totalSeconds / 60); const seconds = totalSeconds % 60; return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0'); };
-    const calculateDuration = (a,b)=>{ if(!a||!b) return 0; return new Date(b)-new Date(a); };
-    function showMain(){ $('authStatus').style.display='none'; $('mainContent').style.display='block'; }
-    function setLoading(v){ $('mainContent').classList.toggle('loading', !!v); }
-    function updateProgress(p,cur,total){ $('progressFill').style.width = `${p}%`; $('progressText').textContent = `${Math.round(p)}%`; $('chunkText').textContent = `Chunk ${cur}/${total}`; }
-    function showProgress(){ $('progressSection').style.display='block'; $('resultsSection').style.display='none'; }
-    function hideProgress(){ $('progressSection').style.display='none'; }
+    // ==============================================
+    // DOM ELEMENTS
+    // ==============================================
+    const el = {
+      // Connection
+      signinBtn: document.getElementById('signinBtn'),
+      authStatus: document.getElementById('authStatus'),
+      connectionCard: document.getElementById('connectionCard'),
+      statusIndicator: document.getElementById('statusIndicator'),
+      statusText: document.getElementById('statusText'),
+      mainContent: document.getElementById('mainContent'),
+      
+      // Actions
+      btnFetchData: document.getElementById('btnFetchData'),
+      btnAnalyze: document.getElementById('btnAnalyze'),
+      btnExport: document.getElementById('btnExport'),
+      btnReset: document.getElementById('btnReset'),
+      btnRunAnalysis: document.getElementById('btnRunAnalysis'),
+      
+      // Date/Params
+      dateFrom: document.getElementById('dateFrom'),
+      dateTo: document.getElementById('dateTo'),
+      thresholdHours: document.getElementById('thresholdHours'),
+      includeNologin: document.getElementById('includeNologin'),
+      
+      // Stats Display
+      statTotalUsers: document.getElementById('statTotalUsers'),
+      statActiveUsers: document.getElementById('statActiveUsers'),
+      statNamedUsers: document.getElementById('statNamedUsers'),
+      statHiUsers: document.getElementById('statHiUsers'),
+      totalCost: document.getElementById('totalCost'),
+      savings: document.getElementById('savings'),
+      licenseModel: document.getElementById('licenseModel'),
+      
+      // Tables
+      usersTableBody: document.getElementById('usersTableBody'),
+      userSearch: document.getElementById('userSearch'),
+      visibleCount: document.getElementById('visibleCount'),
+      totalCount: document.getElementById('totalCount'),
+      logsTableBody: document.getElementById('logsTableBody'),
+      btnClearLogs: document.getElementById('btnClearLogs'),
+      btnCopyLogs: document.getElementById('btnCopyLogs'),
+      
+      // Progress
+      progressLabel: document.getElementById('progressLabel'),
+      progressPercent: document.getElementById('progressPercent'),
+      progressFill: document.getElementById('progressFill'),
+      hourBuckets: document.getElementById('hourBuckets'),
+      
+      // Loading
+      loadingOverlay: document.getElementById('loadingOverlay'),
+      loadingText: document.getElementById('loadingText'),
+      loadingSubtext: document.getElementById('loadingSubtext'),
+      loadingProgressFill: document.getElementById('loadingProgressFill'),
+      
+      // Status Container
+      statusContainer: document.getElementById('statusContainer')
+    };
 
-    // ===== Date Range Limiting =====
-    function setupDateLimits() {
-      const today = new Date().toISOString().split('T')[0];
-      $('fromDate').max = today; $('toDate').max = today;
-      $('fromDate').addEventListener('change', function() {
-        if (this.value > today) this.value = today;
-        if ($('toDate').value && this.value > $('toDate').value) $('toDate').value = this.value;
-      });
-      $('toDate').addEventListener('change', function() {
-        if (this.value > today) this.value = today;
-        if ($('fromDate').value && this.value < $('fromDate').value) $('fromDate').value = this.value;
-      });
-    }
-
-    // ===== Main Tabs =====
-    function setupMainTabs() {
-      const mainTabButtons = document.querySelectorAll('.main-tab-button');
-      const mainTabContents = document.querySelectorAll('.main-tab-content');
-      mainTabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-          mainTabButtons.forEach(btn => btn.classList.remove('active'));
-          mainTabContents.forEach(content => content.classList.remove('active'));
-          button.classList.add('active');
-          const tabId = button.getAttribute('data-tab');
-          document.getElementById(tabId).classList.add('active');
-        });
-      });
-    }
-
-    // ===== Tabs =====
-    function setupTabs() {
-      const tabButtons = document.querySelectorAll('.tab-button');
-      const tabContents = document.querySelectorAll('.tab-content');
-      tabButtons.forEach(button => {
-        button.addEventListener('click', () => {
-          tabButtons.forEach(btn => btn.classList.remove('active'));
-          tabContents.forEach(content => content.classList.remove('active'));
-          button.classList.add('active');
-          const tabId = button.getAttribute('data-tab') + '-tab';
-          document.getElementById(tabId).classList.add('active');
-        });
-      });
-    }
-
-    // ===== Auth =====
-    function parseTokenFromHash(){
+    // ==============================================
+    // AUTHENTICATION (SAME AS CONVERSATION EXPLORER)
+    // ==============================================
+    function parseTokenFromHash() {
       const params = new URLSearchParams(location.hash.replace(/^#/, ''));
-      return { token: params.get('access_token'), error: params.get('error'), errorDescription: params.get('error_description') };
+      return { 
+        token: params.get('access_token'), 
+        error: params.get('error'), 
+        errorDescription: params.get('error_description') 
+      };
     }
-    function authUrl(){
+
+    function authUrl() {
       return `${CONFIG.loginHost}/oauth/authorize?client_id=${encodeURIComponent(CONFIG.clientId)}&response_type=token&redirect_uri=${encodeURIComponent(CONFIG.redirectUri)}`;
     }
-    function initAuth(){
-      const {token, error} = parseTokenFromHash();
-      if(location.hash) history.replaceState(null,'',location.pathname);
 
-      if(token){
+    function initAuth() {
+      const { token, error } = parseTokenFromHash();
+      
+      // Clear hash from URL
+      if (location.hash) {
+        history.replaceState(null, '', location.pathname);
+      }
+
+      if (token) {
+        // Clear any previous auth attempts
         sessionStorage.removeItem('gc_auto_auth_attempted');
-        state.token = token; showMain(); setupDateLimits(); setupMainTabs(); setupTabs(); fetchAllUsers();
+        appState.token = token;
+        showMainApp();
+        initializeApp();
         return;
       }
 
       const attempted = sessionStorage.getItem('gc_auto_auth_attempted');
-      if(!attempted && !error){
-        sessionStorage.setItem('gc_auto_auth_attempted','1');
+      if (!attempted && !error) {
+        // First attempt - try auto-auth
+        sessionStorage.setItem('gc_auto_auth_attempted', '1');
         location.assign(authUrl());
         return;
       }
 
-      $('signinBtn').style.display = 'inline-block';
-      $('signinBtn').onclick = () => { sessionStorage.setItem('gc_auto_auth_attempted','1'); location.assign(authUrl()); };
-      $('authStatus').style.display = 'none';
+      // Show sign in button
+      el.signinBtn.style.display = 'inline-block';
+      el.signinBtn.onclick = () => { 
+        sessionStorage.setItem('gc_auto_auth_attempted', '1'); 
+        location.assign(authUrl()); 
+      };
+      el.authStatus.style.display = 'none';
     }
 
-    // ===== API helper =====
-    async function api(path){
-      if(!state.token) throw new Error('Not authenticated');
-      const res = await fetch(`${CONFIG.apiHost}${path}`, { headers:{Authorization:`Bearer ${state.token}`} });
-      if(res.status===401||res.status===403) throw new Error(`Authentication error (${res.status}). Please refresh.`);
-      if(!res.ok){ const t = await res.text().catch(()=> ''); throw new Error(`API Error: ${res.status} ${res.statusText}${t?` - ${t.slice(0,200)}`:''}`); }
-      return res.json();
+    function showMainApp() {
+      el.authStatus.style.display = 'none';
+      el.signinBtn.style.display = 'none';
+      el.mainContent.style.display = 'block';
+      updateConnectionStatus(true, 'Connected ✓');
+      logMessage('SUCCESS', 'Authentication successful', 'Connected to Genesys Cloud');
+      showStatusMessage('✅ Connected to Genesys Cloud', 'success');
     }
 
-    // ===== Users =====
-    async function fetchAllUsers(){
-      try{
-        setStatus('Loading users…'); setLoading(true);
-        let all=[], page=1, size=100;
-        while(true){
-          const data = await api(`/api/v2/users?pageSize=${size}&pageNumber=${page}`);
-          const ents = data?.entities||[]; all = all.concat(ents);
-          if(!data?.nextUri || ents.length<size) break; page++;
-        }
-        state.users = all.map(u=>({id:u.id,name:u.name||'',email:u.email||''})).sort((a,b)=>a.name.localeCompare(b.name));
-        populateUserSelect(state.users);
-        populateAnalyticsAgentSelect(state.users);
-        setStatus(`Loaded ${state.users.length} users`); setLoading(false);
-      }catch(e){ setStatus(`Failed to load users: ${e.message}`, true); setLoading(false); $('agentSelect').innerHTML='<option>Failed to load users</option>'; }
-    }
-    function populateUserSelect(users){
-      const sel=$('agentSelect');
-      sel.innerHTML = '<option value="">Select an agent…</option>' + users.map(u=>`<option value="${u.id}">${u.name||'(Unnamed)'}</option>`).join('');
-      sel.onchange=()=>{ const u = users.find(x=>x.id===sel.value); state.selectedAgent=u||null; if(u){ $('selectedAgentName').textContent=u.name||'(Unnamed)'; $('selectedAgentInfo').style.display='block'; } else { $('selectedAgentInfo').style.display='none'; } };
-    }
-    function populateAnalyticsAgentSelect(users) {
-      const sel = $('analyticsAgentSelect');
-      sel.innerHTML = '<option value="all">All Agents</option>' + 
-        users.map(u => `<option value="${u.id}">${u.name || '(Unnamed)'}</option>`).join('');
-    }
-    $('agentFilter').addEventListener('input', function(){
-      const q = this.value.trim().toLowerCase();
-      populateUserSelect(q ? state.users.filter(u=>(u.name||'').toLowerCase().includes(q)) : state.users);
-    });
-
-    // ===== Chunking =====
-    function chunks(start,end,days){
-      const out=[]; const s=new Date(start), e=new Date(end); let cur=new Date(s);
-      while(cur<=e){ let ce=new Date(cur); ce.setDate(ce.getDate()+days-1); if(ce>e) ce=new Date(e);
-        out.push({start:cur.toISOString().slice(0,10), end:ce.toISOString().slice(0,10)}); cur.setDate(cur.getDate()+days);
-      } return out;
-    }
-    function optimalDays(start,end){
-      const s=new Date(start), e=new Date(end), total=Math.ceil((e-s)/(1000*60*60*24))+1;
-      if(total<=7) return 7; if(total<=30) return 7; if(total<=90) return 5; if(total<=180) return 3; return 2;
-    }
-
-    // ===== Queue helpers =====
-    function getQueueIdFromParticipant(p){ 
-      if(p.queueId) return p.queueId; 
-      for(const s of (p.sessions||[])) {
-        if(s.queueId) return s.queueId;
-        for(const seg of (s.segments||[])) {
-          if(seg.queueId) return seg.queueId;
-        }
+    function updateConnectionStatus(connected, message = '') {
+      appState.isConnected = connected;
+      
+      if (connected) {
+        el.statusIndicator.style.background = 'var(--success)';
+        el.statusText.textContent = message || 'Connected ✓';
+        el.statusText.style.color = 'var(--success)';
+        el.btnFetchData.disabled = false;
+      } else {
+        el.statusIndicator.style.background = 'var(--danger)';
+        el.statusText.textContent = message || 'Not Connected';
+        el.statusText.style.color = 'var(--danger)';
+        el.btnFetchData.disabled = true;
       }
-      return null; 
     }
 
-    function getQueueName(id){ 
-      if (!id) return null;
-      const name = state.queues[id];
-      if (name) return name;
-      return `Queue ${id.substring(0, 8)}...`;
+    // ==============================================
+    // UTILITY FUNCTIONS
+    // ==============================================
+    function setLoading(show, text = '', subtext = '') {
+      if (show) {
+        el.loadingText.textContent = text;
+        el.loadingSubtext.textContent = subtext;
+        el.loadingOverlay.classList.add('active');
+      } else {
+        el.loadingOverlay.classList.remove('active');
+      }
     }
 
-    async function fetchQueueNames(queueIds) {
-      if (!queueIds || queueIds.length === 0) return;
-      const queuesToFetch = queueIds.filter(id => !state.queues[id]);
-      if (queuesToFetch.length === 0) return;
-      const batchSize = 10;
-      for (let i = 0; i < queuesToFetch.length; i += batchSize) {
-        const batch = queuesToFetch.slice(i, i + batchSize);
-        const promises = batch.map(async (queueId) => {
-          try {
-            const queue = await api(`/api/v2/routing/queues/${queueId}`);
-            if (queue && queue.name) {
-              state.queues[queueId] = queue.name;
-            }
-          } catch (e) {
-            console.warn(`Could not fetch queue name for ${queueId}:`, e);
-            state.queues[queueId] = 'Unknown Queue';
-          }
-        });
-        await Promise.all(promises);
-        if (i + batchSize < queuesToFetch.length) {
+    function updateProgress(label, percent) {
+      el.progressLabel.textContent = label;
+      el.progressPercent.textContent = `${percent}%`;
+      el.progressFill.style.width = `${percent}%`;
+    }
+
+    function updateLoadingProgress(percent) {
+      el.loadingProgressFill.style.width = `${percent}%`;
+    }
+
+    function logMessage(level, message, details = '') {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = { timestamp, level, message, details };
+      appState.logs.unshift(logEntry);
+      
+      // Update logs table
+      const row = document.createElement('tr');
+      const levelIcon = level === 'ERROR' ? '🔴' : 
+                      level === 'WARN' ? '🟡' : 
+                      level === 'SUCCESS' ? '✅' : '🔵';
+      
+      row.innerHTML = `
+        <td>${timestamp}</td>
+        <td>${levelIcon} ${level}</td>
+        <td>${message}</td>
+        <td>${details}</td>
+      `;
+      
+      el.logsTableBody.prepend(row);
+      
+      // Keep only last 50 logs
+      if (el.logsTableBody.children.length > 50) {
+        el.logsTableBody.removeChild(el.logsTableBody.lastChild);
+      }
+      
+      // Show important messages in status container
+      if (level === 'ERROR' || level === 'SUCCESS' || level === 'WARN') {
+        showStatusMessage(message, level.toLowerCase());
+      }
+      
+      console.log(`[${level}] ${message}`, details);
+    }
+
+    function showStatusMessage(message, type = 'info') {
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'status-message';
+      
+      const icon = type === 'success' ? '✅' : 
+                  type === 'error' ? '❌' : 
+                  type === 'warn' ? '⚠️' : '💡';
+      const color = type === 'success' ? 'var(--success)' : 
+                   type === 'error' ? 'var(--danger)' : 
+                   type === 'warn' ? 'var(--warning)' : 'var(--info)';
+      
+      msgDiv.style.borderLeftColor = color;
+      msgDiv.innerHTML = `
+        <span style="font-size:20px;">${icon}</span>
+        <div>
+          <div style="font-weight:600;">${message}</div>
+          <div style="font-size:12px;color:var(--text-light);">${new Date().toLocaleTimeString()}</div>
+        </div>
+      `;
+      
+      el.statusContainer.appendChild(msgDiv);
+      
+      // Auto-remove after 5 seconds
+      setTimeout(() => {
+        if (msgDiv.parentNode) {
+          msgDiv.style.opacity = '0';
+          msgDiv.style.transform = 'translateX(100%)';
+          setTimeout(() => msgDiv.remove(), 300);
+        }
+      }, 5000);
+    }
+
+    // ==============================================
+    // API HELPER
+    // ==============================================
+    async function apiCall(path, options = {}) {
+      if (!appState.token) throw new Error('Not authenticated');
+      
+      const response = await fetch(`${CONFIG.apiHost}${path}`, {
+        ...options,
+        headers: {
+          'Authorization': `Bearer ${appState.token}`,
+          'Content-Type': 'application/json',
+          ...options.headers
+        }
+      });
+      
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(`Authentication error (${response.status}). Please refresh.`);
+      }
+      
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(`API Error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText.slice(0,200)}` : ''}`);
+      }
+      
+      return response.json();
+    }
+
+    // ==============================================
+    // DATA FETCHING
+    // ==============================================
+    async function fetchUserData() {
+      setLoading(true, 'Fetching User Data', 'Retrieving user interaction data from Genesys Cloud...');
+      updateLoadingProgress(10);
+      
+      try {
+        const dateFrom = el.dateFrom.value;
+        const dateTo = el.dateTo.value;
+        
+        if (!dateFrom || !dateTo) {
+          throw new Error('Please select a date range');
+        }
+        
+        // First, get all users
+        updateLoadingProgress(20);
+        logMessage('INFO', 'Fetching user list');
+        
+        let allUsers = [];
+        let page = 1;
+        const pageSize = 100;
+        
+        while (true) {
+          const usersData = await apiCall(`/api/v2/users?pageSize=${pageSize}&pageNumber=${page}&expand=presence,routingStatus,authorization`);
+          const users = usersData?.entities || [];
+          allUsers = allUsers.concat(users);
+          
+          if (!usersData?.nextUri || users.length < pageSize) break;
+          page++;
+          
+          // Add small delay to avoid rate limiting
           await new Promise(resolve => setTimeout(resolve, 100));
         }
-      }
-    }
-
-    async function warmQueueCache(convs) {
-      const queueIds = new Set(); 
-      for(const c of convs) {
-        for(const p of (c.participants||[])){ 
-          if((p.purpose || '').toLowerCase() === 'acd'){
-            const id = getQueueIdFromParticipant(p); 
-            if(id) queueIds.add(id); 
-          }
-        }
-      }
-      await fetchQueueNames([...queueIds]);
-    }
-
-    function getUserNameById(id){
-      const u = state.users.find(u => u.id === id);
-      return u ? u.name : `Agent ${id}`;
-    }
-
-    // ===== Conversation helpers =====
-    function firstSession(c){ for(const p of (c.participants||[])) for(const s of (p.sessions||[])) return s; return null; }
-    function getMediaType(c){ return (firstSession(c)?.mediaType)||'Unknown'; }
-    function getDirection(c){ return firstSession(c)?.direction || c.originatingDirection || 'Unknown'; }
-    function getConversationMediaTypes(c){ const t=new Set(); for(const p of (c.participants||[])) for(const s of (p.sessions||[])) if(s.mediaType) t.add(s.mediaType); return [...t].join(', ')||getMediaType(c); }
-    function getANI(c){
-      for(const p of (c.participants||[])) for(const s of (p.sessions||[])){
-        if((s.mediaType||'').toLowerCase()!=='voice') continue;
-        const dir=(s.direction||c.originatingDirection||'').toLowerCase();
-        if(dir==='inbound') return s.ani||s.addressFrom||s.otherAddress||s.remote||'Unknown';
-      }
-      const s=firstSession(c); return s?.ani||s?.addressFrom||s?.otherAddress||s?.remote||'Unknown';
-    }
-    function getStepStart(p){
-      let t=[]; for(const s of (p.sessions||[])){
-        if(s.startTime){ const v=+new Date(s.startTime); if(!isNaN(v)) t.push(v); }
-        for(const seg of (s.segments||[])){
-          if(seg.segmentStart){ const v=+new Date(seg.segmentStart); if(!isNaN(v)) t.push(v); }
-          for(const ev of (seg.events||[])) if(ev.eventTime){ const v=+new Date(ev.eventTime); if(!isNaN(v)) t.push(v); }
-        }
-      }
-      return t.length? new Date(Math.min(...t)) : null;
-    }
-    function getAgentWindow(p){
-      let s=[],e=[]; for(const ss of (p.sessions||[])){
-        for(const seg of (ss.segments||[])){
-          if(seg.segmentStart){ const v=+new Date(seg.segmentStart); if(!isNaN(v)) s.push(v); }
-          if(seg.segmentEnd){ const v=+new Date(seg.segmentEnd); if(!isNaN(v)) e.push(v); }
-        }
-      }
-      if(!s.length||!e.length) return {durationMs:0}; return {durationMs: Math.max(...e)-Math.min(...s)};
-    }
-    function getAlertMsForAgent(p){
-      if(!p?.userId) return 0; let total=0; const add=v=>{ if(v==null||isNaN(v))return; const ms=(v>120)?v:v*1000; total+=ms; };
-      for(const s of (p.sessions||[])){
-        if(Array.isArray(s.metrics)) for(const m of s.metrics) if(m?.name==='tAlert') add(m.value??m.durationMs);
-        for(const seg of (s.segments||[])){
-          if(Array.isArray(seg.metrics)) for(const m of seg.metrics) if(m?.name==='tAlert') add(m.value??m.durationMs);
-          for(const ev of (seg.events||[])) if(Array.isArray(ev.metrics)) for(const m of ev.metrics) if(m?.name==='tAlert') add(m.value??m.durationMs);
-        }
-      }
-      return total;
-    }
-
-    function getParticipantName(p){
-      if(p.purpose==='customer') return 'Customer';
-      if(p.userId){ const u=state.users.find(x=>x.id===p.userId); return u?u.name:`Agent (${p.userId})`; }
-      if(p.purpose==='acd') return 'ACD Queue';
-      if(p.purpose==='ivr') return 'IVR System';
-      if(p.purpose==='external') return 'External System';
-      return p.purpose||'Unknown';
-    }
-    function getParticipantType(p){
-      if(p.purpose==='customer') return 'Customer';
-      if(p.userId) return 'Agent';
-      if(p.purpose==='acd') return 'Queue';
-      if(p.purpose==='ivr') return 'IVR System';
-      if(p.purpose==='external') return 'External';
-      return p.purpose||'Unknown';
-    }
-    function badge(purpose,name){
-      const cls = {'customer':'badge-customer','user':'badge-agent','acd':'badge-queue','ivr':'badge-ivr','external':'badge-system','queue':'badge-queue'}[purpose]||'badge-system';
-      return '<span class="participant-badge ' + cls + '">' + name + '</span>';
-    }
-
-    // ===== Transcript helpers =====
-    function normaliseRole(v){
-      const s=(v||'').toString().toLowerCase();
-      if(['internal','agent','user'].includes(s)) return 'internal';
-      if(['external','customer','participant','caller','callee'].includes(s)) return 'external';
-      return s||'external';
-    }
-    function labelToScore(v){
-      if(v==null) return null;
-      if(typeof v==='number') return v;
-      const s=v.toString().toUpperCase();
-      if(s.includes('POS')) return 0.6;
-      if(s.includes('NEG')) return -0.6;
-      if(s.includes('NEU')) return 0;
-      const n=parseFloat(v); return isNaN(n)?null:n;
-    }
-    function coerceMs(x){
-      const n=Number(x); if(!isNaN(n)) return n;
-      const d=+new Date(x); return isNaN(d)?null:d;
-    }
-
-    function extractSignals(parsed){
-      const out=[]; const buckets=[];
-      if(parsed?.analytics) buckets.push(parsed.analytics);
-      if(Array.isArray(parsed?.transcripts)){
-        for(const tr of parsed.transcripts){ if(tr?.analytics) buckets.push(tr.analytics); }
-      }
-      for(const a of buckets){
-        if(!a) continue;
-        if(Array.isArray(a.sentiment)){
-          for(const s of a.sentiment){
-            out.push({kind:'sentiment',role:normaliseRole(s.participant||s.participantPurpose),startTimeMs:coerceMs(s.startTimeMs),endTimeMs:(s.duration?.milliseconds!=null)?(coerceMs(s.startTimeMs)+Number(s.duration.milliseconds)):coerceMs(s.endTimeMs),value:labelToScore(s.sentiment??s.score??s.value??s.level)});
-          }
-        }
-        if(Array.isArray(a.empathy)){
-          for(const e of a.empathy){
-            const v=e.empathy??e.score??e.value;
-            out.push({kind:'empathy',role:normaliseRole(e.participant||e.participantPurpose),startTimeMs:coerceMs(e.startTimeMs),endTimeMs:(e.duration?.milliseconds!=null)?(coerceMs(e.startTimeMs)+Number(e.duration.milliseconds)):coerceMs(e.endTimeMs),value:(typeof v==='number')?v:labelToScore(v)});
-          }
-        }
-      }
-      return out.filter(s=>s.role && s.startTimeMs!=null);
-    }
-
-    function processPhrases(parsed){
-      let phrases=[];
-      if(Array.isArray(parsed?.transcripts)){
-        parsed.transcripts.forEach(tr=>{ if(Array.isArray(tr.phrases)) phrases=phrases.concat(tr.phrases); });
-      }
-      if(Array.isArray(parsed?.phrases)) phrases=phrases.concat(parsed.phrases);
-      return phrases.map(ph=>{
-        const start=coerceMs(ph.startTimeMs??ph.startTime??ph.offsetMs??ph.offset);
-        const end=coerceMs(ph.endTimeMs??ph.endTime??(start!=null?start+3000:null));
-        const role=normaliseRole(ph.participantPurpose??ph.participant??ph.role);
-        const text=ph.decoratedText??ph.text??ph.transcript??'';
-        const conf=(typeof ph.confidence==='number')?ph.confidence
-                 :(typeof ph.confidenceScore==='number')?ph.confidenceScore
-                 :(typeof ph.asrConfidence==='number')?ph.asrConfidence:null;
-        const directSent=ph.sentimentScore??ph.sentiment??ph.analytics?.sentiment??null;
-        const directEmp =ph.empathyScore??ph.empathy??ph.analytics?.empathy??null;
-        return {
-          participantPurpose: role||'external',
-          decoratedText: text,
-          startTimeMs: start ?? 0,
-          endTimeMs: end ?? ((start ?? 0)+3000),
-          sentimentDirect: labelToScore(directSent),
-          empathyDirect: (typeof directEmp==='number')?directEmp:labelToScore(directEmp),
-          confidence: (typeof conf==='number'?conf:null),
-          participantId: ph.participantId,
-          userIds: ph.userIds||[],
-          externalContactIds: ph.externalContactIds||[]
-        };
-      }).filter(p=>p.decoratedText && p.startTimeMs!=null).sort((a,b)=>a.startTimeMs-b.startTimeMs);
-    }
-
-    const SENTIMENT_POS = 0.15;
-    const SENTIMENT_NEG = -0.15;
-    const EMPATHY_GOOD  = 0.20;
-
-    function sentimentToLabel(v){
-      if (v == null || isNaN(v)) return {label:'-', css:'sentiment-neutral'};
-      if (v > SENTIMENT_POS)     return {label:'Positive', css:'sentiment-positive'};
-      if (v < SENTIMENT_NEG)     return {label:'Negative', css:'sentiment-negative'};
-      return {label:'Neutral', css:'sentiment-neutral'};
-    }
-    function empathyToLabel(v){
-      if (v == null || isNaN(v)) return {label:'-', css:''};
-      return (v > EMPATHY_GOOD)
-        ? {label:'Empathetic', css:'empathy-positive'}
-        : {label:'Unhelpful',  css:'empathy-negative'};
-    }
-
-    async function getTranscriptForConversation(conversationId){
-      const conv = state.convIndex[conversationId]; 
-      if(!conv){ 
-        console.error('Conversation not found in state.'); 
-        return null;
-      }
-      
-      if(state.transcripts[conversationId]) {
-        return state.transcripts[conversationId];
-      }
-      
-      const commId = findCommunicationsIdFromDetails(conv);
-      if(!commId){ 
-        console.error('No sessionId found to use as communicationsId.'); 
-        return null;
-      }
-      
-      try{
-        const urlRes = await fetch(CONFIG.apiHost + '/api/v2/speechandtextanalytics/conversations/' + conversationId + '/communications/' + commId + '/transcripturl', {headers:{Authorization:'Bearer ' + state.token}});
-        if(!urlRes.ok){ 
-          const t=await urlRes.text().catch(()=> ''); 
-          throw new Error('Transcript URL error: ' + urlRes.status + ' ' + urlRes.statusText + (t?' - ' + t.slice(0,200):'')); 
-        }
-        const {url:presigned} = await urlRes.json(); 
-        if(!presigned) throw new Error('No URL in transcript response.');
         
-        const raw = await fetch(presigned); 
-        if(!raw.ok) throw new Error('Transcript download failed: ' + raw.status + ' ' + raw.statusText);
-        const text = await raw.text(); 
-        let parsed=null; 
-        try{ parsed=JSON.parse(text);}catch{}
+        updateLoadingProgress(40);
+        logMessage('INFO', `Loaded ${allUsers.length} users`);
         
-        state.transcripts[conversationId] = parsed;
-        return parsed;
-      }catch(e){
-        console.error(e); 
-        return null;
-      }
-    }
-
-    // ===== Selection and Export Functions =====
-    function updateSelectedCount() {
-      $('selectedCount').textContent = `${state.selectedConversations.size} selected`;
-    }
-
-    function toggleConversationSelection(conversationId) {
-      if (state.selectedConversations.has(conversationId)) {
-        state.selectedConversations.delete(conversationId);
-      } else {
-        state.selectedConversations.add(conversationId);
-      }
-      updateSelectedCount();
-    }
-
-    function selectAllConversations() {
-      state.selectedConversations = new Set(state.conversations.map(c => c.conversationId));
-      updateSelectedCount();
-      renderResults(state.conversations, $('fromDate').value, $('toDate').value);
-    }
-
-    function deselectAllConversations() {
-      state.selectedConversations.clear();
-      updateSelectedCount();
-      renderResults(state.conversations, $('fromDate').value, $('toDate').value);
-    }
-
-    async function exportSelectedConversations() {
-      if (state.selectedConversations.size === 0) {
-        alert('Please select at least one conversation to export.');
-        return;
-      }
-
-      try {
-        setStatus('Preparing export...');
-        setLoading(true);
-
-        const includeTranscripts = $('includeTranscripts').checked;
-        const includeAnalytics = $('includeAnalytics').checked;
+        // Now fetch interaction data for each user
+        updateLoadingProgress(50);
+        logMessage('INFO', 'Fetching interaction data');
         
-        const workbook = new ExcelJS.Workbook();
+        const interval = `${dateFrom}T00:00:00.000Z/${dateTo}T23:59:59.999Z`;
+        appState.userData = [];
         
-        // Create Conversations sheet
-        const conversationsSheet = workbook.addWorksheet('Conversations');
-        conversationsSheet.columns = [
-          { header: 'Conversation ID', key: 'id', width: 30 },
-          { header: 'Start Time', key: 'start', width: 25 },
-          { header: 'End Time', key: 'end', width: 25 },
-          { header: 'Duration', key: 'duration', width: 15 },
-          { header: 'Media Type', key: 'media', width: 15 },
-          { header: 'Direction', key: 'direction', width: 15 },
-          { header: 'Customer Number', key: 'ani', width: 20 },
-          { header: 'Agent', key: 'agent', width: 25 }
-        ];
-
-        // Create Transcripts sheet if needed
-        let transcriptsSheet;
-        if (includeTranscripts) {
-          transcriptsSheet = workbook.addWorksheet('Transcripts');
-          transcriptsSheet.columns = [
-            { header: 'Conversation ID', key: 'convId', width: 30 },
-            { header: 'Time (MM:SS)', key: 'time', width: 15 },
-            { header: 'Participant Type', key: 'type', width: 15 },
-            { header: 'Participant', key: 'participant', width: 25 },
-            { header: 'Text', key: 'text', width: 50 },
-            { header: 'Sentiment', key: 'sentiment', width: 15 },
-            { header: 'Empathy', key: 'empathy', width: 15 },
-            { header: 'Confidence', key: 'confidence', width: 15 }
-          ];
-        }
-
-        // Process selected conversations
-        for (const convId of state.selectedConversations) {
-          const conv = state.convIndex[convId];
-          if (!conv) continue;
-
-          // Add to conversations sheet
-          conversationsSheet.addRow({
-            id: conv.conversationId,
-            start: fmt(conv.conversationStart),
-            end: fmt(conv.conversationEnd),
-            duration: formatSeconds(calculateDuration(conv.conversationStart, conv.conversationEnd)),
-            media: getConversationMediaTypes(conv),
-            direction: getDirection(conv),
-            ani: getANI(conv),
-            agent: state.selectedAgent?.name || 'Unknown'
-          });
-
-          // Process transcript if needed
-          if (includeTranscripts) {
-            const transcript = await getTranscriptForConversation(convId);
-            if (transcript) {
-              const phrases = processPhrases(transcript);
-              const nameMap = mapParticipantNames(conv);
+        // Process users in batches
+        const batchSize = 10;
+        for (let i = 0; i < allUsers.length; i += batchSize) {
+          const batch = allUsers.slice(i, i + batchSize);
+          const batchPromises = batch.map(async (user) => {
+            try {
+              // Create analytics job for this user
+              const jobBody = {
+                interval: interval,
+                presenceFilters: [{
+                  type: "and",
+                  clauses: [{
+                    type: "or",
+                    predicates: [{
+                      dimension: "systemPresence",
+                      operator: "matches",
+                      value: "e08eaf1b-ee47-4fa9-a231-1200e284798f"
+                    }]
+                  }]
+                }],
+                routingStatusFilters: [{
+                  type: "and",
+                  predicates: [{
+                    dimension: "routingStatus",
+                    value: "INTERACTING"
+                  }]
+                }],
+                userFilters: [{
+                  type: "and",
+                  predicates: [{
+                    dimension: "userId",
+                    operator: "matches",
+                    value: user.id
+                  }]
+                }]
+              };
               
-              phrases.forEach(p => {
-                const absolute = p.startTimeMs>1e12;
-                const convStart = new Date(conv.conversationStart).getTime();
-                const rel = absolute ? (p.startTimeMs - convStart) : p.startTimeMs;
-                const timeFormatted = mmss(Math.max(0, rel));
-                
-                let participantName = '';
-                if(p.participantPurpose==='internal'){
-                  if(p.userIds && p.userIds.length){
-                    const id=p.userIds[0];
-                    participantName = nameMap[id] || (state.users.find(u=>u.id===id)?.name) || 'Agent';
-                  } else {
-                    participantName = 'Agent';
-                  }
-                } else {
-                  participantName = 'Customer';
-                }
-
-                transcriptsSheet.addRow({
-                  convId: conv.conversationId,
-                  time: timeFormatted,
-                  type: p.participantPurpose==='internal' ? 'Internal' : 'External',
-                  participant: participantName,
-                  text: p.decoratedText,
-                  sentiment: p.sentimentDirect != null ? p.sentimentDirect.toFixed(3) : '',
-                  empathy: p.empathyDirect != null ? p.empathyDirect.toFixed(3) : '',
-                  confidence: p.confidence != null ? p.confidence.toFixed(3) : ''
-                });
+              const jobResponse = await apiCall('/api/v2/analytics/users/details/jobs', {
+                method: 'POST',
+                body: JSON.stringify(jobBody)
               });
+              
+              if (jobResponse.id) {
+                // Wait for job completion
+                let jobStatus = 'PENDING';
+                let attempts = 0;
+                
+                while (jobStatus !== 'COMPLETED' && attempts < 30) {
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  const statusResponse = await apiCall(`/api/v2/analytics/users/details/jobs/${jobResponse.id}`);
+                  jobStatus = statusResponse.state;
+                  attempts++;
+                  
+                  if (jobStatus === 'FAILED') {
+                    throw new Error('Analytics job failed');
+                  }
+                }
+                
+                if (jobStatus === 'COMPLETED') {
+                  // Fetch results
+                  const resultsResponse = await apiCall(`/api/v2/analytics/users/details/jobs/${jobResponse.id}/results`);
+                  const results = resultsResponse.results || [];
+                  
+                  // Calculate total interacting hours
+                  const totalHours = results.reduce((sum, record) => {
+                    return sum + ((record.totalDuration || 0) / 3600000); // Convert ms to hours
+                  }, 0);
+                  
+                  return {
+                    id: user.id,
+                    name: user.name || 'Unknown',
+                    email: user.email || 'No email',
+                    role: user.authorization?.roles?.map(r => r.name).join(', ') || 'No role',
+                    team: user.team?.name || 'Unassigned',
+                    interactingHours: parseFloat(totalHours.toFixed(2)),
+                    isSupervisor: (user.authorization?.roles || []).some(role => 
+                      role.name.includes('Admin') || 
+                      role.name.includes('Supervisor') || 
+                      role.name.includes('Manager')
+                    ),
+                    status: user.presence?.presenceDefinition?.systemPresence || 'Unknown'
+                  };
+                }
+              }
+            } catch (error) {
+              console.error(`Error processing user ${user.id}:`, error);
+              return null;
             }
-          }
+          });
+          
+          const batchResults = await Promise.all(batchPromises);
+          appState.userData = appState.userData.concat(batchResults.filter(user => user !== null));
+          
+          updateLoadingProgress(50 + (i / allUsers.length * 40));
+          logMessage('INFO', `Processed ${Math.min(i + batchSize, allUsers.length)}/${allUsers.length} users`);
         }
-
-        // Format the sheets
-        conversationsSheet.getRow(1).font = { bold: true };
-        if (includeTranscripts) {
-          transcriptsSheet.getRow(1).font = { bold: true };
-        }
-
-        // Generate Excel file
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `conversations_export_${new Date().toISOString().split('T')[0]}.xlsx`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        setStatus(`Exported ${state.selectedConversations.size} conversation(s)`);
-      } catch (error) {
-        console.error('Export error:', error);
-        setStatus('Error during export: ' + error.message, true);
-      } finally {
+        
+        updateLoadingProgress(95);
+        logMessage('SUCCESS', 'Data loaded successfully', `${appState.userData.length} users with interaction data`);
+        
+        // Update UI
+        el.statTotalUsers.textContent = appState.userData.length;
+        el.totalCount.textContent = appState.userData.length;
+        el.visibleCount.textContent = appState.userData.length;
+        el.btnAnalyze.disabled = false;
+        el.btnRunAnalysis.disabled = false;
+        
+        // Display initial user table
+        renderUserTable();
+        updateHourBuckets();
+        
+        updateLoadingProgress(100);
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         setLoading(false);
+        showStatusMessage(`✅ Loaded ${appState.userData.length} users with interaction data`, 'success');
+        
+      } catch (error) {
+        setLoading(false);
+        logMessage('ERROR', 'Failed to fetch data', error.message);
+        showStatusMessage('❌ Failed to fetch data', 'error');
       }
     }
 
-    // ===== Analytics and Word Cloud Functions =====
-    function generateWordCloudData() {
-      // Reset analytics data
-      state.analyticsData = {
-        wordFrequencies: {},
-        transcriptCount: 0,
-        totalWords: 0,
-        uniqueWords: 0
-      };
-
-      const selectedAgentId = $('analyticsAgentSelect').value;
+    // ==============================================
+    // ANALYSIS & CALCULATIONS
+    // ==============================================
+    async function runAnalysis() {
+      if (appState.isAnalyzing) return;
       
-      // Process all transcripts
-      Object.entries(state.transcripts).forEach(([convId, transcript]) => {
-        const conv = state.convIndex[convId];
-        if (!conv) return;
+      appState.isAnalyzing = true;
+      el.btnRunAnalysis.disabled = true;
+      el.btnRunAnalysis.innerHTML = '<span>⏳ Analyzing...</span>';
+      
+      updateProgress('Starting analysis...', 10);
+      
+      try {
+        const threshold = parseFloat(el.thresholdHours.value);
+        const includeNologin = el.includeNologin.value === 'true';
         
-        // Filter by agent if needed
-        if (selectedAgentId !== 'all') {
-          const hasAgent = conv.participants && conv.participants.some(p => p.userId === selectedAgentId);
-          if (!hasAgent) return;
+        // Filter users
+        updateProgress('Filtering users...', 30);
+        let usersToAnalyze = appState.userData;
+        if (!includeNologin) {
+          usersToAnalyze = appState.userData.filter(u => u.interactingHours > 0);
         }
-
-        const phrases = processPhrases(transcript);
-        state.analyticsData.transcriptCount++;
         
-        phrases.forEach(phrase => {
-          const text = phrase.decoratedText || '';
-          const words = text.toLowerCase()
-            .replace(/[^\w\s]/g, ' ')
-            .split(/\s+/)
-            .filter(word => word.length > 3 && !isStopWord(word));
+        // Analyze each user
+        updateProgress('Applying business rules...', 50);
+        usersToAnalyze.forEach(user => {
+          if (user.interactingHours === 0) {
+            user.recommendedLicense = 'NOLOGIN';
+            user.recommendedReason = 'No login activity';
+          } else if (user.isSupervisor) {
+            user.recommendedLicense = 'Named';
+            user.recommendedReason = 'Admin/Supervisor role';
+          } else if (user.interactingHours < threshold) {
+            user.recommendedLicense = 'HI';
+            user.recommendedReason = `Under ${threshold} hours`;
+          } else {
+            user.recommendedLicense = 'Named';
+            user.recommendedReason = `Over ${threshold} hours`;
+          }
           
-          state.analyticsData.totalWords += words.length;
-          
-          words.forEach(word => {
-            if (!state.analyticsData.wordFrequencies[word]) {
-              state.analyticsData.wordFrequencies[word] = 0;
-              state.analyticsData.uniqueWords++;
-            }
-            state.analyticsData.wordFrequencies[word]++;
-          });
+          // Cost calculation
+          if (user.recommendedLicense === 'HI') {
+            user.estimatedCost = user.interactingHours * 0.45;
+          } else if (user.recommendedLicense === 'Named') {
+            user.estimatedCost = 70;
+          } else {
+            user.estimatedCost = 0;
+          }
         });
+        
+        // Calculate statistics
+        updateProgress('Calculating statistics...', 70);
+        const totalUsers = usersToAnalyze.length;
+        const activeUsers = usersToAnalyze.filter(u => u.interactingHours > 0).length;
+        const namedUsers = usersToAnalyze.filter(u => u.recommendedLicense === 'Named').length;
+        const hiUsers = usersToAnalyze.filter(u => u.recommendedLicense === 'HI').length;
+        const nologinUsers = usersToAnalyze.filter(u => u.recommendedLicense === 'NOLOGIN').length;
+        const totalHours = usersToAnalyze.reduce((sum, u) => sum + u.interactingHours, 0);
+        
+        // Cost analysis
+        const allNamedCost = totalUsers * 70;
+        const hiHours = usersToAnalyze
+          .filter(u => u.recommendedLicense === 'HI')
+          .reduce((sum, u) => sum + u.interactingHours, 0);
+        const hybridCost = (namedUsers * 70) + (hiHours * 0.45);
+        const savings = allNamedCost > 0 ? ((allNamedCost - hybridCost) / allNamedCost * 100).toFixed(1) : 0;
+        
+        // Determine optimal model
+        let optimalModel = 'Hybrid';
+        if (hiUsers / totalUsers > 0.7) optimalModel = 'Mostly HI';
+        else if (namedUsers / totalUsers > 0.7) optimalModel = 'Mostly Named';
+        else if (hiUsers === 0) optimalModel = 'All Named';
+        else if (namedUsers === 0) optimalModel = 'All HI';
+        
+        // Store results
+        appState.analysisResults = {
+          totalUsers,
+          activeUsers,
+          namedUsers,
+          hiUsers,
+          nologinUsers,
+          totalHours: totalHours.toFixed(2),
+          threshold,
+          allNamedCost: allNamedCost.toFixed(0),
+          hybridCost: hybridCost.toFixed(0),
+          savings,
+          optimalModel,
+          users: usersToAnalyze
+        };
+        
+        // Update UI
+        updateProgress('Updating display...', 90);
+        el.statActiveUsers.textContent = activeUsers;
+        el.statNamedUsers.textContent = namedUsers;
+        el.statHiUsers.textContent = hiUsers;
+        el.totalCost.textContent = `$${hybridCost}`;
+        el.savings.textContent = `${savings}% savings`;
+        el.licenseModel.textContent = optimalModel;
+        
+        // Update user table with recommendations
+        renderUserTable();
+        
+        // Create chart
+        updateProgress('Creating visualization...', 95);
+        createLicenseChart();
+        
+        updateProgress('Analysis complete!', 100);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        logMessage('SUCCESS', 'Analysis complete', `${namedUsers} Named, ${hiUsers} HI users`);
+        showStatusMessage(`✅ Analysis complete: ${savings}% cost savings`, 'success');
+        
+        el.btnExport.disabled = false;
+        
+      } catch (error) {
+        logMessage('ERROR', 'Analysis failed', error.message);
+        showStatusMessage('❌ Analysis failed', 'error');
+      } finally {
+        appState.isAnalyzing = false;
+        el.btnRunAnalysis.disabled = false;
+        el.btnRunAnalysis.innerHTML = '<span>▶️ Run Analysis</span>';
+        updateProgress('Ready to analyze', 0);
+      }
+    }
+
+    // ==============================================
+    // UI RENDERING
+    // ==============================================
+    function renderUserTable(searchTerm = '') {
+      const tbody = el.usersTableBody;
+      tbody.innerHTML = '';
+      
+      let usersToDisplay = appState.userData;
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        usersToDisplay = appState.userData.filter(user =>
+          user.name.toLowerCase().includes(term) ||
+          user.email.toLowerCase().includes(term) ||
+          user.team.toLowerCase().includes(term) ||
+          user.role.toLowerCase().includes(term) ||
+          (user.recommendedLicense && user.recommendedLicense.toLowerCase().includes(term))
+        );
+      }
+      
+      el.visibleCount.textContent = usersToDisplay.length;
+      
+      usersToDisplay.forEach(user => {
+        const row = document.createElement('tr');
+        
+        let licenseBadge = '';
+        let badgeClass = '';
+        
+        if (user.recommendedLicense) {
+          switch(user.recommendedLicense) {
+            case 'Named':
+              badgeClass = 'status-named';
+              licenseBadge = `<span class="status-badge ${badgeClass}">Named</span>`;
+              break;
+            case 'HI':
+              badgeClass = 'status-hi';
+              licenseBadge = `<span class="status-badge ${badgeClass}">HI</span>`;
+              break;
+            case 'NOLOGIN':
+              badgeClass = 'status-nologin';
+              licenseBadge = `<span class="status-badge ${badgeClass}">NOLOGIN</span>`;
+              break;
+          }
+        }
+        
+        row.innerHTML = `
+          <td>
+            <div style="font-weight:600;">${user.name}</div>
+            <div style="font-size:11px;color:var(--text-light);">ID: ${user.id}</div>
+          </td>
+          <td>${user.email}</td>
+          <td>
+            ${user.role}
+            ${user.isSupervisor ? '<div style="font-size:10px;color:var(--warning);">Supervisor</div>' : ''}
+          </td>
+          <td style="text-align:center;font-weight:600;">
+            ${user.interactingHours.toFixed(1)}
+          </td>
+          <td>${licenseBadge}</td>
+          <td>
+            <span style="font-size:11px;color:${user.status === 'Available' ? 'var(--success)' : 'var(--text-light)'}">
+              ${user.status}
+            </span>
+          </td>
+        `;
+        
+        tbody.appendChild(row);
       });
-
-      // Sort words by frequency
-      const sortedWords = Object.entries(state.analyticsData.wordFrequencies)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, parseInt($('wordCountSlider').value));
-      
-      // Convert to word cloud format
-      state.wordCloudData = sortedWords.map(([text, weight]) => [text, weight * 10]);
-      
-      updateAnalyticsDisplay();
-      renderWordCloud();
-      renderWordList();
     }
 
-    function isStopWord(word) {
-      const stopWords = new Set([
-        'that', 'with', 'have', 'this', 'from', 'they', 'what', 'when', 'where',
-        'which', 'would', 'could', 'should', 'them', 'their', 'there', 'were',
-        'been', 'some', 'will', 'also', 'about', 'like', 'just', 'than', 'then',
-        'more', 'most', 'very', 'well', 'good', 'okay', 'hello', 'thank', 'please',
-        'sorry', 'apologize', 'right', 'maybe', 'actually', 'basically', 'literally',
-        'really', 'perhaps', 'probably', 'maybe', 'usually', 'sometimes', 'often',
-        'always', 'never', 'every', 'each', 'both', 'either', 'neither', 'whether'
-      ]);
-      return stopWords.has(word.toLowerCase());
+    function updateHourBuckets() {
+      const buckets = {
+        '0h': 0,
+        '1-10h': 0,
+        '11-20h': 0,
+        '21-30h': 0,
+        '31-40h': 0,
+        '41-50h': 0,
+        '51-60h': 0,
+        '61-70h': 0,
+        '71-80h': 0,
+        '81-90h': 0,
+        '91-100h': 0,
+        '100+h': 0
+      };
+      
+      appState.userData.forEach(user => {
+        const hours = user.interactingHours;
+        if (hours === 0) buckets['0h']++;
+        else if (hours <= 10) buckets['1-10h']++;
+        else if (hours <= 20) buckets['11-20h']++;
+        else if (hours <= 30) buckets['21-30h']++;
+        else if (hours <= 40) buckets['31-40h']++;
+        else if (hours <= 50) buckets['41-50h']++;
+        else if (hours <= 60) buckets['51-60h']++;
+        else if (hours <= 70) buckets['61-70h']++;
+        else if (hours <= 80) buckets['71-80h']++;
+        else if (hours <= 90) buckets['81-90h']++;
+        else if (hours <= 100) buckets['91-100h']++;
+        else buckets['100+h']++;
+      });
+      
+      el.hourBuckets.innerHTML = '';
+      
+      Object.entries(buckets).forEach(([label, count]) => {
+        const card = document.createElement('div');
+        card.className = 'bucket-card';
+        card.innerHTML = `
+          <div class="bucket-count">${count}</div>
+          <div class="bucket-label">${label}</div>
+        `;
+        el.hourBuckets.appendChild(card);
+      });
     }
 
-    function renderWordCloud() {
-      const container = $('wordCloudCanvas');
-      container.innerHTML = ''; // Clear previous canvas
+    function createLicenseChart() {
+      const ctx = document.getElementById('licenseChart').getContext('2d');
       
-      if (state.wordCloudData.length === 0) {
-        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-light);">No word cloud data available. Generate transcripts first.</div>';
+      // Destroy existing chart
+      if (appState.chartInstances.license) {
+        appState.chartInstances.license.destroy();
+      }
+      
+      if (!appState.analysisResults) return;
+      
+      const data = {
+        labels: ['Named Users', 'HI Users', 'NOLOGIN Users'],
+        datasets: [{
+          data: [
+            appState.analysisResults.namedUsers,
+            appState.analysisResults.hiUsers,
+            appState.analysisResults.nologinUsers
+          ],
+          backgroundColor: [
+            'rgba(99, 171, 143, 0.8)',
+            'rgba(40, 167, 69, 0.8)',
+            'rgba(108, 117, 125, 0.8)'
+          ],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      };
+      
+      appState.chartInstances.license = new Chart(ctx, {
+        type: 'doughnut',
+        data: data,
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 20,
+                usePointStyle: true
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ==============================================
+    // EXPORT FUNCTIONALITY
+    // ==============================================
+    function exportReport() {
+      if (!appState.analysisResults) {
+        showStatusMessage('Please run analysis first', 'warn');
         return;
       }
       
-      const canvas = document.createElement('canvas');
-      canvas.width = container.offsetWidth;
-      canvas.height = container.offsetHeight;
-      container.appendChild(canvas);
+      const results = appState.analysisResults;
       
-      WordCloud(canvas, {
-        list: state.wordCloudData,
-        gridSize: Math.round(16 * container.offsetWidth / 1024),
-        weightFactor: function (size) {
-          return Math.max(size * container.offsetWidth / 1024, 14);
-        },
-        fontFamily: 'Aptos, Segoe UI, Arial, sans-serif',
-        color: function () {
-          const colors = ['#63AB8F', '#4A8C7D', '#2C3E50', '#6C757D'];
-          return colors[Math.floor(Math.random() * colors.length)];
-        },
-        rotateRatio: 0.5,
-        rotationSteps: 2,
-        backgroundColor: '#FFFFFF',
-        shrinkToFit: true
-      });
-    }
-
-    function renderWordList() {
-      const container = $('wordList');
-      const sortedWords = Object.entries(state.analyticsData.wordFrequencies)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 50);
+      // Create CSV content
+      let csv = 'Genesys Cloud Hourly Billing Analysis Report\n';
+      csv += `Generated: ${new Date().toLocaleString()}\n`;
+      csv += `Period: ${el.dateFrom.value} to ${el.dateTo.value}\n\n`;
       
-      container.innerHTML = sortedWords.map(([word, freq], index) => `
-        <div class="word-item">
-          <span>${index + 1}. ${word}</span>
-          <span class="word-frequency">${freq}</span>
-        </div>
-      `).join('');
-    }
-
-    function updateAnalyticsDisplay() {
-      $('totalWords').textContent = state.analyticsData.totalWords;
-      $('uniqueWords').textContent = state.analyticsData.uniqueWords;
-      $('transcriptsProcessed').textContent = state.analyticsData.transcriptCount;
+      csv += 'SUMMARY\n';
+      csv += 'Metric,Value\n';
+      csv += `Total Users,${results.totalUsers}\n`;
+      csv += `Active Users,${results.activeUsers}\n`;
+      csv += `Named Users,${results.namedUsers}\n`;
+      csv += `HI Users,${results.hiUsers}\n`;
+      csv += `NOLOGIN Users,${results.nologinUsers}\n`;
+      csv += `Total Hours,${results.totalHours}\n`;
+      csv += `HI Threshold,${results.threshold} hours\n`;
+      csv += `All Named Cost,$${results.allNamedCost}\n`;
+      csv += `Hybrid Cost,$${results.hybridCost}\n`;
+      csv += `Cost Savings,${results.savings}%\n`;
+      csv += `Optimal Model,${results.optimalModel}\n\n`;
       
-      const statsContainer = $('transcriptStats');
-      statsContainer.innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;">
-          <div>
-            <h4 style="margin:0 0 8px;">Transcript Statistics</h4>
-            <p>Total Transcripts: ${state.analyticsData.transcriptCount}</p>
-            <p>Total Words: ${state.analyticsData.totalWords}</p>
-            <p>Unique Words: ${state.analyticsData.uniqueWords}</p>
-          </div>
-          <div>
-            <h4 style="margin:0 0 8px;">Top Word Categories</h4>
-            ${getTopWordCategories()}
-          </div>
-        </div>
-      `;
-    }
-
-    function getTopWordCategories() {
-      const categories = {
-        question: ['what', 'when', 'where', 'why', 'how', 'which', 'who'],
-        problem: ['problem', 'issue', 'error', 'failed', 'broken', 'not working'],
-        solution: ['solution', 'fixed', 'resolved', 'working', 'help', 'support'],
-        time: ['time', 'today', 'tomorrow', 'yesterday', 'now', 'soon', 'later']
-      };
+      csv += 'USER DETAILS\n';
+      csv += 'Name,Email,Team,Role,Hours,Recommended License,Reason,Estimated Cost\n';
       
-      let result = '';
-      Object.entries(categories).forEach(([category, words]) => {
-        const count = words.reduce((sum, word) => sum + (state.analyticsData.wordFrequencies[word] || 0), 0);
-        if (count > 0) {
-          result += `<p>${category}: ${count}</p>`;
-        }
+      results.users.forEach(user => {
+        csv += `"${user.name}","${user.email}","${user.team}","${user.role}",${user.interactingHours},"${user.recommendedLicense}","${user.recommendedReason}",${user.estimatedCost.toFixed(2)}\n`;
       });
       
-      return result || '<p>No category data available</p>';
-    }
-
-    // ===== Fetch conversations with automatic transcript generation =====
-    async function fetchConversations(){
-      try{
-        if(!state.selectedAgent){ setStatus('Please select an agent first', true); return; }
-        const from=$('fromDate').value, to=$('toDate').value||from;
-        if(!from){ setStatus('Please select a start date', true); return; }
-        const today = new Date().toISOString().split('T')[0];
-        if(from > today || to > today) { setStatus('Date range cannot be in the future', true); return; }
-
-        setStatus('Fetching conversations…'); setLoading(true); $('resultsSection').style.display='none';
-
-        const auto=$('autoChunk').checked;
-        const days = auto? optimalDays(from,to) : (new Date(to)-new Date(from) >= 0 ? (Math.ceil((new Date(to)-new Date(from))/(1000*60*60*24))+1) : 1);
-        const dateChunks = auto? chunks(from,to,days) : [{start:from,end:to}];
-
-        $('chunkInfo').innerHTML = auto
-          ? 'Large range: <strong>' + fmtDMY(from) + ' to ' + fmtDMY(to) + '</strong><br>Auto-splitting into <strong>' + dateChunks.length + ' chunks</strong> of ' + days + ' days.'
-          : 'Processing range: <strong>' + fmtDMY(from) + ' to ' + fmtDMY(to) + '</strong>';
-
-        showProgress();
-        state.conversations=[]; state.convIndex={};
-        state.transcripts = {};
-        state.selectedConversations.clear();
-        state.wordCloudData = [];
-        state.analyticsData = {
-          wordFrequencies: {},
-          transcriptCount: 0,
-          totalWords: 0,
-          uniqueWords: 0
-        };
-
-        for(let i=0;i<dateChunks.length;i++){
-          const ch=dateChunks[i]; updateProgress((i/dateChunks.length)*100, i+1, dateChunks.length);
-          setStatus('Fetching chunk ' + (i+1) + '/' + dateChunks.length + ': ' + ch.start + ' → ' + ch.end);
-          try{
-            const body = { interval: ch.start + 'T00:00:00/' + ch.end + 'T23:59:59', order:'asc', orderBy:'conversationStart', segmentFilters:[{type:'and',predicates:[{type:'dimension',dimension:'userId',operator:'matches',value: state.selectedAgent.id }]}] };
-            const res = await fetch(CONFIG.apiHost + '/api/v2/analytics/conversations/details/query', { method:'POST', headers:{Authorization:'Bearer ' + state.token,'Content-Type':'application/json'}, body:JSON.stringify(body) });
-            if(!res.ok){ const t=await res.text().catch(()=> ''); throw new Error('Details error: ' + res.status + ' ' + res.statusText + (t?' - ' + t.slice(0,200):'')); }
-            const data = await res.json(); const convs = data.conversations||[];
-            for(const c of convs) state.convIndex[c.conversationId]=c;
-            state.conversations = state.conversations.concat(convs);
-          }catch(e){ console.error(e); setStatus('Warning: failed chunk ' + (i+1) + ', continuing…', true); }
-          if(i<dateChunks.length-1) await new Promise(r=>setTimeout(r,400));
-        }
-
-        await warmQueueCache(state.conversations);
-
-        // Auto-fetch transcripts if enabled
-        const autoGenerate = $('autoGenerate').checked;
-        if (autoGenerate && state.conversations.length > 0) {
-          setStatus('Fetching transcripts...');
-          updateProgress(0, 1, state.conversations.length);
-          
-          for (let i = 0; i < state.conversations.length; i++) {
-            const conv = state.conversations[i];
-            updateProgress((i / state.conversations.length) * 100, i + 1, state.conversations.length);
-            setStatus(`Fetching transcript ${i + 1}/${state.conversations.length}`);
-            await getTranscriptForConversation(conv.conversationId);
-            // Add small delay to avoid rate limiting
-            await new Promise(r => setTimeout(r, 100));
-          }
-        }
-
-        updateProgress(100, dateChunks.length, dateChunks.length);
-        renderResults(state.conversations, from, to);
-        
-        if (autoGenerate) {
-          generateWordCloudData();
-        }
-        
-        setStatus('Found ' + state.conversations.length + ' conversations for the selected period');
-        setLoading(false); hideProgress();
-      }catch(e){ setStatus('Error fetching conversations: ' + e.message, true); setLoading(false); hideProgress(); }
-    }
-
-    function renderResults(conversations, from, to){
-      const results=$('results');
-      $('dateRange').textContent = fmtDMY(from) + ' to ' + fmtDMY(to||from);
-      $('selectedAgent').textContent = state.selectedAgent?.name||'-';
-      $('totalConversations').textContent = conversations.length;
-      updateSelectedCount();
-
-      if(!conversations.length){
-        results.innerHTML = '<div class="muted" style="text-align:center;padding:40px"><div style="font-size:48px;margin-bottom:12px">📭</div><div>No conversations found for ' + (state.selectedAgent?.name||'the selected agent') + '.</div></div>';
-        $('resultsSection').style.display='block'; return;
-      }
-
-      results.innerHTML = conversations.map(function(conv){
-        const participants = conv.participants ? conv.participants.length : 0;
-        const media = getConversationMediaTypes(conv);
-        const dir = getDirection(conv);
-        const isSelected = state.selectedConversations.has(conv.conversationId);
-        const hasTranscript = state.transcripts[conv.conversationId] ? '✓' : '✗';
-        
-        return `
-          <details>
-            <summary>
-              <input type="checkbox" id="check-${conv.conversationId}" class="conversation-checkbox" ${isSelected ? 'checked' : ''}>
-              <label for="check-${conv.conversationId}" class="conversation-checkbox-label"></label>
-              <strong>${conv.conversationId}</strong> - ${fmt(conv.conversationStart)}
-              <span class="muted" style="margin-left:8px;font-size:.9em">
-                (${participants} participants) • Media: ${media} • Dir: ${dir} • Transcript: ${hasTranscript}
-              </span>
-            </summary>
-            ${renderConversationDetails(conv)}
-          </details>
-        `;
-      }).join('');
-
-      // Add event listeners to checkboxes
-      conversations.forEach(conv => {
-        const checkbox = document.getElementById(`check-${conv.conversationId}`);
-        if (checkbox) {
-          checkbox.addEventListener('change', () => {
-            toggleConversationSelection(conv.conversationId);
-          });
-        }
-      });
-
-      $('resultsSection').style.display='block';
-    }
-
-    function renderConversationDetails(conv){
-      const mediaType = getMediaType(conv);
-      const direction = getDirection(conv);
-      const ani = getANI(conv);
-      const totalDur = calculateDuration(conv.conversationStart, conv.conversationEnd);
-
-      let html = '<div class="conversation-header">';
-      html += '<div class="info-grid">';
-      html += '<div class="info-item"><span class="info-label">Media Type:</span><span class="info-value">' + mediaType + '</span></div>';
-      html += '<div class="info-item"><span class="info-label">Customer Number:</span><span class="info-value">' + ani + '</span></div>';
-      html += '<div class="info-item"><span class="info-label">Interaction Direction:</span><span class="info-value">' + direction + '</span></div>';
-      html += '<div class="info-item"><span class="info-label">Conversation Start:</span><span class="info-value">' + fmt(conv.conversationStart) + '</span></div>';
-      html += '<div class="info-item"><span class="info-label">Conversation End:</span><span class="info-value">' + fmt(conv.conversationEnd) + '</span></div>';
-      html += '<div class="info-item"><span class="info-label">Duration:</span><span class="info-value">' + formatSeconds(totalDur) + '</span></div>';
-      html += '</div>';
-
-      html += '<div class="transcript-actions" style="display:flex;gap:8px;align-items:center;margin-top:8px">';
-      if (!state.transcripts[conv.conversationId]) {
-        html += '<button id="btn-transcript-' + conv.conversationId + '" onclick="getTranscriptForConversation(\'' + conv.conversationId + '\').then(() => { alert(\'Transcript loaded\'); location.reload(); })">Get Transcript</button>';
-      }
-      html += '</div>';
-      if (state.transcripts[conv.conversationId]) {
-        html += '<div id="transcript-' + conv.conversationId + '" style="margin-top:10px;">';
-        html += renderTranscriptPreview(state.transcripts[conv.conversationId], conv);
-        html += '</div>';
-      }
-      html += '</div>';
-
-      return html;
-    }
-
-    function renderTranscriptPreview(transcript, conversation) {
-      const phrases = processPhrases(transcript);
-      if (!phrases.length) {
-        return '<div class="muted">No transcript phrases found.</div>';
-      }
-
-      const preview = phrases.slice(0, 5).map(p => {
-        const text = p.decoratedText || '';
-        const participant = p.participantPurpose === 'internal' ? 'Agent' : 'Customer';
-        return `<div><strong>${participant}:</strong> ${text.substring(0, 100)}${text.length > 100 ? '...' : ''}</div>`;
-      }).join('');
-      
-      return `
-        <div style="margin-top:10px;padding:10px;background:var(--light-bg);border-radius:4px;">
-          <strong>Transcript Preview:</strong>
-          ${preview}
-          <div class="muted">${phrases.length} phrases total</div>
-        </div>
-      `;
-    }
-
-    function mapParticipantNames(conv){
-      const map={};
-      for(const p of (conv.participants||[])){
-        if(p.userId){ const u=state.users.find(x=>x.id===p.userId); map[p.participantId||p.userId] = u?u.name:`Agent (${p.userId})`; }
-        else if(p.purpose==='customer'){ map[p.participantId||'customer']='Customer'; }
-        else if(p.purpose==='acd'){ const qid=getQueueIdFromParticipant(p); map[p.participantId||qid||'acd']=qid?(getQueueName(qid)||'Queue'):'Queue'; }
-      } return map;
-    }
-    function findCommunicationsIdFromDetails(conv){
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if((s.mediaType||'').toLowerCase()==='voice' && s.sessionId) return s.sessionId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.sessionId) return s.sessionId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.communicationId) return s.communicationId;
-      for(const p of (conv.participants||[])) for(const s of (p.sessions||[])) if(s.id) return s.id;
-      return null;
-    }
-
-    // ===== Events & Init =====
-    $('fetchBtn').addEventListener('click', fetchConversations);
-    $('selectAllBtn').addEventListener('click', selectAllConversations);
-    $('deselectAllBtn').addEventListener('click', deselectAllConversations);
-    $('exportSelectedBtn').addEventListener('click', exportSelectedConversations);
-    $('generateWordCloudBtn').addEventListener('click', generateWordCloudData);
-    $('exportAnalyticsBtn').addEventListener('click', () => {
-      // Export analytics data as JSON
-      const dataStr = JSON.stringify(state.analyticsData, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
+      // Download
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
+      const dateStr = new Date().toISOString().split('T')[0];
+      
       a.href = url;
-      a.download = `analytics_${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `genesys_billing_analysis_${dateStr}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    });
-    
-    $('wordCountSlider').addEventListener('input', function() {
-      $('wordCountValue').textContent = this.value + ' words';
-    });
-    
-    $('analyticsAgentSelect').addEventListener('change', generateWordCloudData);
+      
+      logMessage('SUCCESS', 'Report exported', 'CSV file downloaded');
+      showStatusMessage('✅ Report exported to CSV', 'success');
+    }
 
-    (function init(){
-      const today=new Date(); const weekAgo=new Date(); weekAgo.setDate(today.getDate()-7);
-      $('fromDate').value = weekAgo.toISOString().slice(0,10);
-      $('toDate').value = today.toISOString().slice(0,10);
-      initAuth();
-    })();
+    // ==============================================
+    // RESET FUNCTIONALITY
+    // ==============================================
+    function resetApplication() {
+      if (confirm('Reset the application? This will clear all data.')) {
+        window.location.reload();
+      }
+    }
+
+    // ==============================================
+    // INITIALIZATION
+    // ==============================================
+    function initializeApp() {
+      // Set default dates
+      const today = new Date();
+      const lastMonth = new Date();
+      lastMonth.setMonth(today.getMonth() - 1);
+      
+      el.dateTo.valueAsDate = today;
+      el.dateFrom.valueAsDate = lastMonth;
+      
+      // Set max dates
+      const todayStr = today.toISOString().split('T')[0];
+      el.dateTo.max = todayStr;
+      el.dateFrom.max = todayStr;
+      
+      // Event Listeners
+      el.btnFetchData.addEventListener('click', fetchUserData);
+      el.btnRunAnalysis.addEventListener('click', runAnalysis);
+      el.btnAnalyze.addEventListener('click', runAnalysis);
+      el.btnExport.addEventListener('click', exportReport);
+      el.btnReset.addEventListener('click', resetApplication);
+      
+      // Quick date buttons
+      document.querySelectorAll('.quick-select-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const days = parseInt(this.dataset.days);
+          const toDate = new Date();
+          const fromDate = new Date();
+          
+          if (days === 0) {
+            el.dateTo.valueAsDate = toDate;
+            el.dateFrom.valueAsDate = toDate;
+          } else {
+            fromDate.setDate(toDate.getDate() - days);
+            el.dateTo.valueAsDate = toDate;
+            el.dateFrom.valueAsDate = fromDate;
+          }
+          
+          logMessage('INFO', 'Date range updated', `Last ${days === 0 ? 'today' : days + ' days'}`);
+        });
+      });
+      
+      // User search
+      el.userSearch.addEventListener('input', function() {
+        renderUserTable(this.value);
+      });
+      
+      // Tab switching
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          const tabId = this.dataset.tab;
+          appState.currentTab = tabId;
+          
+          // Update active tab
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          
+          // Show active content
+          document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+            if (content.id === `tab-${tabId}`) {
+              content.classList.add('active');
+            }
+          });
+          
+          logMessage('INFO', 'Tab switched', tabId);
+        });
+      });
+      
+      // Logs buttons
+      el.btnClearLogs.addEventListener('click', () => {
+        el.logsTableBody.innerHTML = '';
+        appState.logs = [];
+        logMessage('INFO', 'Logs cleared');
+      });
+      
+      el.btnCopyLogs.addEventListener('click', () => {
+        const logText = appState.logs.map(log => 
+          `${log.timestamp} [${log.level}] ${log.message} ${log.details ? '- ' + log.details : ''}`
+        ).join('\n');
+        
+        navigator.clipboard.writeText(logText).then(() => {
+          showStatusMessage('Logs copied to clipboard', 'success');
+        });
+      });
+      
+      // Initial log
+      logMessage('INFO', 'Hourly Billing Calculator initialized', `Connected to ${CONFIG.apiHost}`);
+    }
+
+    // ==============================================
+    // START APPLICATION
+    // ==============================================
+    document.addEventListener('DOMContentLoaded', initAuth);
   </script>
 </body>
 </html>
